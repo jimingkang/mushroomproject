@@ -9,7 +9,7 @@ import cv2
 import move_subcribe
 #import v4l2capture
 from base_camera import BaseCamera
-from ultralytics import YOLO
+#from ultralytics import YOLO
 #from yolov8 import YOLOv8
 
 
@@ -147,7 +147,7 @@ def main(exp, args):
 
     if args.trt:
         assert not args.fuse, "TensorRT model is not support model fusing!"
-        trt_file = os.path.join(os.path.join("C:/Users/jkang7/Downloads/uh/project/MUSHROOM/YOLOX-main",file_name), "model_trt.pth")
+        trt_file = os.path.join(file_name, "model_trt.pth")
         assert os.path.exists(
             trt_file
         ), "TensorRT model is not found!\n Run python3 tools/trt.py first!"
@@ -247,10 +247,10 @@ class Predictor(object):
 
         cls = output[:, 6]
         scores = output[:, 4] * output[:, 5]
-        global count
+        #global count
         #print(count,"count")
 
-        vis_res = vis(img, bboxes, scores, cls,count, cls_conf, self.cls_names)
+        vis_res = vis(img, bboxes, scores, cls, cls_conf, self.cls_names)
         return vis_res
 
 
@@ -271,7 +271,7 @@ def connect_mqtt():
     return client
 
 
-count = 0
+
 #yolov8_detector = YOLOv8(model_path, conf_thres=0.5, iou_thres=0.5)
 class Camera(BaseCamera):
     """Requires python-v4l2capture module: https://github.com/gebart/python-v4l2capture"""
@@ -310,7 +310,7 @@ class Camera(BaseCamera):
                 if not ret:
                     break
                 global count
-                count = (count + 1) % 10000
+                #count = (count + 1) % 10000
 
                 if ret:
                     outputs, img_info = predictor.inference(img)

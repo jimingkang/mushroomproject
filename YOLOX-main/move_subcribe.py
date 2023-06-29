@@ -41,10 +41,10 @@ def connect_mqtt() -> mqtt_client:
     return client
 
 
-def subscribe(client: mqtt_client,val):
+def subscribe(client: mqtt_client):
     msg= None
     def on_message(client, userdata, msg):
-        nonlocal val
+        print(msg.topic + " " + str(msg.payload) + " mid:" + str(msg.mid))
         val = msg.payload.decode()
         #subprocess.call("C:/Users/jkang7/Downloads/uh/project/MUSHROOM/YOLOX-main/venv/Scripts/python.exe demo_ip.py webcam -f ./exps/example/yolox_voc/yolox_voc_s.py --trt --conf 0.25 --nms 0.45 --tsize 640 --save_result ")
         print(f"Received `{msg.payload.decode()}` from `{msg.topic}` topic")
@@ -69,12 +69,11 @@ def subscribe(client: mqtt_client,val):
 
 
 
-def run(val = None):
+def run():
 
     client = connect_mqtt()
-    subscribe(client,val)
+    subscribe(client)
     client.loop_forever()
-
 
 
 if __name__ == '__main__':

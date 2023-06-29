@@ -40,7 +40,7 @@ def connect_mqtt():
 
 
 def publish(client,topic,cmd):
-    publish_result = client.publish(topic, cmd)
+    publish_result = client.publish(topic, cmd,qos=1)
     cmd= ""
     return publish_result
 

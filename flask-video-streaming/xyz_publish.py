@@ -52,6 +52,7 @@ def run(camera_xyz_list):
     client = connect_mqtt()
     client.loop_start()
     publish(client,camera_xyz_list)
+        client.loop_start()
 
 
 if __name__ == '__main__':

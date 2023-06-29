@@ -28,13 +28,28 @@ tracker = Tracker()
 colors = [(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)) for j in range(80)]
 global_detections=[]
 
-
+count=0
 def takeSecond(elem):
     return math.sqrt((elem[1]-elem[3])*(elem[1]-elem[3])+(elem[2]-elem[4])*(elem[2]-elem[4]))
 
 
-def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
-    #print("vis count=",count)
+def vis(img, boxes, scores, cls_ids,conf=0.5, class_names=None):
+    global count
+    count=count+1
+    print(count)
+    val = ''
+    file_lock = open("ret.txt", "r")
+    try:
+        fcntl.flock(file_lock.fileno(), fcntl.LOCK_SH | fcntl.LOCK_NB)
+        val = file_lock.read()
+        print(val)
+    except IOError:
+        print("File is already locked by another process")
+    finally:
+        # Unlock the file (fcntl.F_UNLOCK)
+        fcntl.flock(file_lock.fileno(), fcntl.LOCK_UN)
+        # print("File is unlocked")
+        file_lock.close()
     detections=[]
     min_distance=[10000000 ,-1,-1,-1,-1,-1]
     for i in range(len(boxes)):
@@ -58,9 +73,7 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
         new_detections.append(detections[0])
         tracker.update(img, new_detections)
         for track in tracker.tracks:
-            f = open("ret.txt", "r")
-            val = f.read()
-            f.close()
+
             bbox = track.bbox
             x1, y1, x2, y2 = bbox
             x1 = int(bbox[0])
@@ -79,8 +92,10 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
             cv2.putText(img, text, (x1, y1 + txt_size[1]), font, 0.4, txt_color, thickness=1)
             cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (colors[track_id % len(colors)]), 1)
             #ret=move_subcribe.run(val)#mqtt_get_value_blocking()
-            if val =='22' :#or count%50==0:
+            print("box count=", count)
+            if val =='22' or count>80:
                 print("file val=", val,count)
+                count=0
                 coordx = "" + str(int((x1 + x2) / 2)) + "," + str(int((y1 + y2) / 2)) + "," + str(track_id) + ";"
                 coordx = coordx[0:len(coordx) - 1]
                 print("coordx=",coordx)
@@ -88,7 +103,7 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
                 file_lock = open("ret.txt", "w")
                 try:
                     fcntl.flock(file_lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                    print("File is locked")
+                    print(" write File is locked")
                     # Do something with the file .
                     file_lock.write('0')
                 except IOError:
@@ -96,7 +111,7 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
                 finally:
                     # Unlock the file (fcntl.F_UNLOCK)
                     fcntl.flock(file_lock.fileno(), fcntl.LOCK_UN)
-                    print("File is unlocked")
+                    print(" write File is unlocked")
                     file_lock.close()
 
 

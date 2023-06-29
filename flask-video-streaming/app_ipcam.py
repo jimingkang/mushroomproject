@@ -8,7 +8,7 @@ if os.environ.get('CAMERA'):
     Camera = import_module('camera_' + os.environ['CAMERA']).Camera
 else:
     #from camera_pi import Camera
-    from camera_ipcam_seg import Camera
+    from camera_ipcam import Camera
     #from camera_usb import Camera
     #from camera_det_rs import Camera
     #from camera_v4l2 import Camera

@@ -4,7 +4,7 @@ import select
 import cv2
 #import v4l2capture
 from base_camera import BaseCamera
-from ultralytics import YOLO
+#from ultralytics import YOLO
 from yolov8 import YOLOv8
 from yoloseg import YOLOSeg
 from tracker import Tracker

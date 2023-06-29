@@ -52,6 +52,7 @@ def run(topic,cmd):
     client = connect_mqtt()
     client.loop_start()
     ret=publish(client,topic,cmd)
+    client.loop_stop()
     return ret
 
 
