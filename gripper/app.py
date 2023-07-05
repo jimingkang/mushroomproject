@@ -25,7 +25,7 @@ busnum = 1          # Edit busnum to 0, if you uses Raspberry Pi 1 or 0
 i=0
 
 
-#ser = serial.Serial("/dev/ttyACM0",115200)
+ser = serial.Serial("/dev/ttyACM0",115200)
 
 broker=''
 try:
@@ -38,8 +38,8 @@ except:
 print(broker)
 app = Flask(__name__)
 #app.config['MQTT_BROKER_URL'] = broker
-app.config['MQTT_BROKER_URL'] = '10.0.0.134'
-#app.config['MQTT_BROKER_URL'] = '192.168.254.42'
+#app.config['MQTT_BROKER_URL'] = '10.0.0.134'
+app.config['MQTT_BROKER_URL'] = '192.168.254.42'
 app.config['MQTT_BROKER_PORT'] = 1883
 app.config['MQTT_USERNAME'] = ''  # Set this item when you need to verify username and password
 app.config['MQTT_PASSWORD'] = ''  # Set this item when you need to verify username and password
@@ -55,6 +55,7 @@ y=0
 #app.config.from_object(config)
 
 
+pub_ret=mqtt_client.publish(topic4,"22",qos=0) # subscribe topic
 def send_wake_up(ser):
     # Wake up
     # Hit enter a few times to wake the Printrbot
@@ -86,12 +87,15 @@ def command(ser, command):
     if command:  # checks if string is empty
         print("Sending gcode:" + str(command))
         # converts string to byte encoded string and append newline
-        command = str.encode(command + '\n')
+        command = str.encode(command)
+        #command = str.encode(command + x'\r\n')
         ser.write(command)  # Send g-code
-        wait_for_movement_completion(ser, command)
-        grbl_out = ser.readline()  # Wait for response with carriage return
-        print(" : ", grbl_out.strip().decode('utf-8'))
-    return grbl_out.strip().decode('utf-8')
+        #wait_for_movement_completion(ser, command)
+        #grbl_out = ser.readline()  # Wait for response with carriage return
+        #print(" : ", grbl_out.strip().decode('utf-8'))
+        #time.sleep(2)
+    return 'ok'
+    #return grbl_out.strip().decode('utf-8')
 
 
 @app.route('/test')
@@ -182,12 +186,13 @@ def handle_mqtt_message(client, userdata, message):
         print('Received message on topic: {topic} with payload: {payload}'.format(**data))
         xyz=data['payload']
         print("payload="+xyz)
-        time.sleep(5)
-        ret='ok'#command(ser, xyz)
+        ret=command(ser, xyz)
+        time.sleep(1)
+        #ret='ok'#command(ser, xyz)
         #print(ret)
         if ret == 'ok':
             #print("ret==",ret)
-            pub_ret=mqtt_client.publish(topic4,"22",qos=1) # subscribe topic
+            pub_ret=mqtt_client.publish(topic4,"22",qos=0) # subscribe topic
        #socketio.emit('mqtt_message', data=data)
 
 @app.route('/publish', methods=['POST'])

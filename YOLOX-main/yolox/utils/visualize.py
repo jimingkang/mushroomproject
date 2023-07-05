@@ -42,7 +42,7 @@ def vis(img, boxes, scores, cls_ids,conf=0.5, class_names=None):
     try:
         fcntl.flock(file_lock.fileno(), fcntl.LOCK_SH | fcntl.LOCK_NB)
         val = file_lock.read()
-        print(val)
+        #print(val)
     except IOError:
         print("File is already locked by another process")
     finally:
@@ -92,8 +92,9 @@ def vis(img, boxes, scores, cls_ids,conf=0.5, class_names=None):
             cv2.putText(img, text, (x1, y1 + txt_size[1]), font, 0.4, txt_color, thickness=1)
             cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (colors[track_id % len(colors)]), 1)
             #ret=move_subcribe.run(val)#mqtt_get_value_blocking()
-            print("box count=", count)
-            if val =='22' or count>80:
+            #print("box count=", count)
+            #if  val =='22':
+            if val =='22' or count>20:
                 print("file val=", val,count)
                 count=0
                 coordx = "" + str(int((x1 + x2) / 2)) + "," + str(int((y1 + y2) / 2)) + "," + str(track_id) + ";"

@@ -50,9 +50,9 @@ print(broker)
 
 
 app = Flask(__name__)
-#app.config['MQTT_BROKER_URL'] = broker 
+app.config['MQTT_BROKER_URL'] = broker 
 #app.config['MQTT_BROKER_URL'] =  '192.168.254.42'
-app.config['MQTT_BROKER_URL'] =  '10.0.0.134'
+#app.config['MQTT_BROKER_URL'] =  '10.0.0.134'
 app.config['MQTT_BROKER_PORT'] = 1883
 app.config['MQTT_USERNAME'] = ''  # Set this item when you need to verify username and password
 app.config['MQTT_PASSWORD'] = ''  # Set this item when you need to verify username and password

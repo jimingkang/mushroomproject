@@ -18,7 +18,8 @@ try:
 except:
     pass
 print(broker)
-broker = '10.0.0.134'
+#broker = '10.0.0.134'
+broker = '192.168.254.42'
 port = 1883
 topic = "/flask/downmove"
 # generate client ID with pub prefix randomly
@@ -64,7 +65,7 @@ def subscribe(client: mqtt_client):
             file_lock.close()
 
         #xyz_publish.run(coordx)
-    client.subscribe(topic)
+    client.subscribe(topic,qos=1)
     client.on_message = on_message
 
 

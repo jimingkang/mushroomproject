@@ -14,8 +14,8 @@ try:
 except:
     pass
 
-#broker = '192.168.254.42'
-broker = '10.0.0.134'
+broker = '192.168.254.42'
+#broker = '10.0.0.134'
 port = 1883
 tpoic_flask_downmove = "/flask/downmove"
 # generate client ID with pub prefix randomly

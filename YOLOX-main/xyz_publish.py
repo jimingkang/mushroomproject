@@ -15,8 +15,8 @@ try:
 except:
     pass
 
-#broker = '192.168.254.42'
-broker = '10.0.0.134'
+broker = '192.168.254.42'
+#broker = '10.0.0.134'
 port = 1883
 topic = "/flask/xyz"
 # generate client ID with pub prefix randomly
@@ -44,7 +44,7 @@ def connect_mqtt():
 def publish(client,camera_xyz_list):
     #finalxyx = camera_xyz_list[0:len(camera_xyz_list) - 1]
     #print(finalxyx)
-    publish_result = client.publish(topic, camera_xyz_list,qos=1)
+    publish_result = client.publish(topic, camera_xyz_list,qos=0)
 
 
 
@@ -53,9 +53,9 @@ def publish(client,camera_xyz_list):
 
 def run(camera_xyz_list):
     client = connect_mqtt()
-    client.loop_start()
+    #client.loop_start()
     publish(client,camera_xyz_list)
-    client.loop_stop()
+    #client.loop_stop()
 
 
 if __name__ == '__main__':

@@ -38,7 +38,7 @@ except:
     pass
 print(broker)
 broker = '192.168.254.42'
-broker = '10.0.0.134'
+#broker = '10.0.0.134'
 port = 1883
 topic = "/flask/scan"
 topic4 = "/flask/downmove"
@@ -281,8 +281,8 @@ class Camera(BaseCamera):
 
     @staticmethod
     def frames():
-        video = cv2.VideoCapture("http://10.0.0.134:5000/video_feed")
-        #video = cv2.VideoCapture("http://192.168.254.42:5000/video_feed")
+        #video = cv2.VideoCapture("http://10.0.0.134:5000/video_feed")
+        video = cv2.VideoCapture("http://192.168.254.42:5000/video_feed")
         #video = cv2.VideoCapture(Camera.video_source,cv2.CAP_V4L2)
         #video = v4l2capture.Video_device(Camera.video_source)
 

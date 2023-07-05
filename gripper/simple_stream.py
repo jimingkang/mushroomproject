@@ -50,6 +50,7 @@ def wait_for_movement_completion(ser,cleaned_line):
             ser.reset_input_buffer()
             command = str.encode('?' + '\n')
             ser.write(command)
+            time.sleep(1)
             grbl_out = ser.readline() 
             grbl_response = grbl_out.strip().decode('utf-8')
             if grbl_response != 'ok':
@@ -85,7 +86,7 @@ def stream_gcode(GRBL_port_path,gcode_path):
 if __name__ == "__main__":
 
     # GRBL_port_path = '/dev/tty.usbserial-A906L14X'
-    GRBL_port_path = 'COM4'
+    GRBL_port_path = '/dev/ttyACM0'
     gcode_path = 'grbl_test.gcode'
 
     #print("USB Port: ", GRBL_port_path)
@@ -95,12 +96,13 @@ if __name__ == "__main__":
     with  serial.Serial(GRBL_port_path, BAUD_RATE) as ser:
         send_wake_up(ser)
         line="G21 G91 G1 X50 F2540"
-        #cleaned_line = remove_eol_chars(remove_comment(line))
+        cleaned_line = remove_eol_chars(remove_comment(line))
         #if cleaned_line:  # checks if string is empty
-        command = str.encode(line+ '\r\n')
+        command = str.encode(line+ '\n')
         ser.write(command)  # Send g-code
-        wait_for_movement_completion(ser, line)
-        grbl_out = ser.readline()  # Wait for response with carriage return
+        time.sleep(1)
+        #wait_for_movement_completion(ser, cleaned_line)
+        grbl_out = ser.read(5)  # Wait for response with carriage return
         print(" : ", grbl_out.strip().decode('utf-8'))
 
     print('EOF')
