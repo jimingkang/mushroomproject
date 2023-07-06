@@ -41,9 +41,9 @@ detection_threshold = 0.5
 
 broker=''
 try:
-    for line in open("ip.txt"):
+    for line in open("../ip.txt"):
         if line[0:6] == "broker":
-            broker = line[9:-1]
+            broker = line[9:len(line)]
 except:
     pass
 print(broker)

@@ -9,7 +9,7 @@ from paho.mqtt import client as mqtt_client
 
 broker=''
 try:
-    for line in open("ip.txt"):
+    for line in open("../ip.txt"):
         if line[0:6] == "broker":
             broker = line[9:len(line)]
 except:
@@ -18,9 +18,9 @@ except:
 #broker = '192.168.254.42'
 #broker = '10.0.0.134'
 port = 1883
-tpoic_flask_xyz = "/flask/xyz"
+topic = "/flask/xyz"
 # generate client ID with pub prefix randomly
-client_id = f'python-mqtt-{random.randint(0, 1000)}'
+client_id = f'python-mqtt-{random.randint(0, 10000)}'
 # username = 'emqx'
 # password = 'public'
 
@@ -40,19 +40,22 @@ def connect_mqtt():
     return client
 
 
+
 def publish(client,camera_xyz_list):
-    finalxyx = camera_xyz_list[0:len(camera_xyz_list) - 1]
-    print(finalxyx)
-    publish_result = client.publish(tpoic_flask_xyz, finalxyx)
+    #finalxyx = camera_xyz_list[0:len(camera_xyz_list) - 1]
+    #print(finalxyx)
+    publish_result = client.publish(topic, camera_xyz_list,qos=0)
+
+
 
 
 
 
 def run(camera_xyz_list):
     client = connect_mqtt()
-    client.loop_start()
+    #client.loop_start()
     publish(client,camera_xyz_list)
-    client.loop_start()
+    #client.loop_stop()
 
 
 if __name__ == '__main__':
