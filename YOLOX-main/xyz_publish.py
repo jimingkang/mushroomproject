@@ -14,9 +14,10 @@ try:
             broker = line[9:len(line)]
 except:
     pass
-
-#broker = '192.168.254.42'
 #broker = '10.0.0.134'
+broker=broker.replace("\n","").replace("\r\n","")
+print(broker)
+#broker = '192.168.254.42'
 port = 1883
 topic = "/flask/xyz"
 # generate client ID with pub prefix randomly
@@ -36,6 +37,7 @@ def connect_mqtt():
 
     client = mqtt_client.Client(client_id)
     client.on_connect = on_connect
+    print("connect broker",broker)
     client.connect(broker, port)
     return client
 
