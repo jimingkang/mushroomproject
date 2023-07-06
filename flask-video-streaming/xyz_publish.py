@@ -16,7 +16,7 @@ except:
     pass
 
 #broker = '192.168.254.42'
-broker = '10.0.0.134'
+#broker = '10.0.0.134'
 port = 1883
 tpoic_flask_xyz = "/flask/xyz"
 # generate client ID with pub prefix randomly
@@ -52,7 +52,7 @@ def run(camera_xyz_list):
     client = connect_mqtt()
     client.loop_start()
     publish(client,camera_xyz_list)
-        client.loop_start()
+    client.loop_start()
 
 
 if __name__ == '__main__':

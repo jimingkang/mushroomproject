@@ -17,7 +17,7 @@ try:
             broker = line[9:len(line)]
 except:
     pass
-#print(broker)
+print(broker)
 #broker = '10.0.0.134'
 port = 1883
 topic = "/flask/downmove"
