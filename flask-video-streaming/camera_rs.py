@@ -336,11 +336,14 @@ class Camera(BaseCamera):
                     #if track_id == int(first_xyz[2]):
                     dis = aligned_depth_frame.get_distance(int(first_xyz[0]), int(first_xyz[1]))
                     camera_xyz = rs.rs2_deproject_pixel_to_point(depth_intrin, (int(first_xyz[0]), int(first_xyz[1])), dis)  # ????????xyz
-                    cmd="G21 G91 G1 X" + str(-1*int(float(camera_xyz[1]) * 2000)) + " F2540\r\n"
-                    print(camera_xyz)
-                    move_publish.run(topic3,cmd)
-                    #command(ser,cmd)
-                    print(cmd)
+                    x=1*float(camera_xyz[1]) * 1000/50
+                    if abs(x)> 0.002:
+                        move_x=str(x) + " F100\r\n"
+                        cmd="G21 G91 G1 X" +move_x 
+                        print(camera_xyz)
+                        move_publish.run(topic3,cmd)
+                        #command(ser,cmd)
+                        print(cmd)
                 # socketio.emit('mqtt_message', data=data)
     @staticmethod
     def frames():
