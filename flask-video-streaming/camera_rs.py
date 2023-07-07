@@ -31,6 +31,9 @@ pipeline = rs.pipeline()  # 定义流程pipeline
 config = rs.config()  # 定义配置config
 config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, 30)
 config.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, 30)
+#config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 200)
+#config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 250)
+
 profile = pipeline.start(config)  # 流程开始
 align_to = rs.stream.color  # 与color流对齐
 align = rs.align(align_to)
@@ -290,6 +293,7 @@ class YoloV5:
 
 global intr, depth_intrin, color_image, depth_image, aligned_depth_frame 
 global track_id
+g_xyz=''
 class Camera(BaseCamera):
     video_source = 0
     def __init__(self):
@@ -326,7 +330,11 @@ class Camera(BaseCamera):
             xyz = data['payload']
             #print("payload=" + xyz)
             if xyz:
+                global g_xyz
                 xyz = xyz.split(";")
+                if g_xyz==xyz:
+                    return
+                g_xyz=xyz
                 for x in xyz:
                     first_xyz = x.split(",");
                     print("xyz=" + x)
@@ -337,7 +345,7 @@ class Camera(BaseCamera):
                     dis = aligned_depth_frame.get_distance(int(first_xyz[0]), int(first_xyz[1]))
                     camera_xyz = rs.rs2_deproject_pixel_to_point(depth_intrin, (int(first_xyz[0]), int(first_xyz[1])), dis)  # ????????xyz
                     x=1*float(camera_xyz[1]) * 1000/50
-                    if abs(x)> 0.002:
+                    if abs(x)> 0.1:
                         move_x=str(x) + " F100\r\n"
                         cmd="G21 G91 G1 X" +move_x 
                         print(camera_xyz)
