@@ -32,10 +32,11 @@ count=0
 def takeSecond(elem):
     return math.sqrt((elem[1]-elem[3])*(elem[1]-elem[3])+(elem[2]-elem[4])*(elem[2]-elem[4]))
 
-
+cord_x=0
+cord_y=0
 def vis(img, boxes, scores, cls_ids,conf=0.5, class_names=None):
     global count
-    count=count+1
+    count=(count+1)%100
     print(count)
     val = ''
     file_lock = open("ret.txt", "r")
@@ -94,26 +95,37 @@ def vis(img, boxes, scores, cls_ids,conf=0.5, class_names=None):
             #ret=move_subcribe.run(val)#mqtt_get_value_blocking()
             #print("box count=", count)
             #if  val =='22':
-            if val =='22' or count>20:
-                print("file val=", val,count)
+            global cord_x
+            global cord_y
+            x=int((x1+x2)/2)
+            y=int((y1+y2)/2)
+            cord_x=x
+            cord_y=y
+            if  count<15:
+                if count>1 and abs(cord_x- x)+abs(cord_y-y)<10:
+                    break
+                if count==1:
+                    coordx = "" + str(x) + "," + str(y) + "," + str(track_id) + ";"
+                    coordx = coordx[0:len(coordx) - 1]
+                    xyz_publish.run(coordx)
+                    print("coxunt=1 ,coordx=",coordx)
+            if val=='22' or  count>15:
                 count=0
-                coordx = "" + str(int((x1 + x2) / 2)) + "," + str(int((y1 + y2) / 2)) + "," + str(track_id) + ";"
-                coordx = coordx[0:len(coordx) - 1]
-                print("coordx=",coordx)
-                xyz_publish.run(coordx)
-                file_lock = open("ret.txt", "w")
-                try:
-                    fcntl.flock(file_lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                    print(" write File is locked")
-                    # Do something with the file .
-                    file_lock.write('0')
-                except IOError:
-                    print("File is already locked by another process")
-                finally:
-                    # Unlock the file (fcntl.F_UNLOCK)
-                    fcntl.flock(file_lock.fileno(), fcntl.LOCK_UN)
-                    print(" write File is unlocked")
-                    file_lock.close()
+                print("file val=", val,count)
+                #coordx = "" + str(x) + "," + str(y) + "," + str(track_id) + ";"
+                #coordx = coordx[0:len(coordx) - 1]
+                #file_lock = open("ret.txt", "w")
+                #try:
+                #    fcntl.flock(file_lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                #    print(" write File is locked")
+                #    file_lock.write('0')
+                #except IOError:
+                #    print("File is already locked by another process")
+                #finally:
+                   # Unlock the file (fcntl.F_UNLOCK)
+                #    fcntl.flock(file_lock.fileno(), fcntl.LOCK_UN)
+                #    print(" write File is unlocked")
+                #    file_lock.close()
 
 
 
