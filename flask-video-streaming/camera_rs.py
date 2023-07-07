@@ -31,9 +31,6 @@ pipeline = rs.pipeline()  # 定义流程pipeline
 config = rs.config()  # 定义配置config
 config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, 30)
 config.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, 30)
-#config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 200)
-#config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 250)
-
 profile = pipeline.start(config)  # 流程开始
 align_to = rs.stream.color  # 与color流对齐
 align = rs.align(align_to)
@@ -116,6 +113,8 @@ def command(ser, command):
 
 def get_aligned_images():
     frames = pipeline.wait_for_frames()  # 等待获取图像帧
+    motion_data = frames.as_motion_frame().get_motion_data()
+    print("motion:"+motion_data)
     aligned_frames = align.process(frames)  # 获取对齐帧
     aligned_depth_frame = aligned_frames.get_depth_frame()  # 获取对齐帧中的depth帧
     color_frame = aligned_frames.get_color_frame()  # 获取对齐帧中的color帧

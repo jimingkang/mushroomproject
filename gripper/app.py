@@ -29,7 +29,7 @@ ser = serial.Serial("/dev/ttyACM0",115200)
 
 broker=''
 try:
-    for line in open("ip.txt"):
+    for line in open("../ip.txt"):
         if line[0:6] == "broker":
             broker = line[9:len(line)]
 except:
@@ -83,7 +83,7 @@ def wait_for_movement_completion(ser,cleaned_line):
     return
 
 def command(ser, command):
-    send_wake_up(ser)
+    #send_wake_up(ser)
     if command:  # checks if string is empty
         print("Sending gcode:" + str(command))
         # converts string to byte encoded string and append newline
@@ -93,7 +93,6 @@ def command(ser, command):
         #wait_for_movement_completion(ser, command)
         #grbl_out = ser.readline()  # Wait for response with carriage return
         #print(" : ", grbl_out.strip().decode('utf-8'))
-        #time.sleep(2)
     return 'ok'
     #return grbl_out.strip().decode('utf-8')
 
@@ -187,12 +186,11 @@ def handle_mqtt_message(client, userdata, message):
         xyz=data['payload']
         print("payload="+xyz)
         ret=command(ser, xyz)
-        time.sleep(1)
-        #ret='ok'#command(ser, xyz)
+        i#time.sleep(1)
         #print(ret)
         if ret == 'ok':
-            #print("ret==",ret)
-            pub_ret=mqtt_client.publish(topic4,"22",qos=0) # subscribe topic
+            print("ret==",ret)
+            #pub_ret=mqtt_client.publish(topic4,"22",qos=1) # subscribe topic
        #socketio.emit('mqtt_message', data=data)
 
 @app.route('/publish', methods=['POST'])
