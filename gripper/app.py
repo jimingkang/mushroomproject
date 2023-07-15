@@ -3,7 +3,7 @@ from threading import Event
 from flask import Flask, render_template,request, jsonify
 from flask_mqtt import Mqtt
 #from flask_socketio import SocketIO
-#import video_dir
+import video_dir
 #import car_dir
 #import motor
 
@@ -17,15 +17,15 @@ from time import sleep
 
 busnum = 1          # Edit busnum to 0, if you uses Raspberry Pi 1 or 0
 
-#video_dir.setup(busnum=busnum)
+video_dir.setup(busnum=busnum)
 #motor.setup(busnum=busnum)     # Initialize the Raspberry Pi GPIO connected to the DC motor. 
 #motor.setSpeed(40)
-#video_dir.home_x_y()
+video_dir.home_x_y()
 
 i=0
 
 
-ser = serial.Serial("/dev/ttyACM0",115200)
+#ser = serial.Serial("/dev/ttyACM0",115200)
 
 broker=''
 try:
@@ -104,7 +104,7 @@ def  test():
 
 @app.route('/catch')
 def catch():
-    #video_dir.move_increase_y()
+    video_dir.move_increase_y()
     #motor.forward()
     #time.sleep(0.5)
     #motor.ctrl(0)
@@ -113,7 +113,7 @@ def catch():
 
 @app.route('/release')
 def  release():
-    #video_dir.move_decrease_y()
+    video_dir.move_decrease_y()
     #motor.backward()
     #time.sleep(0.5)
     #motor.ctrl(0)
@@ -200,4 +200,4 @@ def publish_message():
    return jsonify({'code': publish_result[0]})
  
 if __name__ == '__main__':
-    app.run()
+    app.run(host='0.0.0.0',port=8888)

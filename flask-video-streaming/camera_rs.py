@@ -1,13 +1,19 @@
+import json
+import math
 import os
+import pickle
 import  random
 import cv2
+import redis
 import yaml
 from flask import Flask
 from flask_mqtt import Mqtt
 
+from Mushroom import Mushroom
 from base_camera import BaseCamera
-import pyrealsense2.pyrealsense2 as rs
-import serial
+#import pyrealsense2.pyrealsense2 as rs
+import pyrealsense2 as rs
+
 import os
 import time
 import numpy as np
@@ -26,7 +32,7 @@ from utils.datasets import LoadStreams, LoadImages, letterbox
 from models.experimental import attempt_load
 import torch.backends.cudnn as cudnn
 import torch
-torch.cuda.is_available()
+#torch.cuda.is_available()
 pipeline = rs.pipeline()  # 定义流程pipeline
 config = rs.config()  # 定义配置config
 config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, 30)
@@ -35,24 +41,27 @@ profile = pipeline.start(config)  # 流程开始
 align_to = rs.stream.color  # 与color流对齐
 align = rs.align(align_to)
 colors = [(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)) for j in range(100)]
-
 detection_threshold = 0.5
-#ser = serial.Serial("/dev/ttyACM0",115200)
+
 
 broker=''
+redis_server=''
 try:
     for line in open("../ip.txt"):
         if line[0:6] == "broker":
             broker = line[9:len(line)]
+        if line[0:5] == "redis":
+            redis_server=line[9:len(line)]
 except:
     pass
-print(broker)
-
+print(broker+" "+redis_server)
+pool = redis.ConnectionPool(host='192.168.254.26', port=6379, decode_responses=True,password='jimmy')
+r = redis.Redis(connection_pool=pool)
 
 app = Flask(__name__)
-app.config['MQTT_BROKER_URL'] = broker 
-#app.config['MQTT_BROKER_URL'] =  '192.168.254.42'
-#app.config['MQTT_BROKER_URL'] =  '10.0.0.134'
+app.config['MQTT_BROKER_URL'] = broker
+#app.config['MQTT_BROKER_URL'] =  '192.168.254.43'
+#app.config['MQTT_BROKER_URL'] = '10.0.0.18'
 app.config['MQTT_BROKER_PORT'] = 1883
 app.config['MQTT_USERNAME'] = ''  # Set this item when you need to verify username and password
 app.config['MQTT_PASSWORD'] = ''  # Set this item when you need to verify username and password
@@ -113,8 +122,8 @@ def command(ser, command):
 
 def get_aligned_images():
     frames = pipeline.wait_for_frames()  # 等待获取图像帧
-    motion_data = frames.as_motion_frame().get_motion_data()
-    print("motion:"+motion_data)
+    #motion_data = frames.as_motion_frame().get_motion_data()
+    #print("motion:"+motion_data)
     aligned_frames = align.process(frames)  # 获取对齐帧
     aligned_depth_frame = aligned_frames.get_depth_frame()  # 获取对齐帧中的depth帧
     color_frame = aligned_frames.get_color_frame()  # 获取对齐帧中的color帧
@@ -337,20 +346,50 @@ class Camera(BaseCamera):
                 for x in xyz:
                     first_xyz = x.split(",");
                     print("xyz=" + x)
-                    camera_xyz_list.append([float(first_xyz[0]),float(first_xyz[1]),int(first_xyz[2])])
+                    #camera_xyz_list.append([float(first_xyz[0]),float(first_xyz[1]),int(first_xyz[2])])
                     track_id=int(first_xyz[2])
                     #print("G21 G91 G1 X" + str(int(float(first_xyz[0]) * 100)) + " F2540\r\n")
                     #if track_id == int(first_xyz[2]):
                     dis = aligned_depth_frame.get_distance(int(first_xyz[0]), int(first_xyz[1]))
                     camera_xyz = rs.rs2_deproject_pixel_to_point(depth_intrin, (int(first_xyz[0]), int(first_xyz[1])), dis)  # ????????xyz
-                    x=1*float(camera_xyz[1]) * 1000/50
-                    if abs(x)> 0.1:
-                        move_x=str(x) + " F100\r\n"
-                        cmd="G21 G91 G1 X" +move_x 
-                        print(camera_xyz)
-                        move_publish.run(topic3,cmd)
+                    print(camera_xyz)
+                    camera_x=int(float(camera_xyz[0])*1000)
+                    camera_y=int(float(camera_xyz[1])*1000)
+
+                    global_camera_xy=r.get("global_camera_xy")
+                    if global_camera_xy :
+                        #old_camera_x=camera_x+int(float(global_camera_xy))
+                        #distance = int(math.sqrt(old_camera_x * old_camera_x + camera_y * camera_y))
+                        #detected=r.zrangebyscore("detections_index",min=distance,max=distance+5)
+                        #for mush in detected:
+                        #    obj = mush#pickle.loads(tmp[0]) #json.loads(Mushroom,tmp)
+                        #    oldobj=obj.split(",")
+                        #    print(obj)
+                        #    if abs(old_camera_x-int(float(oldobj[0])))<5:
+                        #        obj=oldobj[2]+","+str(distance)+","+str(old_camera_x)+","+str(camera_y)
+                        #        r.zremrangebyscore("detections_index",min=distance,max=distance+5)
+                        #        #r.zadd("detections_index", {obj: distance})
+                        #        break
+                        #else:
+                        camera_x = camera_x +int(float(global_camera_xy))
+                        distance = int(math.sqrt(camera_x * camera_x + camera_y * camera_y))
+                        if not r.hexists("detections",str(track_id)):
+                            print("distance:" + str(distance))  # +"camera_x:"+int(float(camera_x)))
+                            obj= str(camera_x)+","+str(camera_y)+","+str(track_id)+","+str(distance)#Mushroom(math.sqrt(camera_x * camera_x + camera_y * camera_y),track_id,camera_x,camera_y) #
+                            #r.zadd("detections_index", {obj: distance})
+                            r.hmset("detections", {str(track_id): str(camera_x) + "," + str(camera_y) + str(distance) + "," + str(track_id)})
+                    #pickled_object = json.dumps(obj) #pickle.dumps(obj)
+                    #r.zadd("detections_index", obj: distance})
+                    #r.zadd("detections_index", {pickled_object:distance})
+                    #r.hmset("detections",{track_id:camera_x+","+camera_y+distance+","+track_id})
+                    x=1*float(camera_xyz[0]) * 1000
+                    if abs(x)> 1:
+                        #move_x=str(x) + " F100\r\n"
+                        #cmd="G21 G91 G1 X" +move_x
+                        #print(camera_xyz)
+                        move_publish.run(topic3,str(camera_xyz[0])+","+str(track_id))
                         #command(ser,cmd)
-                        print(cmd)
+                        #print(cmd)
                 # socketio.emit('mqtt_message', data=data)
     @staticmethod
     def frames():

@@ -8,14 +8,15 @@ from paho.mqtt import client as mqtt_client
 
 broker=''
 try:
-    for line in open("ip.txt"):
+    for line in open("../ip.txt"):
         if line[0:6] == "broker":
             broker = line[9:-1]
 except:
     pass
 
 #broker = '192.168.254.42'
-broker = '10.0.0.134'
+broker = broker
+#broker = '10.0.0.134'
 port = 1883
 tpoic_flask_downmove = "/flask/downmove"
 # generate client ID with pub prefix randomly
