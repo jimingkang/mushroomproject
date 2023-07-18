@@ -340,13 +340,13 @@ class Camera(BaseCamera):
             xyz = xyz.split(";");
             if xyz:
                 global g_xyz
-                #xyz = xyz.split(";")
-                #if g_xyz==xyz:
-                #    return
+                xyz = xyz.split(";")
+                if g_xyz==xyz:
+                    return
                 g_xyz=xyz
-                x=xyz[0]
-                if x :
-                #for x in xyz:
+                #x=xyz[0]
+                #if x :
+                for x in xyz:
                     first_xyz = x.split(",");
                     print(first_xyz)
                     #camera_xyz_list.append([float(first_xyz[0]),float(first_xyz[1]),int(first_xyz[2])])
