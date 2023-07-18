@@ -336,16 +336,19 @@ class Camera(BaseCamera):
             )
             #print('Received message on topic: {topic} with payload: {payload}'.format(**data))
             xyz = data['payload']
-            #print("payload=" + xyz)
+            print("payload=" + xyz)
+            xyz = xyz.split(";");
             if xyz:
                 global g_xyz
-                xyz = xyz.split(";")
-                if g_xyz==xyz:
-                    return
+                #xyz = xyz.split(";")
+                #if g_xyz==xyz:
+                #    return
                 g_xyz=xyz
-                for x in xyz:
+                x=xyz[0]
+                if x :
+                #for x in xyz:
                     first_xyz = x.split(",");
-                    print("xyz=" + x)
+                    print(first_xyz)
                     #camera_xyz_list.append([float(first_xyz[0]),float(first_xyz[1]),int(first_xyz[2])])
                     track_id=int(first_xyz[2])
                     #print("G21 G91 G1 X" + str(int(float(first_xyz[0]) * 100)) + " F2540\r\n")
@@ -356,11 +359,16 @@ class Camera(BaseCamera):
                     camera_x=int(float(camera_xyz[0])*1000)
                     camera_y=int(float(camera_xyz[1])*1000)
 
-                    global_camera_xy=r.get("global_camera_xy")
-                    if global_camera_xy :
-                        #old_camera_x=camera_x+int(float(global_camera_xy))
+                    global_camera_xy=r.exists("global_camera_xy")
+                    if global_camera_xy==True:
+                        gxy=r.get("global_camera_xy").split(",")
+                        new_camera_x=camera_x+int(float(gxy[0]))
+                        new_camera_y=camera_y+int(float(gxy[1]))
+
                         #distance = int(math.sqrt(old_camera_x * old_camera_x + camera_y * camera_y))
-                        #detected=r.zrangebyscore("detections_index",min=distance,max=distance+5)
+                        detected_x=r.zrangebyscore("detections_index_x",min=new_camera_x-5,max=new_camera_x+5)
+                        detected_y=r.zrangebyscore("detections_index_y",min=new_camera_y-5,max=new_camera_y+5)
+
                         #for mush in detected:
                         #    obj = mush#pickle.loads(tmp[0]) #json.loads(Mushroom,tmp)
                         #    oldobj=obj.split(",")
@@ -372,18 +380,16 @@ class Camera(BaseCamera):
                         #        break
                         #else:
                         camera_x = camera_x +int(float(global_camera_xy))
-                        distance = int(math.sqrt(camera_x * camera_x + camera_y * camera_y))
-                        if not r.hexists("detections",str(track_id)):
+                        distance = int(math.sqrt(new_camera_x * new_camera_x+ new_camera_y*new_camera_y))
+                        if not r.hexists("detections",str(track_id)) and (len(detected_x)<=0 and len(detected_y)<=0):
                             print("distance:" + str(distance))  # +"camera_x:"+int(float(camera_x)))
-                            obj= str(camera_x)+","+str(camera_y)+","+str(track_id)+","+str(distance)#Mushroom(math.sqrt(camera_x * camera_x + camera_y * camera_y),track_id,camera_x,camera_y) #
-                            #r.zadd("detections_index", {obj: distance})
-                            r.hmset("detections", {str(track_id): str(camera_x) + "," + str(camera_y) + str(distance) + "," + str(track_id)})
-                    #pickled_object = json.dumps(obj) #pickle.dumps(obj)
-                    #r.zadd("detections_index", obj: distance})
-                    #r.zadd("detections_index", {pickled_object:distance})
-                    #r.hmset("detections",{track_id:camera_x+","+camera_y+distance+","+track_id})
+                            r.zadd("detections_index_x", {str(track_id)+"_"+str(new_camera_x): new_camera_x})
+                            r.zadd("detections_index_y", {str(track_id)+"_"+str(new_camera_y): new_camera_y})
+                            r.hmset("detections", {str(track_id): str(new_camera_x) + "," + str(new_camera_y) + str(distance) + "," + str(track_id)})
+                    else:
+                        r.set("global_camera_xy","0,0")
                     x=1*float(camera_xyz[0]) * 1000
-                    if abs(x)> 1:
+                    if abs(x)> 5:
                         #move_x=str(x) + " F100\r\n"
                         #cmd="G21 G91 G1 X" +move_x
                         #print(camera_xyz)

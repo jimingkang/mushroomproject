@@ -1,9 +1,113 @@
 <html>
   <head>
     <title>Video Streaming Demonstration</title>
+<head>
+    <meta charset="UTF-8">
+    <script src="{{url_for('static', filename='jquery.min.js')}}"></script>
+    <script src="{{url_for('static', filename='echarts.min.js')}}"></script>>
+
+   <!--
+   <script type="text/javascript" src="https://cdn.lyshark.com/javascript/jquery/3.5.1/jquery.min.js"></script>
+    <script type="text/javascript" src="https://cdn.lyshark.com/javascript/echarts/5.3.0/echarts.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.1.1/chart.min.js"></script>
+    <script>
+      var chrt = document.getElementById("chartId").getContext("2d");
+      var chartId = new Chart(chrt, {
+         type: 'bubble',
+         data: {
+            labels: ["HTML", "CSS", "JAVASCRIPT", "CHART.JS", "JQUERY", "BOOTSTRP"],
+            datasets: [{
+               label: "mushroom map",
+               data: [],
+               backgroundColor: ['yellow', 'aqua', 'pink', 'lightgreen', 'gold', 'lightblue'],
+               borderColor: ['black'],
+               radius: 8,
+            }],
+         },
+         options: {
+         responsive: false,
+         },
+      });
+   </script>-->
+</head>
+
   </head>
   <body>
+    <canvas id="chartId" aria-label="chart" height="300" width="580"></canvas>
+ <div id="main" style="height:300px;width:80%;border:1px solid #eecc11;padding:10px;"></div>
+
+
+  <script type="text/javascript" charset="UTF-8">
+        var labels =[];
+        var datas = [];
+        var display = function(time,cpu) {
+            var main = echarts.init(document.getElementById(("main")));
+            option = {
+                xAxis: {},
+                yAxis: {},
+                series: [{
+                    symbolSize: 20,
+                    data: datas,
+                    type: 'scatter'
+                }]
+            };
+
+            main.setOption(option,true);
+        };
+    </script>
+
+    <!--update()函数具体执行的任务,其主要只保留前十条数据.-->
+    <script type="text/javascript" charset="UTF-8">
+        // 负责对参数的解析
+
+        var update = function(recv){
+            var detections=recv.response
+            console.log("处理后的时间数据:" + detections);
+            for (let k in detections) {
+                 console.log(k + ' is ' + detections[k]);
+                  labels.push(k);
+                    xyz=detections[k].split(",")
+                    console.log("处理后的xyz:" + xyz);
+                    datas.push([parseInt(xyz[0]),parseInt(xyz[1])]);
+            }
+
+           // if(time.length >=10){
+             //   time.shift();
+            //    cpu.shift();
+             //   console.log("处理后的时间数据:" + time);
+            //    console.log("处理后的CPU数据:" + cpu);
+             //   display(time,cpu)  // 调用绘图函数
+            //}
+
+            display(labels,datas)
+        };
+    </script>
+
+    <!--设定一个定时器,每隔1000毫秒向后端发送请求-->
+    <script type="text/javascript">
+        $(
+            function () {
+                fetchData();
+                setInterval(fetchData, 5000);
+            }
+        );
+        function fetchData(){
+            $.ajax({
+                url:"/update_mushroom_map",
+                type:"GET",
+                contentType: 'application/json',
+                success:function (recv) {
+                 console.log("获取到recv:" + recv);
+                    console.log("获取到时间:" + recv);
+
+
+                    // 传递给处理函数
+                    update(recv)
+                }
+            })
+        }
+    </script>
     <h1>Video Streaming Demonstration</h1>
+    <canvas id="myChart" width="400" height="400"></canvas>
     <img src="{{ url_for('video_feed') }}">
   </body>
 </html>
