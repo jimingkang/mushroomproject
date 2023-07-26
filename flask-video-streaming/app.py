@@ -19,7 +19,18 @@ else:
 
 app = Flask(__name__)
 
-pool = redis.ConnectionPool(host='192.168.254.26', port=6379, decode_responses=True,password='jimmy')
+broker=''
+redis_server=''
+try:
+    for line in open("../ip.txt"):
+        if line[0:6] == "broker":
+            broker = line[9:len(line)-1]
+        if line[0:6] == "reddis":
+            redis_server=line[9:len(line)-1]
+except:
+    pass
+print(broker+" "+redis_server)
+pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
 
 
