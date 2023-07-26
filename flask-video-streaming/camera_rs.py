@@ -337,16 +337,15 @@ class Camera(BaseCamera):
             #print('Received message on topic: {topic} with payload: {payload}'.format(**data))
             xyz = data['payload']
             print("payload=" + xyz)
-            xyz = xyz.split(";");
             if xyz:
                 global g_xyz
-                xyz = xyz.split(";")
                 if g_xyz==xyz:
                     return
                 g_xyz=xyz
-                #x=xyz[0]
-                #if x :
-                for x in xyz:
+                xyz = xyz.split(";")
+                x=xyz[0]
+                if x :
+                #for x in xyz:
                     first_xyz = x.split(",");
                     print(first_xyz)
                     #camera_xyz_list.append([float(first_xyz[0]),float(first_xyz[1]),int(first_xyz[2])])
@@ -388,12 +387,13 @@ class Camera(BaseCamera):
                             r.hmset("detections", {str(track_id): str(new_camera_x) + "," + str(new_camera_y) + str(distance) + "," + str(track_id)})
                     else:
                         r.set("global_camera_xy","0,0")
-                    x=1*float(camera_xyz[0]) * 1000
+                    x=1*float(camera_xyz[1]) * 1000
                     if abs(x)> 5:
                         #move_x=str(x) + " F100\r\n"
                         #cmd="G21 G91 G1 X" +move_x
                         #print(camera_xyz)
-                        move_publish.run(topic3,str(camera_xyz[0])+","+str(track_id))
+                        move_publish.run(topic3,str(camera_xyz[0])+","+str(camera_xyz[1])+","+str(track_id))
+                        print(str(camera_xyz[0])+","+str(camera_xyz[1])+","+str(track_id))
                         #command(ser,cmd)
                         #print(cmd)
                 # socketio.emit('mqtt_message', data=data)

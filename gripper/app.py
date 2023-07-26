@@ -55,7 +55,6 @@ y=0
 #app.config.from_object(config)
 
 
-pub_ret=mqtt_client.publish(topic4,"22",qos=0) # subscribe topic
 def send_wake_up(ser):
     # Wake up
     # Hit enter a few times to wake the Printrbot

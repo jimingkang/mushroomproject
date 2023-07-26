@@ -4,9 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <script src="{{url_for('static', filename='jquery.min.js')}}"></script>
-    <script src="{{url_for('static', filename='echarts.min.js')}}"></script>>
+    <script src="{{url_for('static', filename='echarts.min.js')}}"></script>
 
    <!--
+
+
+
    <script type="text/javascript" src="https://cdn.lyshark.com/javascript/jquery/3.5.1/jquery.min.js"></script>
     <script type="text/javascript" src="https://cdn.lyshark.com/javascript/echarts/5.3.0/echarts.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.1.1/chart.min.js"></script>
     <script>
@@ -106,9 +109,33 @@
             })
         }
     </script>
-    <h1>Video Streaming Demonstration</h1>
-    <canvas id="myChart" width="400" height="400"></canvas>
-    <img src="{{ url_for('video_feed') }}">
+
+<table>
+
+<tr><td></td>
+<td><a href="/catch" id=up><input type="button" id='catch' name="catch" value="catch"></a></td>
+<td></td>
+</tr>
+
+<tr>
+<td><a href="/forward" id=forward><input type="button" id='forward' name="forward" value="forward"></a></td>
+<td><a href="/autoscan" id=autopick><input type="button" id='autopick' name="autopick" value="autopick"></a></td>
+<td><a href="/backward" id=backward><input type="button" id='backward' name="backward" value="backward"></a>
+</td>
+</tr>
+
+<tr>
+<td></td>
+<td><a href="/test" id=test><input type="button" id='test' name="test" value="test"></a></td>
+<td><a href="/release" id=release><input type="button" id='release' name="release" value="release"></a></td>
+</tr>
+</table>
+<img src="{{ url_for('video_feed') }}">
+<iframe src="http://192.168.254.26:5000" width=840 height=400 style="border:1px solid black;">
+</iframe>
+
+
+   
   </body>
 </html>
 
