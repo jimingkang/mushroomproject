@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <script src="{{url_for('static', filename='jquery.min.js')}}"></script>
     <script src="{{url_for('static', filename='echarts.min.js')}}"></script>
+  </head>
+  <body>
 
    <!--
 
@@ -30,11 +32,9 @@
          responsive: false,
          },
       });
-   </script>-->
-</head>
+   </script>
 
-  </head>
-  <body>
+
     <canvas id="chartId" aria-label="chart" height="300" width="580"></canvas>
  <div id="main" style="height:300px;width:80%;border:1px solid #eecc11;padding:10px;"></div>
 
@@ -58,7 +58,6 @@
         };
     </script>
 
-    <!--update()函数具体执行的任务,其主要只保留前十条数据.-->
     <script type="text/javascript" charset="UTF-8">
         // 负责对参数的解析
 
@@ -85,7 +84,7 @@
         };
     </script>
 
-    <!--设定一个定时器,每隔1000毫秒向后端发送请求-->
+
     <script type="text/javascript">
         $(
             function () {
@@ -130,9 +129,12 @@
 <td><a href="/release" id=release><input type="button" id='release' name="release" value="release"></a></td>
 </tr>
 </table>
-<img src="{{ url_for('video_feed') }}">
 <iframe src="http://10.0.0.241:5000" width=840 height=400 style="border:1px solid black;">
 </iframe>
+
+-->
+<img src="{{ url_for('video_feed') }}">
+
 
 
    
