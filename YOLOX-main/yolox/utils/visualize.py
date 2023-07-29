@@ -10,7 +10,9 @@ import time
 
 import cv2
 import numpy as np
-import fcntl
+import redis
+
+#import fcntl
 import xyz_publish
 from tracker import Tracker
 __all__ = ["vis"]
@@ -26,53 +28,53 @@ client_id = f'python-mqtt-{random.randint(0, 100)}'
 
 tracker = Tracker()
 colors = [(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)) for j in range(80)]
-global_detections=[]
 
-count=0
+pool = redis.ConnectionPool(host='192.168.254.26', port=6379, decode_responses=True,password='jimmy')
+r = redis.Redis(connection_pool=pool)
+
 def takeSecond(elem):
     return math.sqrt((elem[1]-elem[3])*(elem[1]-elem[3])+(elem[2]-elem[4])*(elem[2]-elem[4]))
 
-cord_x=0
-cord_y=0
-def vis(img, boxes, scores, cls_ids,conf=0.5, class_names=None):
-    global count
-    count=(count+1)%100
-    print(count)
-    val = ''
-    file_lock = open("ret.txt", "r")
-    try:
-        fcntl.flock(file_lock.fileno(), fcntl.LOCK_SH | fcntl.LOCK_NB)
-        val = file_lock.read()
-        #print(val)
-    except IOError:
-        print("File is already locked by another process")
-    finally:
-        # Unlock the file (fcntl.F_UNLOCK)
-        fcntl.flock(file_lock.fileno(), fcntl.LOCK_UN)
-        # print("File is unlocked")
-        file_lock.close()
-    detections=[]
+
+pre_tracker= Tracker()
+
+focus=1035
+ref_real_width=35 #mm
+ref_real_distance=125
+def focus_length(width_in_pixel,real_distance,real_width):
+    return width_in_pixel*real_distance/real_width
+def find_distance(focus_length,real_width,width_in_pixel):
+    return real_width*focus_length/width_in_pixel
+def find_XY(width_in_pixel,real_distance,real_width):
+    return width_in_pixel*real_distance/focus
+def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
+    #count=(count+1)%100
+    detections = []
     min_distance=[10000000 ,-1,-1,-1,-1,-1]
     for i in range(len(boxes)):
         box = boxes[i]
         cls_id = int(cls_ids[i])
         score = scores[i]
-        if score < conf:
-            continue
+        #if score < conf:
+        #    continue
         x0 = int(box[0])
         y0 = int(box[1])
         x1 = int(box[2])
         y1 = int(box[3])
-        if score > 0.6 and min_distance[0]>math.sqrt((x1-x0)*(x1-x0)+(y1-y0)*(y1-y0)):
-            min_distance[0]=math.sqrt((x1-x0)*(x1-x0)+(y1-y0)*(y1-y0))
-            min_distance[1:5]=score,x0,y0,x1,y1,
+        if score > 0.6:
+            #min_distance[0]=math.sqrt((x1-x0)*(x1-x0)+(y1-y0)*(y1-y0))
+            #min_distance[1:5]=score,x0,y0,x1,y1,
             detections.append([x0,y0,x1,y1,score])
     detections.sort(key=takeSecond)
-    #print(detections,min_distance)
+    print(detections)
     new_detections=[]
     if len(detections)>0:
         new_detections.append(detections[0])
+        global pre_tracker
+        pre_tracker=tracker
         tracker.update(img, new_detections)
+        #tracker.update(img, detections)
+
         for track in tracker.tracks:
 
             bbox = track.bbox
@@ -83,8 +85,43 @@ def vis(img, boxes, scores, cls_ids,conf=0.5, class_names=None):
             y2 = int(bbox[3])
             #score=int(bbox[4])
             track_id = track.track_id
-            #global_detections.append([x0,y0,x1,y1,score,track_id])
-            text = 'track_id:{}  {:.1f}%'.format(track_id % len(colors), score * 100)
+            #for pre_track in pre_tracker:
+            #    pre_bbox = pre_track.bbox
+            #    pre_x1, pre_y1, pre_x2, pre_y2 = pre_bbox
+            #    pre_x1 = int(pre_bbox[0])
+            #    pre_y1 = int(pre_bbox[1])
+            #    pre_x2 = int(pre_bbox[2])
+            #    pre_y2 = int(pre_bbox[3])
+            #    print("diff x+x2",abs(int((x1 + x2)))-abs(abs(int((x1 + x2)))))
+            #    if track_id==pre_track.track_id and abs(int((x1 + x2)))-abs(abs(int((x1 + x2))))>100:
+            #        coordx = "" + str(int((x1 + x2) / 2)) + "," + str(int((y1 + y2) / 2)) + "," + str(track_id) + ";"
+            #        coordx = coordx[0:len(coordx) - 1]
+            #        print("coordx=", coordx)
+            #        xyz_publish.run(coordx)
+
+
+
+
+
+            #distance=find_distance(focus,35,x2-x1)
+            #camera_x=find_XY((x2+x1)/2.0,distance,focus)
+            #camera_y = find_XY((y2 + y1) / 2.0, distance, focus)
+
+            #global_camera_xy = r.get("global_camera_xy")
+            #if global_camera_xy is not None:
+            #    camera_x = camera_x + int(float(global_camera_xy))
+            #    #distance = int(math.sqrt(camera_x * camera_x + camera_y * camera_y))
+            #    if not r.hexists("detections", str(track_id)):
+            #        #print("distance:" + str(distance))  # +"camera_x:"+int(float(camera_x)))
+            #        obj = str(camera_x) + "," + str(camera_y) + "," + str(track_id) + "," + str(distance)  # Mushroom(math.sqrt(camera_x * camera_x + camera_y * camera_y),track_id,camera_x,camera_y) #
+            #        # r.zadd("detections_index", {obj: distance})
+            #        r.hmset("detections",
+            #                {str(track_id): str(camera_x) + "," + str(camera_y) + "," + str(distance) + "," + str(track_id)})
+            #else:
+            #    r.set("global_camera_xy",'0')
+
+
+            text = 'track_id:{}  {:.1f}% '.format(track_id % len(colors), score * 100)
             txt_color = (0, 0, 0) if np.mean(colors[track_id % len(colors)]) > 0.5 else (255, 255, 255)
             font = cv2.FONT_HERSHEY_SIMPLEX
             txt_size = cv2.getTextSize(text, font, 0.4, 1)[0]
@@ -92,40 +129,20 @@ def vis(img, boxes, scores, cls_ids,conf=0.5, class_names=None):
             cv2.rectangle(img, (x1, y1 + 1), (x1 + txt_size[0] + 1, y1 + int(1.5 * txt_size[1])), txt_bk_color, -1)
             cv2.putText(img, text, (x1, y1 + txt_size[1]), font, 0.4, txt_color, thickness=1)
             cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (colors[track_id % len(colors)]), 1)
+
+
             #ret=move_subcribe.run(val)#mqtt_get_value_blocking()
-            #print("box count=", count)
-            #if  val =='22':
-            global cord_x
-            global cord_y
-            x=int((x1+x2)/2)
-            y=int((y1+y2)/2)
-            cord_x=x
-            cord_y=y
-            if  count<15:
-                if count>1 and abs(cord_x- x)+abs(cord_y-y)<10:
-                    break
-                if count==1:
-                    coordx = "" + str(x) + "," + str(y) + "," + str(track_id) + ";"
-                    coordx = coordx[0:len(coordx) - 1]
-                    xyz_publish.run(coordx)
-                    print("coxunt=1 ,coordx=",coordx)
-            if val=='22' or  count>15:
+            if  count>10:
+            #if  r.exists("global_mode") and r.get("global_mode")=="camera":
                 count=0
-                print("file val=", val,count)
-                #coordx = "" + str(x) + "," + str(y) + "," + str(track_id) + ";"
-                #coordx = coordx[0:len(coordx) - 1]
-                #file_lock = open("ret.txt", "w")
-                #try:
-                #    fcntl.flock(file_lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                #    print(" write File is locked")
-                #    file_lock.write('0')
-                #except IOError:
-                #    print("File is already locked by another process")
-                #finally:
-                   # Unlock the file (fcntl.F_UNLOCK)
-                #    fcntl.flock(file_lock.fileno(), fcntl.LOCK_UN)
-                #    print(" write File is unlocked")
-                #    file_lock.close()
+                print("file count=",count)
+                coordx = "" + str(int((x1 + x2) / 2)) + "," + str(int((y1 + y2) / 2)) + "," + str(track_id) + ";"
+                coordx = coordx[0:len(coordx) - 1]
+                print("coordx=",coordx)
+                xyz_publish.run(coordx)
+            else:
+                r.set("global_mode","gripper")
+
 
 
 

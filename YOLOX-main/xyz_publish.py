@@ -46,7 +46,7 @@ def connect_mqtt():
 def publish(client,camera_xyz_list):
     #finalxyx = camera_xyz_list[0:len(camera_xyz_list) - 1]
     #print(finalxyx)
-    publish_result = client.publish(topic, camera_xyz_list,qos=0)
+    publish_result = client.publish(topic, camera_xyz_list,qos=1)
 
 
 

@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 from importlib import import_module
 import os
-from flask import Flask, render_template, Response
-
+from flask import Flask, render_template, Response, jsonify
+import redis
 # import camera driver
 if os.environ.get('CAMERA'):
     Camera = import_module('camera_' + os.environ['CAMERA']).Camera
 else:
     #from camera_pi import Camera
-    from camera_ipcam_D405 import Camera
+    from camera_ipcam import Camera
     #from camera_usb import Camera
     #from camera_det_rs import Camera
     #from camera_v4l2 import Camera
@@ -17,6 +17,8 @@ else:
 #from camera_pi import Camera
 
 app = Flask(__name__)
+pool = redis.ConnectionPool(host='192.168.254.26', port=6379, decode_responses=True,password='jimmy')
+r = redis.Redis(connection_pool=pool)
 
 
 @app.route('/')
@@ -24,6 +26,11 @@ def index():
     """Video streaming home page."""
     return render_template('index.html')
 
+@app.route('/update_mushroom_map' ,methods=['GET'])
+def update_mushroom_map():
+    detections=r.hgetall("detections")
+    print(jsonify({"response":detections}))
+    return jsonify({"response":detections})
 
 def gen(camera):
     """Video streaming generator function."""

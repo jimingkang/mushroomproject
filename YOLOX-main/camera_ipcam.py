@@ -2,6 +2,7 @@ import io
 import random
 import threading
 
+import redis
 from PIL import Image
 import select
 import cv2
@@ -30,12 +31,19 @@ from paho.mqtt import client as mqtt_client
 
 
 broker=''
+redis_server=''
 try:
     for line in open("../ip.txt"):
         if line[0:6] == "broker":
             broker = line[9:len(line)]
+        if line[0:5] == "redis":
+            redis_server=line[9:len(line)]
 except:
     pass
+print(broker+" "+redis_server)
+pool = redis.ConnectionPool(host='192.168.254.26', port=6379, decode_responses=True,password='jimmy')
+r = redis.Redis(connection_pool=pool)
+
 broker=broker.replace("\r\n","").replace("\n","")
 print(broker)
 #broker = '192.168.254.42'
@@ -46,7 +54,7 @@ topic4 = "/flask/downmove"
 # generate client ID with pub prefix randomly
 client_id = f'python-mqtt-{random.randint(0, 100)}'
 
-
+count=0
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
 def make_parser():
@@ -231,7 +239,7 @@ class Predictor(object):
                 outputs, self.num_classes, self.confthre,
                 self.nmsthre, class_agnostic=True
             )
-            #logger.info("Infer time: {:.4f}s".format(time.time() - t0))
+            logger.info("Infer time: {:.4f}s".format(time.time() - t0))
         return outputs, img_info
 
     def visual(self, output, img_info, cls_conf=0.35):
@@ -248,10 +256,11 @@ class Predictor(object):
 
         cls = output[:, 6]
         scores = output[:, 4] * output[:, 5]
-        #global count
-        #print(count,"count")
+        global count
+        count=(count+1)%100
+        print(count,"count")
 
-        vis_res = vis(img, bboxes, scores, cls, cls_conf, self.cls_names)
+        vis_res = vis(img, bboxes, scores, cls,count, cls_conf, self.cls_names)
         return vis_res
 
 
@@ -295,9 +304,9 @@ class Camera(BaseCamera):
         video.set(cv2.CAP_PROP_FRAME_HEIGHT, size_y)
         video.set(cv2.CAP_PROP_FPS, 30)
         bio = io.BytesIO()
-        client = connect_mqtt()
-        client.loop_start()
-        client.publish("/flask/serial", "0,0,0;")
+        ##client = connect_mqtt()
+        #client.loop_start()
+        #client.publish("/flask/serial", "0,0,0")
 
 
         args = make_parser().parse_args()
