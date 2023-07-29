@@ -1,9 +1,107 @@
 <html>
   <head>
-    <title>Video Streaming Demonstration</title>
+    <title>Mushroom  Streaming Demonstration</title>
+
+    <meta charset="UTF-8">
+    <script src="{{url_for('static', filename='jquery.min.js')}}"></script>
+    <script src="{{url_for('static', filename='echarts.min.js')}}"></script>
   </head>
   <body>
-    <h1>Video Streaming Demonstration</h1>
+
+    <script>
+      var chrt = document.getElementById("chartId").getContext("2d");
+      var chartId = new Chart(chrt, {
+         type: 'bubble',
+         data: {
+            labels: ["HTML", "CSS", "JAVASCRIPT", "CHART.JS", "JQUERY", "BOOTSTRP"],
+            datasets: [{
+               label: "mushroom map",
+               data: [],
+               backgroundColor: ['yellow', 'aqua', 'pink', 'lightgreen', 'gold', 'lightblue'],
+               borderColor: ['black'],
+               radius: 8,
+            }],
+         },
+         options: {
+         responsive: false,
+         },
+      });
+   </script>
+
+
+    <canvas id="chartId" aria-label="chart" height="300" width="580"></canvas>
+ <div id="main" style="height:300px;width:80%;border:1px solid #eecc11;padding:10px;"></div>
+
+
+  <script type="text/javascript" charset="UTF-8">
+        var labels =[];
+        var datas = [];
+        var display = function(time,cpu) {
+            var main = echarts.init(document.getElementById(("main")));
+            option = {
+                xAxis: {},
+                yAxis: {},
+                series: [{
+                    symbolSize: 20,
+                    data: datas,
+                    type: 'scatter'
+                }]
+            };
+
+            main.setOption(option,true);
+        };
+    </script>
+
+    <script type="text/javascript" charset="UTF-8">
+        // ????????
+
+        var update = function(recv){
+            var detections=recv.response
+            console.log("????????:" + detections);
+            for (let k in detections) {
+                 console.log(k + ' is ' + detections[k]);
+                  labels.push(k);
+                    xyz=detections[k].split(",")
+                    console.log("????xyz:" + xyz);
+                    datas.push([parseInt(xyz[0]),parseInt(xyz[1])]);
+            }
+
+           // if(time.length >=10){
+             //   time.shift();
+            //    cpu.shift();
+             //   console.log("????????:" + time);
+            //    console.log("????CPU??:" + cpu);
+             //   display(time,cpu)  // ??????
+            //}
+
+            display(labels,datas)
+        };
+    </script>
+
+
+    <script type="text/javascript">
+        $(
+            function () {
+                fetchData();
+                setInterval(fetchData, 5000);
+            }
+        );
+        function fetchData(){
+            $.ajax({
+                url:"/update_mushroom_map",
+                type:"GET",
+                contentType: 'application/json',
+                success:function (recv) {
+                 console.log("???recv:" + recv);
+                    console.log("?????:" + recv);
+
+
+                    // ???????
+                    update(recv)
+                }
+            })
+        }
+    </script>
     <img src="{{ url_for('video_feed') }}">
   </body>
 </html>
