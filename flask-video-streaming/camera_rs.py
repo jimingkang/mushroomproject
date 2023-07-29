@@ -302,6 +302,7 @@ class YoloV5:
 
 global intr, depth_intrin, color_image, depth_image, aligned_depth_frame 
 global track_id
+pre_trackid=0
 g_xyz=''
 class Camera(BaseCamera):
     video_source = 0
@@ -388,15 +389,27 @@ class Camera(BaseCamera):
                             r.hmset("detections", {str(track_id): str(new_camera_x) + "," + str(new_camera_y) + str(distance) + "," + str(track_id)})
                     else:
                         r.set("global_camera_xy","0,0")
-                    x=1*float(camera_xyz[1]) * 1000
-                    if abs(x)> 5:
+                    x=1*float(camera_xyz[0]) * 1000
+                    y=1*float(camera_xyz[1]) * 1000
+                    global pre_trackid
+                    if not r.exists("pre_trackid"):
+                        r.set("pre_track_id","0")
+                    else:
+                        pre_trackid=r.get("pre_track_id")
+                    if pre_trackid==str(track_id):
+                        print(pre_trackid)
+                        print("pre_trackid")
+                        return
+                    else:
+                        r.set("pre_track_id",str(track_id))
+
+                    if abs(x)> 5 or abs(y)>5:
                         #move_x=str(x) + " F100\r\n"
                         #cmd="G21 G91 G1 X" +move_x
                         #print(camera_xyz)
-                        move_publish.run(topic3,str(camera_xyz[0])+","+str(camera_xyz[1])+","+str(track_id))
-                        print(str(camera_xyz[0])+","+str(camera_xyz[1])+","+str(track_id))
-                        #command(ser,cmd)
-                        #print(cmd)
+                        xyz=str(camera_xyz[0])+","+str(camera_xyz[1])+","+str(track_id)
+                        move_publish.run(topic3,xyz)
+                        print(xyz)
                 # socketio.emit('mqtt_message', data=data)
     @staticmethod
     def frames():
