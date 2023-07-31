@@ -132,7 +132,7 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
 
 
             #ret=move_subcribe.run(val)#mqtt_get_value_blocking()
-            if  count>10:
+            if  count>20:
             #if  r.exists("global_mode") and r.get("global_mode")=="camera":
                 count=0
                 print("file count=",count)

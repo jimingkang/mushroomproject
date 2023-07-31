@@ -3,10 +3,10 @@ from threading import Event
 from flask import Flask, render_template,request, jsonify
 from flask_mqtt import Mqtt
 #from flask_socketio import SocketIO
-import video_dir
+#import video_dir
 #import car_dir
 #import motor
-
+import redis
 import serial
 import datetime
 import time
@@ -17,25 +17,30 @@ from time import sleep
 
 busnum = 1          # Edit busnum to 0, if you uses Raspberry Pi 1 or 0
 
-video_dir.setup(busnum=busnum)
+#video_dir.setup(busnum=busnum)
 #motor.setup(busnum=busnum)     # Initialize the Raspberry Pi GPIO connected to the DC motor. 
 #motor.setSpeed(40)
-video_dir.home_x_y()
+#video_dir.home_x_y()
 
 i=0
 
 
-#ser = serial.Serial("/dev/ttyACM0",115200)
+ser = serial.Serial("/dev/ttyACM0",115200)
 
+redis_server='192.168.254.26'
 broker=''
 try:
     for line in open("../ip.txt"):
         if line[0:6] == "broker":
-            broker = line[9:len(line)]
+            broker = line[9:len(line)-1]
+        if line[0:6] == "reddis":
+            redis_server = line[9:len(line)-1]
 except:
     pass
-broker=broker.replace("\n","").replace("\r\n","")
+#broker=broker.replace("\n","").replace("\r\n","")
 print(broker)
+pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
+r = redis.Redis(connection_pool=pool)
 app = Flask(__name__)
 app.config['MQTT_BROKER_URL'] = broker
 #app.config['MQTT_BROKER_URL'] = '10.0.0.134'
@@ -121,7 +126,7 @@ def  release():
 @app.route('/autoscan')
 def  autopick():
     publish_result = mqtt_client.publish(topic, "flask/scan")
-    command(ser, "G21 G91 G1 X100 F2540\r\n")
+    command(ser, "G21 G91 G1 X1 F2540\r\n")
     return render_template('index.html');
 
 
@@ -139,11 +144,11 @@ def backward():
 #83.3
 def move_forward():
     #Moving forward code
-    command(ser, "G21 G91 G1 Y-30 F2540\r\n")
+    command(ser, "G21 G91 G1 Y-3 F2540\r\n")
     #video_dir.move_decrease_y()
     return 'Moving Forward...!'
 def move_backward():
-    command(ser, "G21 G91 G1  Y30 F2540\r\n")
+    command(ser, "G21 G91 G1  Y3 F2540\r\n")
     #video_dir.move_increase_y()
     return 'Moving Backward...!'
 
@@ -167,28 +172,45 @@ def handle_connect(client, userdata, flags, rc):
    else:
        print('Bad connection. Code:', rc)
 
-global pre_time
+pre_trackid=0
 @mqtt_client.on_message()
 def handle_mqtt_message(client, userdata, message):
     #print(message.topic)
     if message.topic==topic3:
-        #global pre_time
+        global pre_trackid
         #nonlocal pre_time
         #curr_time = round(time.time() * 1000)
         #time_diff = curr_time - pre_time
         #pre_time = curr_time
-        print('Received message on topic time:', time.time())
         #if time_diff < 1000:
         #    return
         data = dict(topic=message.topic,payload=message.payload.decode())
         print('Received message on topic: {topic} with payload: {payload}'.format(**data))
         xyz=data['payload']
         print("payload="+xyz)
-        ret=command(ser, xyz)
-        i#time.sleep(1)
-        #print(ret)
-        if ret == 'ok':
-            print("ret==",ret)
+        real_xyz=xyz.split(",")
+        print(real_xyz)
+        x=-1*float(real_xyz[0]) * 1000
+        y=-1*float(real_xyz[1]) * 1000
+        if not r.exists("pre_trackid"):
+            r.set("pre_track_id","0")
+        else:
+            pre_trackid=r.get("pre_track_id")
+        if pre_trackid==real_xyz[2]:
+            return
+        else:
+            r.set("pre_track_id",real_xyz[2])
+
+        if( abs(x)> 10 or abs(y)>10) :
+            move_x=" X"+str(x/35)
+            move_y=" Y"+str(y/45) + " F100\r\n"
+            cmd="G21 G91 G1 " +move_x+move_y 
+            ret=command(ser, cmd)
+            time.sleep(1)
+            print(cmd)
+            if ret == 'ok':
+                print("ret==",ret)
+                r.set("global_camera_xy","0,0")
             #pub_ret=mqtt_client.publish(topic4,"22",qos=1) # subscribe topic
        #socketio.emit('mqtt_message', data=data)
 

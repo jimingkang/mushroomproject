@@ -35,9 +35,9 @@ redis_server=''
 try:
     for line in open("../ip.txt"):
         if line[0:6] == "broker":
-            broker = line[9:len(line)]
+            broker = line[9:len(line)-1]
         if line[0:5] == "redis":
-            redis_server=line[9:len(line)]
+            redis_server=line[9:len(line)-1]
 except:
     pass
 print(broker+" "+redis_server)
