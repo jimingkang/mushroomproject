@@ -386,23 +386,12 @@ class Camera(BaseCamera):
                             print("distance:" + str(distance))  # +"camera_x:"+int(float(camera_x)))
                             r.zadd("detections_index_x", {str(track_id)+"_"+str(new_camera_x): new_camera_x})
                             r.zadd("detections_index_y", {str(track_id)+"_"+str(new_camera_y): new_camera_y})
-                            r.hmset("detections", {str(track_id): str(new_camera_x) + "," + str(new_camera_y) + str(distance) + "," + str(track_id)})
+                            r.hmset("detections", {str(track_id): str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id)})
                     else:
                         r.set("global_camera_xy","0,0")
                     x=1*float(camera_xyz[0]) * 1000
                     y=1*float(camera_xyz[1]) * 1000
                     global pre_trackid
-                    if not r.exists("pre_trackid"):
-                        r.set("pre_track_id","0")
-                    else:
-                        pre_trackid=r.get("pre_track_id")
-                    if pre_trackid==str(track_id):
-                        print(pre_trackid)
-                        print("pre_trackid")
-                        return
-                    else:
-                        r.set("pre_track_id",str(track_id))
-
                     if abs(x)> 5 or abs(y)>5:
                         #move_x=str(x) + " F100\r\n"
                         #cmd="G21 G91 G1 X" +move_x

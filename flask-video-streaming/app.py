@@ -10,11 +10,11 @@ if os.environ.get('CAMERA'):
 else:
     #from camera_pi import Camera
     #from camera_ipusb import Camera
-    from camera_usb import Camera
+    #from camera_usb import Camera
     #from camera_det_rs import Camera
     #from camera_v4l2 import Camera
 
-    #from camera_rs import Camera
+    from camera_rs import Camera
 # Raspberry Pi camera module (requires picamera package)
 
 app = Flask(__name__)
