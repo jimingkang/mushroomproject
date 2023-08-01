@@ -173,11 +173,13 @@ def handle_connect(client, userdata, flags, rc):
        print('Bad connection. Code:', rc)
 
 pre_trackid=0
+old_x=0
+old_y=0
 @mqtt_client.on_message()
 def handle_mqtt_message(client, userdata, message):
     #print(message.topic)
     if message.topic==topic3:
-        global pre_trackid
+        global pre_trackid,old_x,old_y
         #nonlocal pre_time
         #curr_time = round(time.time() * 1000)
         #time_diff = curr_time - pre_time
@@ -190,16 +192,38 @@ def handle_mqtt_message(client, userdata, message):
         print("payload="+xyz)
         real_xyz=xyz.split(",")
         print(real_xyz)
-        x=-1*float(real_xyz[0]) * 1000
-        y=-1*float(real_xyz[1]) * 1000
+        #print(old_x)
+        #print(old_y)
+        #print(pre_trackid)
+        real_x=int(float(real_xyz[0]) * 1000)
+        real_y=int(float(real_xyz[1]) * 1000)
+        x=1*real_x
+        y=1*real_y
         if not r.exists("pre_trackid"):
-            r.set("pre_track_id","0")
+            r.set("pre_trackid","0")
         else:
-            pre_trackid=r.get("pre_track_id")
+            pre_trackid=r.get("pre_trackid")
         if pre_trackid==real_xyz[2]:
+            print(" pre_trackid:"+pre_trackid)
             return
         else:
-            r.set("pre_track_id",real_xyz[2])
+            r.set("pre_trackid",real_xyz[2])
+        if not r.exists("old_x"):
+            r.set("old_x","0")
+        else:
+            old_x=r.get("old_x")
+        if not r.exists("old_y"):
+            r.set("old_y","0")
+        else:
+            old_y=r.get("old_y")
+        if abs(float(old_x)-x)<10 and abs(float(old_y)-y)<10:
+            print("return")
+            print(abs((float(old_x)-x)))
+            print(abs((float(old_y)-y)))
+            return
+        else:
+            r.set("old_x",str(real_x))
+            r.set("old_y",str(real_y))
 
         if( abs(x)> 10 or abs(y)>10) :
             move_x=" X"+str(x/35)
@@ -210,7 +234,9 @@ def handle_mqtt_message(client, userdata, message):
             print(cmd)
             if ret == 'ok':
                 print("ret==",ret)
-                r.set("global_camera_xy","0,0")
+                r.set("global_camera_xy",""+str(x)+","+str(y))
+                r.set("old_x",str(x))
+                r.set("old_y",str(y))
             #pub_ret=mqtt_client.publish(topic4,"22",qos=1) # subscribe topic
        #socketio.emit('mqtt_message', data=data)
 

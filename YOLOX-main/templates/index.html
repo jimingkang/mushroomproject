@@ -8,8 +8,6 @@
   <body>
    <canvas id="chartId" aria-label="chart" height="300" width="580"></canvas>
  <div id="main" style="height:300px;width:80%;border:1px solid #eecc11;padding:10px;"></div>
-
-
   <script type="text/javascript" charset="UTF-8">
         var labels =[];
         var datas = [];
@@ -32,11 +30,7 @@
     <script type="text/javascript" charset="UTF-8">
         // ????????
 
-        var update = function(recv){
-            var detections=recv.response
-            console.log("????????:" + detections);
-        // 负责对参数的解析
-
+ 
         var update = function(recv){
             var detections=recv.response
             console.log("处理后的时间数据:" + detections);
