@@ -228,8 +228,8 @@ def handle_mqtt_message(client, userdata, message):
             r.set("old_y",str(real_y))
 
         if( abs(x)> 10 or abs(y)>10) :
-            move_x=" X"+str(x/35)
-            move_y=" Y"+str(y/45) + " F100\r\n"
+            move_x=" X"+str(x/50)
+            move_y=" Y"+str(y/25) + " F100\r\n"
             cmd="G21 G91 G1 " +move_x+move_y 
             ret=command(ser, cmd)
             time.sleep(1)
