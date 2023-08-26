@@ -40,20 +40,22 @@ def setup(busnum=None):
 # ==========================================================================================
 def move_decrease_x():
 	global Current_x
-	Current_x += 25
+	Current_x += 1
 	if Current_x > Xmax:
 		Current_x = Xmax
-	pwm.write(14, 0, Current_x)   # CH14 <---> X axis
+	pwm.write(7, 0, Current_x)   # CH14 <---> X axis
 # ==========================================================================================
 # Control the servo connected to channel 14 of the servo control board to make the camera 
 # turning towards the negative direction of the x axis.
 # ==========================================================================================
 def move_increase_x():
 	global Current_x
-	Current_x -= 25
+	Current_x -=1 
 	if Current_x <= Xmin:
 		Current_x = Xmin
-	pwm.write(14, 0, Current_x)
+	pwm.write(7, 0, Current_x)
+    print(Current_x)
+    print(Xmin)
 # ==========================================================================================
 # Control the servo connected to channel 15 of the servo control board to make the camera 
 # turning towards the positive direction of the y axis. 
@@ -63,9 +65,9 @@ def move_increase_y():
 	Current_y += 25
 	if Current_y > Ymax:
 		Current_y = Ymax
-	pwm.write(15, 0, Current_y)   # CH15 <---> Y axis
-	pwm.write(6, 0, Current_y)   # CH15 <---> Y axis
-	pwm.write(5, 0, Current_y)   # CH15 <---> Y axis
+	pwm.write(2, 0, Current_y)   # CH15 <---> Y axis
+	pwm.write(1, 0, Current_y)   # CH15 <---> Y axis
+	pwm.write(0, 0, Current_y)   # CH15 <---> Y axis
 # ==========================================================================================
 # Control the servo connected to channel 15 of the servo control board to make the camera 
 # turning towards the negative direction of the y axis. 
@@ -75,9 +77,9 @@ def move_decrease_y():
 	Current_y -= 25
 	if Current_y <= Ymin:
 		Current_y = Ymin
-	pwm.write(15, 0, Current_y)
-	pwm.write(6, 0, Current_y)
-	pwm.write(5, 0, Current_y)
+	pwm.write(2, 0, Current_y)
+	pwm.write(1, 0, Current_y)
+	pwm.write(0, 0, Current_y)
 # ==========================================================================================		
 # Control the servos connected with channel 14 and 15 at the same time to make the camera 
 # move forward.
@@ -87,8 +89,9 @@ def home_x_y():
 	global Current_x
 	Current_y = home_y 
 	Current_x = home_x
-	pwm.write(14, 0, Current_x)
-	pwm.write(15, 0, Current_y)
+	pwm.write(0, 0, Current_x)
+	pwm.write(1, 0, Current_y)
+	pwm.write(2, 0, Current_y)
 
 def calibrate(x,y):
 	pwm.write(14, 0, (MaxPulse+MinPulse)/2+x)
