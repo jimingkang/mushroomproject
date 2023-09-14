@@ -3,7 +3,7 @@ from threading import Event
 from flask import Flask, render_template,request, jsonify
 from flask_mqtt import Mqtt
 #from flask_socketio import SocketIO
-import video_dir
+#import video_dir
 #import car_dir
 #import motor
 import redis
@@ -17,15 +17,15 @@ from time import sleep
 
 busnum = 1          # Edit busnum to 0, if you uses Raspberry Pi 1 or 0
 
-video_dir.setup(busnum=busnum)
+#video_dir.setup(busnum=busnum)
 #motor.setup(busnum=busnum)     # Initialize the Raspberry Pi GPIO connected to the DC motor. 
 #motor.setSpeed(40)
-video_dir.home_x_y()
+#video_dir.home_x_y()
 
 i=0
 
 
-#ser = serial.Serial("/dev/ttyACM0",115200)
+ser = serial.Serial("/dev/ttyACM0",115200)
 
 redis_server='192.168.254.26'
 broker=''
@@ -199,8 +199,10 @@ def handle_mqtt_message(client, userdata, message):
         #print(pre_trackid)
         real_x=int(float(real_xyz[0]) * 1000)
         real_y=int(float(real_xyz[1]) * 1000)
+        real_y=real_y
+        #real_x=real_x-25
         x=1*real_x
-        y=1*real_y
+        y=-1*real_y
         if not r.exists("pre_trackid"):
             r.set("pre_trackid","0")
         else:
@@ -218,16 +220,22 @@ def handle_mqtt_message(client, userdata, message):
             r.set("old_y","0")
         else:
             old_y=r.get("old_y")
-        if abs(float(old_x)-x)<10 and abs(float(old_y)-y)<10:
-            print("return")
-            print(abs((float(old_x)-x)))
-            print(abs((float(old_y)-y)))
-            return
-        else:
-            r.set("old_x",str(real_x))
-            r.set("old_y",str(real_y))
+        #if abs(float(old_x)-x)<10 and abs(float(old_y)-y)<10:
+         #   print("return")
+         #   print(abs((float(old_x)-x)))
+         #   print(abs((float(old_y)-y)))
+         #   return
+        #else:
+        #    r.set("old_x",str(real_x))
+        #    r.set("old_y",str(real_y))
 
         if( abs(x)> 10 or abs(y)>10) :
+            print("realx,y")
+            print(x)
+            print(y)
+            if(abs(x/50)>3 or abs(y/25)>3):
+                return 
+            r.set("mode","moving")
             move_x=" X"+str(x/50)
             move_y=" Y"+str(y/25) + " F100\r\n"
             cmd="G21 G91 G1 " +move_x+move_y 
@@ -239,6 +247,8 @@ def handle_mqtt_message(client, userdata, message):
                 r.set("global_camera_xy",""+str(x)+","+str(y))
                 r.set("old_x",str(x))
                 r.set("old_y",str(y))
+                r.set("mode","camera_ready")
+                
             #pub_ret=mqtt_client.publish(topic4,"22",qos=1) # subscribe topic
        #socketio.emit('mqtt_message', data=data)
 

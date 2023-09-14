@@ -61,7 +61,9 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
         y0 = int(box[1])
         x1 = int(box[2])
         y1 = int(box[3])
-        if score > 0.6:
+        print('mushroom size')
+        print(x1-x0)
+        if score > 0.3 and int(x1-x0)<100:
             #min_distance[0]=math.sqrt((x1-x0)*(x1-x0)+(y1-y0)*(y1-y0))
             #min_distance[1:5]=score,x0,y0,x1,y1,
             detections.append([x0,y0,x1,y1,score])
@@ -121,7 +123,7 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
             #    r.set("global_camera_xy",'0')
 
 
-            text = 'track_id:{}  {:.1f}% '.format(track_id % len(colors), score * 100)
+            text = 'id:{}  {:.1f}%,{},{}'.format(track_id % len(colors), score * 100,int((x1+x2)/2),int((y1+y2)/2))
             txt_color = (0, 0, 0) if np.mean(colors[track_id % len(colors)]) > 0.5 else (255, 255, 255)
             font = cv2.FONT_HERSHEY_SIMPLEX
             txt_size = cv2.getTextSize(text, font, 0.4, 1)[0]
@@ -129,19 +131,22 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
             cv2.rectangle(img, (x1, y1 + 1), (x1 + txt_size[0] + 1, y1 + int(1.5 * txt_size[1])), txt_bk_color, -1)
             cv2.putText(img, text, (x1, y1 + txt_size[1]), font, 0.4, txt_color, thickness=1)
             cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (colors[track_id % len(colors)]), 1)
+            cv2.circle(img, (int((x1+x2)/2), int((y1+y2)/2)), 4, (255, 255, 255), 1)
+            #cv2.putText(img, 'xy:{} {} '.format(str((x1+x2)/2), str((y1+y2)/2)), ((x1+x2)/2, (y1+y2)/2), font, 0.4, txt_color, thickness=1)
+
 
 
             #ret=move_subcribe.run(val)#mqtt_get_value_blocking()
-            if  count>20:
-            #if  r.exists("global_mode") and r.get("global_mode")=="camera":
+            if count>20  and  ( (int((x1 + x2) / 2)>440 or int((x1 + x2) / 2)<400) or (int((y1 +y2) / 2)>260 or int((y1 + y2) / 2)<220)):
+            #if  r.get("global_mode")=="camera_ready":
                 count=0
-                print("file count=",count)
+                print("count=",count)
                 coordx = "" + str(int((x1 + x2) / 2)) + "," + str(int((y1 + y2) / 2)) + "," + str(track_id) + ";"
                 coordx = coordx[0:len(coordx) - 1]
                 print("coordx=",coordx)
                 xyz_publish.run(coordx)
-            else:
-                r.set("global_mode","gripper")
+            #else:
+            #    r.set("mode","gripper")
 
 
 
