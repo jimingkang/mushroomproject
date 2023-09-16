@@ -14,6 +14,7 @@ import redis
 
 #import fcntl
 import xyz_publish
+import pickup_publish
 from tracker import Tracker
 __all__ = ["vis"]
 
@@ -22,7 +23,8 @@ from paho.mqtt import client as mqtt_client
 broker = '10.0.0.134'
 port = 1883
 topic = "/flask/scan"
-topic4 = "/flask/downmove"
+#topic4 = "/flask/downmove"
+topic4 = "/flask/pickup"
 # generate client ID with pub prefix randomly
 client_id = f'python-mqtt-{random.randint(0, 100)}'
 
@@ -137,7 +139,7 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
 
 
             #ret=move_subcribe.run(val)#mqtt_get_value_blocking()
-            if count>20  and  ( (int((x1 + x2) / 2)>440 or int((x1 + x2) / 2)<400) or (int((y1 +y2) / 2)>260 or int((y1 + y2) / 2)<220)):
+            if count>20  and  ( (int((x1 + x2) / 2)>440 or int((x1 + x2) / 2)<400) or (int((y1 +y2) / 2)>(260+0) or int((y1 + y2) / 2)<(220+0))):
             #if  r.get("global_mode")=="camera_ready":
                 count=0
                 print("count=",count)
@@ -145,6 +147,9 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
                 coordx = coordx[0:len(coordx) - 1]
                 print("coordx=",coordx)
                 xyz_publish.run(coordx)
+            #if(int((x1 + x2) / 2)<480 and int((x1 + x2) / 2)>370) and (int((y1 +y2) / 2)<300 and int((y1 + y2) / 2)>200):
+             #   r.set("mode","pickup_ready")
+              #  pub_ret=pickup_publish.run(topic4,"50") # subscribe topic
             #else:
             #    r.set("mode","gripper")
 
