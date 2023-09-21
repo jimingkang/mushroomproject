@@ -32,6 +32,7 @@ from utils.datasets import LoadStreams, LoadImages, letterbox
 from models.experimental import attempt_load
 import torch.backends.cudnn as cudnn
 import torch
+import myutils as ut
 #torch.cuda.is_available()
 pipeline = rs.pipeline()  # 定义流程pipeline
 config = rs.config()  # 定义配置config
@@ -44,16 +45,7 @@ colors = [(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255
 detection_threshold = 0.5
 
 
-broker=''
-redis_server=''
-try:
-    for line in open("../ip.txt"):
-        if line[0:6] == "broker":
-            broker = line[9:len(line)-1]
-        if line[0:6] == "reddis":
-            redis_server=line[9:len(line)-1]
-except:
-    pass
+broker,redis_server=ut.getbroker()
 print(broker)
 print(redis_server)
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
@@ -61,8 +53,6 @@ r = redis.Redis(connection_pool=pool)
 
 app = Flask(__name__)
 app.config['MQTT_BROKER_URL'] = broker
-#app.config['MQTT_BROKER_URL'] =  '192.168.254.43'
-#app.config['MQTT_BROKER_URL'] = '10.0.0.18'
 app.config['MQTT_BROKER_PORT'] = 1883
 app.config['MQTT_USERNAME'] = ''  # Set this item when you need to verify username and password
 app.config['MQTT_PASSWORD'] = ''  # Set this item when you need to verify username and password
@@ -324,6 +314,8 @@ class Camera(BaseCamera):
         if rc == 0:
             print('Connected successfully')
             mqtt_client.subscribe(topic2)  # subscribe topic
+            mqtt_client.publish(topic,"192.168.254.42")  # subscribe topic
+
         else:
             print('Bad connection. Code:', rc)
 
