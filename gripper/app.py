@@ -3,7 +3,7 @@ from threading import Event
 from flask import Flask, render_template,request, jsonify
 from flask_mqtt import Mqtt
 #from flask_socketio import SocketIO
-import video_dir
+#import video_dir
 #import car_dir
 #import motor
 import redis
@@ -17,15 +17,15 @@ from time import sleep
 
 busnum = 1          # Edit busnum to 0, if you uses Raspberry Pi 1 or 0
 
-video_dir.setup(busnum=busnum)
+#video_dir.setup(busnum=busnum)
 #motor.setup(busnum=busnum)     # Initialize the Raspberry Pi GPIO connected to the DC motor. 
 #motor.setSpeed(40)
-video_dir.home_x_y()
+#video_dir.home_x_y()
 
 i=0
 
 
-#ser = serial.Serial("/dev/ttyACM0",115200)
+ser = serial.Serial("/dev/ttyACM0",115200)
 
 redis_server='192.168.254.26'
 broker=''
@@ -54,7 +54,9 @@ app.config['MQTT_TLS_ENABLED'] = False  # If your server supports TLS, set it Tr
 topic = '/flask/scan'
 topic2 = '/flask/xyz'
 topic3 = '/flask/serial'
-topic4 = '/flask/downmove'
+topic4 = '/flask/pickup'
+topic5 = '/flask/collection'
+topic6 = '/flask/drop'
 mqtt_client = Mqtt(app)
 y=0
 #app.config.from_object(config)
@@ -169,8 +171,9 @@ def msg():
 @mqtt_client.on_connect()
 def handle_connect(client, userdata, flags, rc):
    if rc == 0:
-       print('Connected successfully')
-       mqtt_client.subscribe(topic3) # subscribe topic
+        print('Connected successfully')
+        mqtt_client.subscribe(topic3) # subscribe topic
+        #mqtt_client.subscribe(topic5) # subscribe topic
    else:
        print('Bad connection. Code:', rc)
 
@@ -180,25 +183,31 @@ old_y=0
 @mqtt_client.on_message()
 def handle_mqtt_message(client, userdata, message):
     #print(message.topic)
-    if message.topic==topic3:
-        global pre_trackid,old_x,old_y
-        #nonlocal pre_time
-        #curr_time = round(time.time() * 1000)
-        #time_diff = curr_time - pre_time
-        #pre_time = curr_time
-        #if time_diff < 1000:
-        #    return
+    if message.topic==topic5:
         data = dict(topic=message.topic,payload=message.payload.decode())
         print('Received message on topic: {topic} with payload: {payload}'.format(**data))
         xyz=data['payload']
         print("payload="+xyz)
+        camers_xy=r.get("global_camera_xy").split(",")
+        move_x=" X"+str(-1*int(camers_xy[0])/25)
+        move_y=" Y"+str(-1*int(camers_xy[1])/25) + " F500\r\n"
+        cmd="G21 G91 G1 " +move_x+move_y 
+        ret=command(ser, cmd)
+        time.sleep(1)
+        print(cmd)
+        if ret == 'ok':
+            pub_ret=mqtt_client.publish(topic6,"drop") # subscribe topic
+    if message.topic==topic3:
+        global pre_trackid,old_x,old_y
+        data = dict(topic=message.topic,payload=message.payload.decode())
+        print('Received message on topic: {topic} with payload: {payload}'.format(**data))
+        xyz=data['payload']
         real_xyz=xyz.split(",")
         print(real_xyz)
-        #print(old_x)
-        #print(old_y)
-        #print(pre_trackid)
         real_x=int(float(real_xyz[0]) * 1000)
         real_y=int(float(real_xyz[1]) * 1000)
+        real_y=real_y-60
+        #real_x=real_x-25
         x=1*real_x
         y=1*real_y
         if not r.exists("pre_trackid"):
@@ -218,18 +227,26 @@ def handle_mqtt_message(client, userdata, message):
             r.set("old_y","0")
         else:
             old_y=r.get("old_y")
-        if abs(float(old_x)-x)<10 and abs(float(old_y)-y)<10:
-            print("return")
-            print(abs((float(old_x)-x)))
-            print(abs((float(old_y)-y)))
-            return
-        else:
-            r.set("old_x",str(real_x))
-            r.set("old_y",str(real_y))
+        #if abs(float(old_x)-x)<10 and abs(float(old_y)-y)<10:
+         #   print("return")
+         #   print(abs((float(old_x)-x)))
+         #   print(abs((float(old_y)-y)))
+         #   return
+        #else:
+        #    r.set("old_x",str(real_x))
+        #    r.set("old_y",str(real_y))
 
         if( abs(x)> 10 or abs(y)>10) :
-            move_x=" X"+str(x/50)
-            move_y=" Y"+str(y/25) + " F100\r\n"
+            print("realx,y")
+            print(x)
+            print(y)
+            print("\n")
+            if(abs(x/50)>3 or abs(y/25)>3):
+                return 
+            #r.set("mode","moving")
+            #move_x=" X"+str(x/50)
+            move_x=" X"+str(x/25)
+            move_y=" Y"+str(y/25) + " F500\r\n"
             cmd="G21 G91 G1 " +move_x+move_y 
             ret=command(ser, cmd)
             time.sleep(1)
@@ -239,7 +256,13 @@ def handle_mqtt_message(client, userdata, message):
                 r.set("global_camera_xy",""+str(x)+","+str(y))
                 r.set("old_x",str(x))
                 r.set("old_y",str(y))
-            #pub_ret=mqtt_client.publish(topic4,"22",qos=1) # subscribe topic
+                print(abs(x))
+                print(abs(y))
+                #if(abs(x)<15 and abs(y)<(15)):
+                pub_ret=mqtt_client.publish(topic4,"50") # subscribe topic
+                #    print("test if send pickup ")
+                r.set("mode","pickup_ready")
+                 #   print("ready for pickup")
        #socketio.emit('mqtt_message', data=data)
 
 @app.route('/publish', methods=['POST'])

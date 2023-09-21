@@ -29,27 +29,28 @@ from yolox.utils import fuse_model, get_model_info, postprocess, vis
 
 from paho.mqtt import client as mqtt_client
 
-
+ip=''
 broker=''
 redis_server=''
 try:
     for line in open("../ip.txt"):
         if line[0:6] == "broker":
             broker = line[9:len(line)-1]
-        if line[0:5] == "redis":
+        if line[0:5] == "reddis":
             redis_server=line[9:len(line)-1]
 except:
     pass
 print(broker+" "+redis_server)
-pool = redis.ConnectionPool(host='192.168.254.26', port=6379, decode_responses=True,password='jimmy')
+print(broker)
+
+pool = redis.ConnectionPool(host="192.168.254.26", port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
 
-broker=broker.replace("\r\n","").replace("\n","")
-print(broker)
-#broker = '192.168.254.42'
-#broker = '10.0.0.134'
+
 port = 1883
-topic = "/flask/scan"
+topic = '/flask/mqtt'
+topic2 = '/flask/xyz'
+topic3 = '/flask/serial'
 topic4 = "/flask/downmove"
 # generate client ID with pub prefix randomly
 client_id = f'python-mqtt-{random.randint(0, 100)}'
@@ -266,35 +267,23 @@ class Predictor(object):
 
 
 
-def connect_mqtt():
-    def on_connect(client, userdata, flags, rc):
-        if rc == 0:
-            i=1
-            #print("xyx publish Connected to MQTT Broker!")
-        else:
-            i=0
-            #print("Failed to connect, return code %d\n", rc)
-
-    client = mqtt_client.Client(client_id)
-    client.on_connect = on_connect
-    client.connect(broker, port)
-    return client
-
-
-
+ip=''
 #yolov8_detector = YOLOv8(model_path, conf_thres=0.5, iou_thres=0.5)
 class Camera(BaseCamera):
     """Requires python-v4l2capture module: https://github.com/gebart/python-v4l2capture"""
 
     video_source = "/dev/video0"
-
+    #def __init__(self):
+    #    global ip
+        #ip=newip
+        #self.ip=ip
 
     @staticmethod
     def frames():
         ip=broker.strip().replace("\n","")
         print(ip)
-        #video = cv2.VideoCapture("http://10.0.0.134:5000/video_feed")
-        video = cv2.VideoCapture("http://"+ip+":5000/video_feed")
+        video = cv2.VideoCapture("http://192.168.254.42:5000/video_feed")
+        #video = cv2.VideoCapture("http://"+ip+":5000/video_feed")
         #video = cv2.VideoCapture(Camera.video_source,cv2.CAP_V4L2)
         #video = v4l2capture.Video_device(Camera.video_source)
 
@@ -304,9 +293,6 @@ class Camera(BaseCamera):
         video.set(cv2.CAP_PROP_FRAME_HEIGHT, size_y)
         video.set(cv2.CAP_PROP_FPS, 30)
         bio = io.BytesIO()
-        ##client = connect_mqtt()
-        #client.loop_start()
-        #client.publish("/flask/serial", "0,0,0")
 
 
         args = make_parser().parse_args()
@@ -325,8 +311,11 @@ class Camera(BaseCamera):
                 #count = (count + 1) % 10000
 
                 if ret:
-                    outputs, img_info = predictor.inference(img)
-                    result_frame = predictor.visual(outputs[0], img_info, predictor.confthre)
+                    if r.get("mode")=="camera_ready":
+                        outputs, img_info = predictor.inference(img)
+                        result_frame = predictor.visual(outputs[0], img_info, predictor.confthre)
+                    else:
+                        result_frame=img
                     #cv2.namedWindow("yolox", cv2.WINDOW_NORMAL)
                     #cv2.imshow("yolox", result_frame)
                 yield cv2.imencode('.jpg', result_frame)[1].tobytes()

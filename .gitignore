@@ -54,3 +54,6 @@ docs/_build/
 target/
 ip.txt
 */.idea/
+*.rdb
+gripper/*.rdb
+YOLOX-main/*.rdb
