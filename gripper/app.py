@@ -1,9 +1,9 @@
 from threading import Event
-
+import requests
 from flask import Flask, render_template,request, jsonify
 from flask_mqtt import Mqtt
 #from flask_socketio import SocketIO
-#import video_dir
+import video_dir
 #import car_dir
 #import motor
 import redis
@@ -136,23 +136,23 @@ def  autopick():
 
 @app.route('/forward')
 def forward():
-    #move_forward();
-    video_dir.move_decrease_x()
+    move_forward();
+    #video_dir.move_decrease_x()
     return render_template('index.html');
 @app.route('/backward')
 def backward():
-    #move_backward();
-    video_dir.move_increase_x()
+    move_backward();
+    #video_dir.move_increase_x()
     return render_template('index.html');
 
 #83.3
 def move_forward():
     #Moving forward code
-    command(ser, "G21 G91 G1 Y-3 F2540\r\n")
+    command(ser, "G21 G91 G1 Y-1 F500\r\n")
     #video_dir.move_decrease_y()
     return 'Moving Forward...!'
 def move_backward():
-    command(ser, "G21 G91 G1  Y3 F2540\r\n")
+    command(ser, "G21 G91 G1  Y1 F500\r\n")
     #video_dir.move_increase_y()
     return 'Moving Backward...!'
 
@@ -206,7 +206,8 @@ def handle_mqtt_message(client, userdata, message):
         print(real_xyz)
         real_x=int(float(real_xyz[0]) * 1000)
         real_y=int(float(real_xyz[1]) * 1000)
-        real_y=real_y-60
+        real_y=real_y-75
+        real_x=real_x
         #real_x=real_x-25
         x=1*real_x
         y=1*real_y
@@ -217,8 +218,9 @@ def handle_mqtt_message(client, userdata, message):
         if pre_trackid==real_xyz[2]:
             print(" pre_trackid:"+pre_trackid)
             return
-        else:
-            r.set("pre_trackid",real_xyz[2])
+        #else:
+        r.set("pre_trackid",real_xyz[2])
+            #r.set("pre_trackid",real_xyz[2])
         if not r.exists("old_x"):
             r.set("old_x","0")
         else:
@@ -241,16 +243,17 @@ def handle_mqtt_message(client, userdata, message):
             print(x)
             print(y)
             print("\n")
-            if(abs(x/50)>3 or abs(y/25)>3):
-                return 
+            #if(abs(x/50)>3 or abs(y/25)>3):
+            #    return 
             #r.set("mode","moving")
             #move_x=" X"+str(x/50)
             move_x=" X"+str(x/25)
             move_y=" Y"+str(y/25) + " F500\r\n"
             cmd="G21 G91 G1 " +move_x+move_y 
+            
             ret=command(ser, cmd)
             time.sleep(1)
-            print(cmd)
+            print(cmd,ret)
             if ret == 'ok':
                 print("ret==",ret)
                 r.set("global_camera_xy",""+str(x)+","+str(y))
@@ -258,10 +261,12 @@ def handle_mqtt_message(client, userdata, message):
                 r.set("old_y",str(y))
                 print(abs(x))
                 print(abs(y))
-                #if(abs(x)<15 and abs(y)<(15)):
-                pub_ret=mqtt_client.publish(topic4,"50") # subscribe topic
-                #    print("test if send pickup ")
+                ret_ok=requests.get("http://172.26.52.69:8888/pickup")
+                print(ret_ok)
                 r.set("mode","pickup_ready")
+                #if(abs(x)<15 and abs(y)<(15)):
+                #pub_ret=mqtt_client.publish(topic4,"50") # subscribe topic
+                #    print("test if send pickup ")
                  #   print("ready for pickup")
        #socketio.emit('mqtt_message', data=data)
 

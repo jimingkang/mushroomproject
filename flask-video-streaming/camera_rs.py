@@ -314,7 +314,7 @@ class Camera(BaseCamera):
         if rc == 0:
             print('Connected successfully')
             mqtt_client.subscribe(topic2)  # subscribe topic
-	        mqtt_client.subscribe(topic)
+            mqtt_client.subscribe(topic)
         else:
             print('Bad connection. Code:', rc)
 
