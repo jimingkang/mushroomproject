@@ -110,7 +110,7 @@ def  test():
 
 @app.route('/catch')
 def catch():
-    video_dir.move_increase_y()
+    video_dir.move_increase_y(50)
     #motor.forward()
     #time.sleep(0.5)
     #motor.ctrl(0)
@@ -119,7 +119,7 @@ def catch():
 
 @app.route('/release')
 def  release():
-    video_dir.move_decrease_y()
+    video_dir.move_decrease_y(50)
     #motor.backward()
     #time.sleep(0.5)
     #motor.ctrl(0)
@@ -137,27 +137,39 @@ def  autopick():
 @app.route('/forward')
 def forward():
     #move_forward();
-    video_dir.move_decrease_x()
+    video_dir.move_decrease_x(30)
     return render_template('index.html');
 @app.route('/backward')
 def backward():
     #move_backward();
-    video_dir.move_increase_x()
+    video_dir.move_increase_x(30)
     return render_template('index.html');
 
 #83.3
 def move_forward():
     #Moving forward code
-    command(ser, "G21 G91 G1 Y-3 F2540\r\n")
+    command(ser, "G21 G91 G1 Y-3 F500\r\n")
     #video_dir.move_decrease_y()
     return 'Moving Forward...!'
 def move_backward():
-    command(ser, "G21 G91 G1  Y3 F2540\r\n")
+    command(ser, "G21 G91 G1  Y3 F500\r\n")
     #video_dir.move_increase_y()
     return 'Moving Backward...!'
 
 
-
+@app.route("/pickup")
+def pickup():
+    time.sleep(1)
+    video_dir.move_increase_x(50)
+    time.sleep(1)
+    video_dir.move_increase_y(100)
+    time.sleep(1)
+    video_dir.move_decrease_x(50)
+    time.sleep(1)
+    video_dir.move_decrease_y(100)
+    time.sleep(1)
+    r.set("mode","camera_ready")
+    return "OK"
 
  
 @app.route('/')
@@ -202,13 +214,13 @@ def handle_mqtt_message(client, userdata, message):
         print(real_z)
         time.sleep(2)
         video_dir.move_increase_x()
-        time.sleep(2)
-        video_dir.move_increase_y()
+        #time.sleep(2)
+        video_dir.move_increase_y(50)
         time.sleep(1)
         video_dir.move_decrease_x()
         time.sleep(1)
         r.set("mode","camera_ready")
-        video_dir.move_decrease_y()
+        video_dir.move_decrease_y(50)
         time.sleep(1)
         #pub_ret=mqtt_client.publish(topic5,"collection") # subscribe topic
        #socketio.emit('mqtt_message', data=data)
