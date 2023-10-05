@@ -14,7 +14,6 @@ try:
 except:
     pass
 
-broker = '192.168.254.42'
 print("BROKER:", broker)
 broker = broker
 #broker = '10.0.0.134'
@@ -59,4 +58,4 @@ def run(topic,cmd):
 
 
 if __name__ == '__main__':
-    run('/flask/serial','G21 G91 G1 X134 F2540')
+    run('/flask/serial','G21 G91 G1 X1 F500')
