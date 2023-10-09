@@ -1,35 +1,43 @@
 import io
 import random
-
+import redis
 from ultralytics import YOLO
 from base_camera import BaseCamera
 import cv2
 from tracker import Tracker
 #import move_subcribe
-#import xyz_publish
+import xyz_publish
 #from ultralytics.utils.plotting import Annotator
 
 from paho.mqtt import client as mqtt_client
 
 count = 0
+ip=''
 broker=''
+redis_server=''
 try:
-    for line in open("ip.txt"):
+    for line in open("../ip.txt"):
         if line[0:6] == "broker":
-            broker = line[9:len(line)]
+            broker = line[9:len(line)-1]
+        if line[0:6] == "reddis":
+            redis_server=line[9:len(line)-1]
 except:
     pass
 print(broker)
+print(redis_server)
+pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
+r = redis.Redis(connection_pool=pool)
+
 #broker = '192.168.254.42'
 #broker = '10.0.0.134'
 port = 1883
-topic = "/flask/scan"
+topic = "/flask/xyz"
 topic4 = "/flask/downmove"
 # generate client ID with pub prefix randomly
 client_id = f'python-mqtt-{random.randint(0, 100)}'
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
-model = YOLO('best_v2.engine',task="segment")  # pretrained YOLOv8n model
+model = YOLO('best_v3.engine',task="segment")  # pretrained YOLOv8n model
 
 tracker = Tracker()
 
@@ -49,15 +57,17 @@ def connect_mqtt():
     return client
 
 
+def takeSecond(ele):
+    return abs(ele[0]-ele[2])
+
 class Camera(BaseCamera):
     """Requires python-v4l2capture module: https://github.com/gebart/python-v4l2capture"""
 
     video_source = "/dev/video0"
-
     @staticmethod
     def frames():
         #video = cv2.VideoCapture(0)
-        video = cv2.VideoCapture("http://10.0.0.241:5000/video_feed")
+        video = cv2.VideoCapture("http://172.26.52.69:5000/video_feed")
         size_x =1280
         size_y = 720
         video.set(cv2.CAP_PROP_FRAME_WIDTH, size_x)
@@ -97,13 +107,15 @@ class Camera(BaseCamera):
                             y0 = int(xyz[1])
                             x1 = int(xyz[2])
                             y1 = int(xyz[3])
-                            detections.append([x0, y0, x1, y1, conf[i]*100])
+                            if conf[i]*100>50:
+                                detections.append([x0, y0, x1, y1, conf[i]*100])
+                        detections.sort(key=takeSecond,reverse=True)
                         new_detections=[]
                         if len(detections) > 0:
                             new_detections.append(detections[0])
                             #global pre_tracker
                             #pre_tracker = tracker
-                            tracker.update(img, detections)
+                            tracker.update(img, new_detections)
                             for track in tracker.tracks:
                                 bbox = track.bbox
                                 x1, y1, x2, y2 = bbox
@@ -116,9 +128,17 @@ class Camera(BaseCamera):
                                 text = 'trackid:{},{:.1f}%'.format(track_id,conf[i] * 100)
                                 font = cv2.FONT_HERSHEY_SIMPLEX
                                 txt_size = cv2.getTextSize(text, font, 0.4, 1)[0]
-                                cv2.rectangle(img, (x0, y0), (x1, y1), (255, 0, 0), 1)
-                                cv2.putText(img, text, (x0, y0 + txt_size[1]), font, 0.4, (0, 255, 0), thickness=1)
-
+                                cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 0), 1)
+                                cv2.putText(img, text, (x1, y1 + txt_size[1]), font, 0.4, (0, 255, 0), thickness=1)
+                            
+                                if count>20  and  ( (int((x1 + x2) / 2)>440 or int((x1 + x2) / 2)<400) or (int((y1 +y2) / 2)>(260+0) or int((y1 + y2) / 2)<(220+0))):
+                                #if  r.get("global_mode")=="camera_ready":
+                                    count=0
+                                    print("count=",count)
+                                    coordx = "" + str(int((x1 + x2) / 2)) + "," + str(int((y1 + y2) / 2)) + "," + str(track_id) + ";"
+                                    coordx = coordx[0:len(coordx) - 1]
+                                    print("coordx=",coordx)
+                                    xyz_publish.run(coordx)
 
 
                 yield cv2.imencode('.jpg', img)[1].tobytes()
