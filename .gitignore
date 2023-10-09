@@ -57,3 +57,6 @@ ip.txt
 *.rdb
 gripper/*.rdb
 YOLOX-main/*.rdb
+yolov8/best_v3.onnx
+yolov8/best_v3.engine
+yolov8/best_v3.pt

@@ -55,7 +55,7 @@ topic = '/flask/scan'
 topic2 = '/flask/xyz'
 topic3 = '/flask/serial'
 topic4 = '/flask/pickup'
-topic5 = '/flask/collection'
+topic5 = '/flask/home'
 topic6 = '/flask/drop'
 mqtt_client = Mqtt(app)
 y=0
@@ -99,8 +99,8 @@ def command(ser, command):
         #wait_for_movement_completion(ser, command)
         #grbl_out = ser.readline()  # Wait for response with carriage return
         #print(" : ", grbl_out.strip().decode('utf-8'))
-    return 'ok'
-    #return grbl_out.strip().decode('utf-8')
+        return 'ok'
+        #return grbl_out.strip().decode('utf-8')
 
 
 @app.route('/test')
@@ -131,6 +131,11 @@ def  autopick():
     command(ser, "G21 G91 G1 X1 F2540\r\n")
     return render_template('index.html');
 
+@app.route('/home')
+def  home():
+    #publish_result = mqtt_client.publish(topic, "/flask/home")
+    command(ser, "G28 G91  X1 Y0 F500\r\n")
+    return render_template('index.html');
 
 
 
@@ -188,10 +193,10 @@ def handle_mqtt_message(client, userdata, message):
         print('Received message on topic: {topic} with payload: {payload}'.format(**data))
         xyz=data['payload']
         print("payload="+xyz)
-        camers_xy=r.get("global_camera_xy").split(",")
-        move_x=" X"+str(-1*int(camers_xy[0])/25)
-        move_y=" Y"+str(-1*int(camers_xy[1])/25) + " F500\r\n"
-        cmd="G21 G91 G1 " +move_x+move_y 
+        #camers_xy=r.get("global_camera_xy").split(",")
+        #move_x=" X"+str(-1*int(camers_xy[0])/25)
+        #move_y=" Y"+str(-1*int(camers_xy[1])/12) + " F500\r\n"
+        cmd="G28 G91 X0 Y0 F500 \r\n" #+move_x+move_y 
         ret=command(ser, cmd)
         time.sleep(1)
         print(cmd)
@@ -206,7 +211,7 @@ def handle_mqtt_message(client, userdata, message):
         print(real_xyz)
         real_x=int(float(real_xyz[0]) * 1000)
         real_y=int(float(real_xyz[1]) * 1000)
-        real_y=real_y-75
+        real_y=real_y-60
         real_x=real_x
         #real_x=real_x-25
         x=1*real_x
@@ -248,7 +253,7 @@ def handle_mqtt_message(client, userdata, message):
             #r.set("mode","moving")
             #move_x=" X"+str(x/50)
             move_x=" X"+str(x/25)
-            move_y=" Y"+str(y/25) + " F500\r\n"
+            move_y=" Y"+str(y/12) + " F500\r\n"
             cmd="G21 G91 G1 " +move_x+move_y 
             
             ret=command(ser, cmd)
@@ -261,9 +266,9 @@ def handle_mqtt_message(client, userdata, message):
                 r.set("old_y",str(y))
                 print(abs(x))
                 print(abs(y))
+                r.set("mode","pickup_ready")
                 ret_ok=requests.get("http://172.26.52.69:8888/pickup")
                 print(ret_ok)
-                r.set("mode","pickup_ready")
                 #if(abs(x)<15 and abs(y)<(15)):
                 #pub_ret=mqtt_client.publish(topic4,"50") # subscribe topic
                 #    print("test if send pickup ")
