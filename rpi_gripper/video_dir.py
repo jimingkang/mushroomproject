@@ -73,9 +73,9 @@ def move_increase_y(angle):
 	Current_y += angle
 	if Current_y > Ymax:
 		Current_y = Ymax
-	pwm.write(6, 0, Current_y)   # CH15 <---> Y axis
-	pwm.write(7, 0, Current_y)   # CH15 <---> Y axis
-	pwm.write(5,0, Current_y)   # CH15 <---> Y axis
+	pwm.write(1, 0, Current_y)   # CH15 <---> Y axis
+	pwm.write(5, 0, Current_y)   # CH15 <---> Y axis
+	pwm.write(6,0, Current_y)   # CH15 <---> Y axis
 # ==========================================================================================
 # Control the servo connected to channel 15 of the servo control board to make the camera 
 # turning towards the negative direction of the y axis. 
@@ -85,9 +85,9 @@ def move_decrease_y(angle):
 	Current_y -= angle
 	if Current_y <= Ymin:
 		Current_y = Ymin
-	pwm.write(6, 0, Current_y)
-	pwm.write(7, 0, Current_y)
+	pwm.write(1, 0, Current_y)
 	pwm.write(5, 0, Current_y)
+	pwm.write(6, 0, Current_y)
 # ==========================================================================================		
 # Control the servos connected with channel 14 and 15 at the same time to make the camera 
 # move forward.

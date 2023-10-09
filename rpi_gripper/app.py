@@ -127,10 +127,15 @@ def  release():
 
 @app.route('/autoscan')
 def  autopick():
-    publish_result = mqtt_client.publish(topic, "flask/scan")
+    publish_result = mqtt_client.publish(topic, "/flask/scan")
     command(ser, "G21 G91 G1 X1 F500\r\n")
     return render_template('index.html');
 
+@app.route('/home')
+def  home():
+    publish_result = mqtt_client.publish(topic, "/flask/home")
+    #command(ser, "G28 G91  X0 Y0 F500\r\n")
+    return render_template('index.html');
 
 
 
@@ -159,17 +164,16 @@ def move_backward():
 
 @app.route("/pickup")
 def pickup():
-    time.sleep(1)
-    video_dir.move_increase_x(50)
-    time.sleep(1)
-    video_dir.move_increase_y(100)
-    time.sleep(1)
-    video_dir.move_decrease_x(50)
-    time.sleep(1)
-    video_dir.move_decrease_y(100)
-    time.sleep(1)
-    r.set("mode","camera_ready")
-    return "OK"
+    if 1:#r.get("mode")=="pickup_ready":
+        video_dir.move_increase_x(50)
+        time.sleep(1)
+        video_dir.move_increase_y(150)
+        time.sleep(1)
+        video_dir.move_decrease_x(50)
+        time.sleep(1)
+        video_dir.move_decrease_y(150)
+        r.set("mode","camera_ready")
+        return "OK"
 
  
 @app.route('/')
