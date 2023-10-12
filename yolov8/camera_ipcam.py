@@ -107,7 +107,7 @@ class Camera(BaseCamera):
                             y0 = int(xyz[1])
                             x1 = int(xyz[2])
                             y1 = int(xyz[3])
-                            if conf[i]*100>50:
+                            if (conf[i]*100)>50:
                                 detections.append([x0, y0, x1, y1, conf[i]*100])
                         detections.sort(key=takeSecond,reverse=True)
                         new_detections=[]
@@ -125,13 +125,13 @@ class Camera(BaseCamera):
                                 y2 = int(bbox[3])
                                 # score=int(bbox[4])
                                 track_id = track.track_id
-                                text = 'trackid:{},{:.1f}%'.format(track_id,conf[i] * 100)
+                                text = 'id:{},{:.1f}%,x1y1:{},{},x2y2:{},{}'.format(track_id,conf[i] * 100,x1,y1,x2,y2)
                                 font = cv2.FONT_HERSHEY_SIMPLEX
                                 txt_size = cv2.getTextSize(text, font, 0.4, 1)[0]
                                 cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 0), 1)
                                 cv2.putText(img, text, (x1, y1 + txt_size[1]), font, 0.4, (0, 255, 0), thickness=1)
                             
-                                if count>20  and  ( (int((x1 + x2) / 2)>440 or int((x1 + x2) / 2)<400) or (int((y1 +y2) / 2)>(260+0) or int((y1 + y2) / 2)<(220+0))):
+                                if count>20 and (x2<800 and x1>50) and (y2<450 and y1>50) and (abs(x1-x2)>5 and abs(x1-x2)<200) and (abs(y1-y2)<200 and abs(y2-y1)>5) and abs(abs(x1-x2)-abs(y1-y2))<10 and  ( (int((x1 + x2) / 2)>440 or int((x1 + x2) / 2)<400) or (int((y1 +y2) / 2)>(260+0) or int((y1 + y2) / 2)<(220+0))):
                                 #if  r.get("global_mode")=="camera_ready":
                                     count=0
                                     print("count=",count)
