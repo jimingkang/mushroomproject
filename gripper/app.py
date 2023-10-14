@@ -117,28 +117,11 @@ def command(ser, command):
         #return grbl_out.strip().decode('utf-8')
 
 
-@app.route('/zerosetting')
+@app.route('/scan')
 def  test():
     global prev_value
     #video_dir.move_decrease_y()
-    command(ser, "G21 G91 G1 Y-100 F500\r\n")
-    try:
-        while True:
-            value = GPIO.input(input_pin)
-            print("Value read from pin {} : {}".format(input_pin,
-                                                           value))
-            if value != prev_value:
-                if value == GPIO.HIGH:
-                    value_str = "HIGH"
-                else:
-                    value_str = "LOW"
-                    command(ser, "M02\r\n")
-                    break
-                prev_value = value
-            time.sleep(0.1)
-    finally:
-        GPIO.cleanup()
-
+    r.set("mode","camera_ready")
     return render_template('index.html');
 
 @app.route('/catch')
@@ -167,7 +150,9 @@ def  autopick():
 @app.route('/home')
 def  home():
     #publish_result = mqtt_client.publish(topic, "/flask/home")
-    command(ser, "G28 G91  X1 Y0 F500\r\n")
+    command(ser, "$X\r\n")
+    time.sleep(1)
+    command(ser, "$H\r\n")
     return render_template('index.html');
 
 
