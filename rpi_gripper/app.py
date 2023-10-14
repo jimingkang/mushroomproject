@@ -27,7 +27,7 @@ i=0
 
 #ser = serial.Serial("/dev/ttyACM0",115200)
 
-redis_server='192.168.254.26'
+redis_server=''
 broker=''
 try:
     for line in open("../ip.txt"):
@@ -43,7 +43,6 @@ pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,
 r = redis.Redis(connection_pool=pool)
 app = Flask(__name__)
 app.config['MQTT_BROKER_URL'] = broker
-#app.config['MQTT_BROKER_URL'] = '10.0.0.134'
 #app.config['MQTT_BROKER_URL'] = '192.168.254.42'
 app.config['MQTT_BROKER_PORT'] = 1883
 app.config['MQTT_USERNAME'] = ''  # Set this item when you need to verify username and password
