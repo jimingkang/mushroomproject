@@ -161,6 +161,13 @@ def move_backward():
     return 'Moving Backward...!'
 
 
+@app.route("/drop")
+def drop():
+    if 1:#r.get("mode")=="pickup_ready":
+        time.sleep(1)
+        video_dir.move_decrease_y(150)
+        r.set("mode","drop_ready")
+        return "OK"
 @app.route("/pickup")
 def pickup():
     if 1:#r.get("mode")=="pickup_ready":
@@ -171,7 +178,7 @@ def pickup():
         video_dir.move_decrease_x(50)
         time.sleep(1)
         video_dir.move_decrease_y(150)
-        r.set("mode","camera_ready")
+        r.set("mode","drop_ready")
         return "OK"
 
  

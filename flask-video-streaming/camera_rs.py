@@ -333,13 +333,15 @@ class Camera(BaseCamera):
             print("payload=" + xyz)
             if xyz:
                 global g_xyz
-                if g_xyz==xyz:
-                    return
+                #if g_xyz==xyz:
+                #    return
                 g_xyz=xyz
                 xyz = xyz.split(";")
                 x=xyz[0]
-                if x :
-                #for x in xyz:
+                print("x="+x)
+                #if x :
+                real_xyz=""
+                for x in xyz:
                     first_xyz = x.split(",");
                     print(first_xyz)
                     #camera_xyz_list.append([float(first_xyz[0]),float(first_xyz[1]),int(first_xyz[2])])
@@ -374,23 +376,22 @@ class Camera(BaseCamera):
                         #else:
                         camera_x = camera_x +int(float(global_camera_xy))
                         distance = int(math.sqrt(new_camera_x * new_camera_x+ new_camera_y*new_camera_y))
-                        if not r.hexists("detections",str(track_id)) and (len(detected_x)<=0 and len(detected_y)<=0):
-                            print("distance:" + str(distance))  # +"camera_x:"+int(float(camera_x)))
+                        #if  1:#(len(detected_x)<=0 and len(detected_y)<=0):
+                        if  1:# (len(detected_x)<=0 and len(detected_y)<=0):
+                            print(" seve distance:" + str(track_id)+","+str(new_camera_x)+","+str(new_camera_y))  # +"camera_x:"+int(float(camera_x)))
                             r.zadd("detections_index_x", {str(track_id)+"_"+str(new_camera_x): new_camera_x})
                             r.zadd("detections_index_y", {str(track_id)+"_"+str(new_camera_y): new_camera_y})
-                            r.hmset("detections", {str(track_id): str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id)})
+                            r.hset("detections", str(track_id), str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id))
                     else:
                         r.set("global_camera_xy","0,0")
                     x=1*float(camera_xyz[0]) * 1000
                     y=1*float(camera_xyz[1]) * 1000
                     global pre_trackid
-                    if abs(x)> 5 or abs(y)>5:
-                        #move_x=str(x) + " F100\r\n"
-                        #cmd="G21 G91 G1 X" +move_x
-                        #print(camera_xyz)
-                        xyz=str(camera_xyz[0])+","+str(camera_xyz[1])+","+str(track_id)
-                        move_publish.run(topic3,xyz)
-                        print(xyz)
+                    if r.get("mode")=="camera_ready" and abs(x)> 5 or abs(y)>5:
+                        real_xyz=str(camera_xyz[0])+","+str(camera_xyz[1])+","+str(track_id)+";"
+                        real_xyz=real_xyz[0:len(real_xyz)-1]
+                        move_publish.run(topic3,real_xyz)
+                        print("real_xyz:"+real_xyz)
                 # socketio.emit('mqtt_message', data=data)
     @staticmethod
     def frames():
