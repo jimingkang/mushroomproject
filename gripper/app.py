@@ -16,31 +16,44 @@ from time import sleep
 import RPi.GPIO as GPIO
 import time
 import publish
-topic="/flask/stop"
+
+topic = '/flask/scan'
+topic2 = '/flask/xyz'
+topic3 = '/flask/serial'
+topic4 = '/flask/pickup'
+topic5 = '/flask/home'
+topic6 = '/flask/drop'
+topic7 = '/flask/stop'
+pre_trackid=0
+old_x=0
+old_y=0
+
 # Pin Definitions
 input_pin = 12  # BCM pin 18, BOARD pin 12
-
+busnum = 1          # Edit busnum to 0, if you uses Raspberry Pi 1 or 0
+y=0
+i=0
 prev_value = None
-GPIO.setmode(GPIO.BOARD)  # BCM pin-numbering scheme from Raspberry Pi
-GPIO.setup(input_pin, GPIO.IN)  # set pin as an input pin
+
+
+
 
 
 
 #import config
-
-busnum = 1          # Edit busnum to 0, if you uses Raspberry Pi 1 or 0
-
-#video_dir.setup(busnum=busnum)
+GPIO.setmode(GPIO.BOARD)  # BCM pin-numbering scheme from Raspberry Pi
+GPIO.setup(input_pin, GPIO.IN)  # set pin as an input pin
+video_dir.setup(busnum=busnum)
 #motor.setup(busnum=busnum)     # Initialize the Raspberry Pi GPIO connected to the DC motor. 
 #motor.setSpeed(40)
-#video_dir.home_x_y()
+video_dir.home_x_y()
 
-i=0
+
 
 
 ser = serial.Serial("/dev/ttyACM0",115200)
 
-redis_server='172.26.52.62'
+redis_server=''
 broker=''
 try:
     for line in open("../ip.txt"):
@@ -52,6 +65,7 @@ except:
     pass
 #broker=broker.replace("\n","").replace("\r\n","")
 print(broker)
+
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
 app = Flask(__name__)
@@ -64,15 +78,8 @@ app.config['MQTT_PASSWORD'] = ''  # Set this item when you need to verify userna
 app.config['MQTT_KEEPALIVE'] = 5  # Set KeepAlive time in seconds
 app.config['MQTT_TLS_ENABLED'] = False  # If your server supports TLS, set it True
 #socketio = SocketIO(app)
-topic = '/flask/scan'
-topic2 = '/flask/xyz'
-topic3 = '/flask/serial'
-topic4 = '/flask/pickup'
-topic5 = '/flask/home'
-topic6 = '/flask/drop'
-topic7 = '/flask/stop'
 mqtt_client = Mqtt(app)
-y=0
+
 #app.config.from_object(config)
 
 
@@ -200,9 +207,6 @@ def handle_connect(client, userdata, flags, rc):
    else:
        print('Bad connection. Code:', rc)
 
-pre_trackid=0
-old_x=0
-old_y=0
 @mqtt_client.on_message()
 def handle_mqtt_message(client, userdata, message):
     #print(message.topic)
