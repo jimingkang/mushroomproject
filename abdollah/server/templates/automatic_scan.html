@@ -42,15 +42,112 @@
 
             <!-- Content -->
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-                <h1 class="mt-2">Demo</h1>
-                <p>This is the main page. Select an option from the sidebar.</p>
+                <div class="text-center mt-5">
+                    <button id="start-scan" class="btn btn-primary">Start Scanning</button>
+                    <div class="spinner-border text-primary d-none" role="status" id="loading-spinner">
+                        <span class="sr-only">Loading...</span>
+                    </div>
+                </div>
+                <div class="row justify-content-center mt-5">
+                    <div class="col-md-8">
+                        <div class="row mt-3">
+                            <div class="col-md-12 text-center">
+                                <!-- Image in the center -->
+                                <img src="http://172.26.49.56:5000/annotate_stream" class="img-fluid" alt="Centered Image">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Coordinates</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="coordinate-table-body">
+                                <!-- Table rows will be dynamically added here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </main>
         </div>
     </div>
 
     <!-- Bootstrap JS and jQuery (Make sure to include them) -->
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <script>
+        $(document).ready(function () {
+            function addTableRow(x, y) {
+                var tableBody = $("#coordinate-table-body");
+                var newRow = $("<tr>");
+                newRow.append($("<td>").text(`(${x}, ${y})`));
+                var actionColumn = $("<td>");
+                var moveButton = $("<button>").text("Move").addClass("btn btn-primary");
+                moveButton.click(function () {
+                    // Send AJAX request to "/move" with x and y as GET parameters
+                    $.ajax({
+                        type: "GET",
+                        url: "/move/custom",
+                        data: { x: x.toFixed(2), y: y.toFixed(2) },
+                        success: function (response) {
+                            // Handle the response as needed
+                            
+                        },
+                        error: function (error) {
+                            console.error("Error:", error);
+                        }
+                    });
+                });
+                actionColumn.append(moveButton);
+                newRow.append(actionColumn);
+                tableBody.append(newRow);
+            }
+
+            $("#start-scan").on("click", function () {
+                var button = $(this);
+                var spinner = $("#loading-spinner");
+
+                // Disable the button and show the loading spinner
+                button.prop("disabled", true);
+                button.text("Scanning...");
+                spinner.removeClass("d-none");
+
+                // Send an AJAX request to the "/scan" endpoint
+                $.ajax({
+                    type: "GET",
+                    url: "/scan",
+                    dataType: "json",
+                    success: function (response) {
+                        // Re-enable the button, hide the loading spinner, and update the button text
+                        button.prop("disabled", false);
+                        button.text("Start Scanning");
+                        spinner.addClass("d-none");
+                        console.log(response)
+                        for (var i = 0; i < response.length; i++) {
+                            var x = response[i][0][0];
+                            var y = response[i][0][1];
+                            addTableRow(x, y);
+                        }
+                    },
+                    error: function (error) {
+                        console.error("Error:", error);
+                        // Re-enable the button, hide the loading spinner, and update the button text on error
+                        button.prop("disabled", false);
+                        button.text("Start Scanning");
+                        spinner.addClass("d-none");
+                    }
+                });
+            });
+
+            
+
+            
+        });
+    </script>
 </body>
 </html>

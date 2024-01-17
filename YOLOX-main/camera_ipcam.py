@@ -36,14 +36,14 @@ try:
     for line in open("../ip.txt"):
         if line[0:6] == "broker":
             broker = line[9:len(line)-1]
-        if line[0:5] == "reddis":
+        if line[0:6] == "reddis":
             redis_server=line[9:len(line)-1]
 except:
     pass
 print(broker+" "+redis_server)
 print(broker)
 
-pool = redis.ConnectionPool(host="172.26.52.62", port=6379, decode_responses=True,password='jimmy')
+pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
 
 
@@ -282,7 +282,7 @@ class Camera(BaseCamera):
     def frames():
         ip=broker.strip().replace("\n","")
         print(ip)
-        video = cv2.VideoCapture("http://172.26.52.69:5000/video_feed")
+        video = cv2.VideoCapture("http://172.26.52.51:5000/video_feed")
         #video = cv2.VideoCapture("http://"+ip+":5000/video_feed")
         #video = cv2.VideoCapture(Camera.video_source,cv2.CAP_V4L2)
         #video = v4l2capture.Video_device(Camera.video_source)

@@ -11,11 +11,12 @@ broker=''
 try:
     for line in open("../ip.txt"):
         if line[0:6] == "broker":
-            broker = line[9:len(line)]
+            broker = line[9:len(line)-1]
 except:
     pass
 
-broker = '172.26.52.69'
+broker = '192.168.1.3'
+print(broker)# = '172.26.52.69'
 #broker = '10.0.0.134'
 port = 1883
 topic = "/flask/xyz"

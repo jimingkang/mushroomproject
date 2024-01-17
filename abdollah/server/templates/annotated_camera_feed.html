@@ -104,7 +104,7 @@
                     // Send an AJAX request to the Flask route with the direction
                     $.ajax({
                         type: "GET",
-                        url: "/move/"+direction,
+                        url: "/move/"+direction+"?amount={{ _movement_step }}",
                         //data: { direction: direction }, // Specify the direction here
                         success: function (response) {
                             console.log(response);

@@ -17,8 +17,20 @@ else:
 # Raspberry Pi camera module (requires picamera package)
 #from camera_pi import Camera
 
+broker=''
+redis_server=''
+try:
+    for line in open("../ip.txt"):
+        if line[0:6] == "broker":
+            broker = line[9:len(line)-1]
+        if line[0:6] == "reddis":
+            redis_server=line[9:len(line)-1]
+except:
+    pass
+print(broker+" "+redis_server)
+print(broker)
 app = Flask(__name__)
-app.config['MQTT_BROKER_URL'] =  '172.26.52.69'
+app.config['MQTT_BROKER_URL'] = broker 
 #app.config['MQTT_BROKER_URL'] =  '192.168.254.42'
 app.config['MQTT_BROKER_PORT'] = 1883
 app.config['MQTT_USERNAME'] = ''  # Set this item when you need to verify username and password
@@ -29,7 +41,7 @@ topic = '/flask/mqtt'
 topic2 = '/flask/xyz'
 topic3 = '/flask/serial'
 mqtt_client = Mqtt(app)
-pool = redis.ConnectionPool(host='172.26.52.62', port=6379, decode_responses=True,password='jimmy')
+pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
 
 
