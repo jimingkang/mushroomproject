@@ -66,8 +66,8 @@ class Camera(BaseCamera):
     video_source = "/dev/video0"
     @staticmethod
     def frames():
-        #video = cv2.VideoCapture(0)
-        video = cv2.VideoCapture("http://172.26.52.69:5000/video_feed")
+        #video = cv2.VideoCapture(video_source)
+        video = cv2.VideoCapture("http://192.168.1.3:5000/video_feed")
         size_x =1280
         size_y = 720
         video.set(cv2.CAP_PROP_FRAME_WIDTH, size_x)
@@ -87,7 +87,9 @@ class Camera(BaseCamera):
                 global count
                 count = (count + 1) % 1000
 
-                if ret:
+                #if len(r.hkeys("detections"))<=0 and ret:
+                if r.get("mode")=="camera_ready" and ret:
+                #if  ret:
                     results = model.predict(img, imgsz=(736, 1280))  # return a generator of Results objects
                     # Process results generator
                     for result in results:
@@ -107,10 +109,11 @@ class Camera(BaseCamera):
                             y0 = int(xyz[1])
                             x1 = int(xyz[2])
                             y1 = int(xyz[3])
-                            if (conf[i]*100)>50:
+                            if (conf[i]*100)>50 and (abs(x1-x0)>5 and abs(x1-x0)<200) and (abs(y1-y0)<200 and abs(y0-y1)>5) and (abs(abs(x1-x0)-abs(y1-y0))<10):
                                 detections.append([x0, y0, x1, y1, conf[i]*100])
                         detections.sort(key=takeSecond,reverse=True)
                         new_detections=[]
+                        coordx = ""
                         if len(detections) > 0:
                             new_detections.append(detections[0])
                             #global pre_tracker
@@ -130,16 +133,25 @@ class Camera(BaseCamera):
                                 txt_size = cv2.getTextSize(text, font, 0.4, 1)[0]
                                 cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 0), 1)
                                 cv2.putText(img, text, (x1, y1 + txt_size[1]), font, 0.4, (0, 255, 0), thickness=1)
-                            
-                                if count>20 and (x2<800 and x1>50) and (y2<450 and y1>50) and (abs(x1-x2)>5 and abs(x1-x2)<200) and (abs(y1-y2)<200 and abs(y2-y1)>5) and abs(abs(x1-x2)-abs(y1-y2))<10 and  ( (int((x1 + x2) / 2)>440 or int((x1 + x2) / 2)<400) or (int((y1 +y2) / 2)>(260+0) or int((y1 + y2) / 2)<(220+0))):
-                                #if  r.get("global_mode")=="camera_ready":
+                                #if count>20 and (x2<800 and x1>50) and (y2<450 and y1>50) and (abs(x1-x2)>5 and abs(x1-x2)<200) and (abs(y1-y2)<200 and abs(y2-y1)>5) and abs(abs(x1-x2)-abs(y1-y2))<10 and  ( (int((x1 + x2) / 2)>440 or int((x1 + x2) / 2)<400) or (int((y1 +y2) / 2)>(260+0) or int((y1 + y2) / 2)<(220+0))):
+                                if  r.get("mode")=="camera_ready":
                                     count=0
-                                    print("count=",count)
+                                    print(" global count=",count)
                                     coordx = "" + str(int((x1 + x2) / 2)) + "," + str(int((y1 + y2) / 2)) + "," + str(track_id) + ";"
                                     coordx = coordx[0:len(coordx) - 1]
                                     print("coordx=",coordx)
                                     xyz_publish.run(coordx)
 
+                                #if   (abs(x1-x2)>5 and abs(x1-x2)<200) and (abs(y1-y2)<200 and abs(y2-y1)>5) and (abs(abs(x1-x2)-abs(y1-y2))<10):
+                                #    print("count=",count)
+                                #    coordx =coordx+ "" + str(int((x1 + x2) / 2)) + "," + str(int((y1 + y2) / 2)) + "," + str(track_id) + ";"
+                                #    coordx = coordx[0:len(coordx) - 1]
+                                    #xyz_publish.run(coordx)
+                        #if  r.get("mode")=="camera_ready":
+                        #    coordx = coordx[0:len(coordx) - 1]
+                        #    print("coordx=",coordx)
+                        #    xyz_publish.run(coordx)
+                            #r.set("mode","pickup_ready")
 
                 yield cv2.imencode('.jpg', img)[1].tobytes()
         finally:

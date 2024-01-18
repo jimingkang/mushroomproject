@@ -15,7 +15,7 @@ from time import sleep
 
 #import config
 
-busnum = 1          # Edit busnum to 0, if you uses Raspberry Pi 1 or 0
+busnum = 0          # Edit busnum to 0, if you uses Raspberry Pi 1 or 0
 
 video_dir.setup(busnum=busnum)
 #motor.setup(busnum=busnum)     # Initialize the Raspberry Pi GPIO connected to the DC motor. 
@@ -37,7 +37,7 @@ try:
             redis_server = line[9:len(line)-1]
 except:
     pass
-#broker=broker.replace("\n","").replace("\r\n","")
+broker=broker.replace("\n","").replace("\r\n","")
 print(broker)
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
@@ -109,7 +109,7 @@ def  test():
 
 @app.route('/catch')
 def catch():
-    video_dir.move_increase_y(50)
+    video_dir.move_increase_y(10)
     #motor.forward()
     #time.sleep(0.5)
     #motor.ctrl(0)
@@ -118,7 +118,7 @@ def catch():
 
 @app.route('/release')
 def  release():
-    video_dir.move_decrease_y(50)
+    video_dir.move_decrease_y(10)
     #motor.backward()
     #time.sleep(0.5)
     #motor.ctrl(0)

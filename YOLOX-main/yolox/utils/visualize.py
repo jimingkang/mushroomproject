@@ -31,7 +31,7 @@ client_id = f'python-mqtt-{random.randint(0, 100)}'
 tracker = Tracker()
 colors = [(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)) for j in range(80)]
 
-pool = redis.ConnectionPool(host='192.168.254.26', port=6379, decode_responses=True,password='jimmy')
+pool = redis.ConnectionPool(host="172.26.52.41", port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
 
 def takeSecond(elem):
@@ -69,7 +69,7 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
             #min_distance[0]=math.sqrt((x1-x0)*(x1-x0)+(y1-y0)*(y1-y0))
             #min_distance[1:5]=score,x0,y0,x1,y1,
             detections.append([x0,y0,x1,y1,score])
-    detections.sort(key=takeSecond)
+    #detections.sort(key=takeSecond)
     print(detections)
     new_detections=[]
     if len(detections)>0:
@@ -78,7 +78,7 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
         pre_tracker=tracker
         tracker.update(img, new_detections)
         #tracker.update(img, detections)
-
+        coordx =""
         for track in tracker.tracks:
 
             bbox = track.bbox
@@ -141,12 +141,14 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
             #ret=move_subcribe.run(val)#mqtt_get_value_blocking()
             if count>20  and  ( (int((x1 + x2) / 2)>440 or int((x1 + x2) / 2)<400) or (int((y1 +y2) / 2)>(260+0) or int((y1 + y2) / 2)<(220+0))):
             #if  r.get("global_mode")=="camera_ready":
+            #if  r.get("detections")is None:
                 count=0
                 print("count=",count)
-                coordx = "" + str(int((x1 + x2) / 2)) + "," + str(int((y1 + y2) / 2)) + "," + str(track_id) + ";"
-                coordx = coordx[0:len(coordx) - 1]
-                print("coordx=",coordx)
-                xyz_publish.run(coordx)
+                coordx =coordx+ "" + str(int((x1 + x2) / 2)) + "," + str(int((y1 + y2) / 2)) + "," + str(track_id) + ";"
+        if  coordx != "":
+            coordx = coordx[0:len(coordx) - 1]
+            print("coordx=",coordx)
+            xyz_publish.run(coordx)
             #if(int((x1 + x2) / 2)<480 and int((x1 + x2) / 2)>370) and (int((y1 +y2) / 2)<300 and int((y1 + y2) / 2)>200):
              #   r.set("mode","pickup_ready")
               #  pub_ret=pickup_publish.run(topic4,"50") # subscribe topic
