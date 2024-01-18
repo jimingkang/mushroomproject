@@ -51,7 +51,7 @@ video_dir.home_x_y()
 
 
 
-ser = serial.Serial("/dev/ttyACM0",115200)
+#ser = serial.Serial("/dev/ttyACM0",115200)
 
 redis_server=''
 broker=''
@@ -166,6 +166,7 @@ def  home():
 
 @app.route('/forward')
 def forward():
+
     move_forward();
     #video_dir.move_decrease_x()
     return render_template('index.html');
@@ -236,23 +237,24 @@ def handle_mqtt_message(client, userdata, message):
             pub_ret=mqtt_client.publish(topic6,"drop") # subscribe topic
     if message.topic==topic3:
         global pre_trackid,old_x,old_y
+        r.set("mode","pickup_ready")
         xyz=data['payload']
         real_xyz=xyz.split(",")
         print(real_xyz)
         real_x=int(float(real_xyz[0]) * 1000)
         real_y=int(float(real_xyz[1]) * 1000)
         real_y=real_y-60
-        real_x=real_x
+        real_x=real_x+70
         #real_x=real_x-25
-        x=1*real_x
+        x=-1*real_x
         y=1*real_y
         if not r.exists("pre_trackid"):
             r.set("pre_trackid","0")
         else:
             pre_trackid=r.get("pre_trackid")
-        if pre_trackid==real_xyz[2]:
-            print(" pre_trackid:"+pre_trackid)
-            return
+        #if pre_trackid==real_xyz[2]:
+        #    print(" pre_trackid:"+pre_trackid)
+         #   return
         #else:
         r.set("pre_trackid",real_xyz[2])
             #r.set("pre_trackid",real_xyz[2])
@@ -282,23 +284,21 @@ def handle_mqtt_message(client, userdata, message):
             #    return 
             #r.set("mode","moving")
             #move_x=" X"+str(x/50)
-            move_x=" X"+str(x/25)
-            move_y=" Y"+str(y/12) + " F500\r\n"
+            move_x=" X"+str(x/50)
+            move_y=" Y"+str(y/25) + " F500\r\n"
             cmd="G21 G91 G1 " +move_x+move_y 
             
-            ret=command(ser, cmd)
+            #ret=command(ser, cmd)
             time.sleep(1)
-            print(cmd,ret)
-            if ret == 'ok':
-                print("ret==",ret)
+            #print(cmd,ret)
+            if 1:#ret == 'ok':
                 r.set("global_camera_xy",""+str(x)+","+str(y))
                 r.set("old_x",str(x))
                 r.set("old_y",str(y))
                 print(abs(x))
                 print(abs(y))
-                r.set("mode","pickup_ready")
-                ret_ok=requests.get("http://172.26.52.69:8888/pickup")
-                print(ret_ok)
+                #ret_ok=requests.get("http://172.26.52.69:8888/pickup")
+                #print(ret_ok)
                 #if(abs(x)<15 and abs(y)<(15)):
                 #pub_ret=mqtt_client.publish(topic4,"50") # subscribe topic
                 #    print("test if send pickup ")

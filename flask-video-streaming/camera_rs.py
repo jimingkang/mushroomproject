@@ -8,7 +8,7 @@ import redis
 import yaml
 from flask import Flask
 from flask_mqtt import Mqtt
-
+import serial
 from Mushroom import Mushroom
 from base_camera import BaseCamera
 #import pyrealsense2.pyrealsense2 as rs
@@ -44,7 +44,7 @@ align = rs.align(align_to)
 colors = [(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)) for j in range(100)]
 detection_threshold = 0.5
 
-
+#ser = serial.Serial("/dev/ttyACM0",115200)
 broker,redis_server=ut.getbroker()
 print(broker)
 print(redis_server)
@@ -386,12 +386,20 @@ class Camera(BaseCamera):
                         r.set("global_camera_xy","0,0")
                     x=1*float(camera_xyz[0]) * 1000
                     y=1*float(camera_xyz[1]) * 1000
+                    move_x=" X"+str(x/50)
+                    move_y=" Y"+str(y/25) + " F500\r\n"
+                    cmd="G21 G91 G1 " +move_x+move_y 
+            
+                    #ret=command(ser, cmd)
+                    #r.set("mode","pick_ready")
+
                     global pre_trackid
-                    if r.get("mode")=="camera_ready" and abs(x)> 5 or abs(y)>5:
+                    if r.get("mode")=="camera_ready" :
+                    #if r.get("mode")=="camera_ready" and abs(x)> 5 or abs(y)>5:
                         real_xyz=str(camera_xyz[0])+","+str(camera_xyz[1])+","+str(track_id)+";"
                         real_xyz=real_xyz[0:len(real_xyz)-1]
                         move_publish.run(topic3,real_xyz)
-                        print("real_xyz:"+real_xyz)
+                    #    print("real_xyz:"+real_xyz)
                 # socketio.emit('mqtt_message', data=data)
     @staticmethod
     def frames():
