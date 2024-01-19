@@ -61,3 +61,47 @@ yolov8/best_v3.onnx
 yolov8/best_v3.engine
 yolov8/best_v3.pt
 abdollah/server/best_v3.engine
+
+
+# See http://help.github.com/ignore-files/ for more about ignoring files.
+
+# Compiled output
+WebUI/dist
+WebUI/tmp
+WebUI/out-tsc
+WebUI/bazel-out
+
+# Node
+WebUI/node_modules
+WebUI/npm-debug.log
+WebUI/yarn-error.log
+
+# IDEs and editors
+WebUI/.idea/
+WebUI/.project
+WebUI/.classpath
+WebUI/.c9/
+WebUI/*.launch
+WebUI/.settings/
+WebUI/*.sublime-workspace
+
+# Visual Studio Code
+WebUI/.vscode/*
+!WebUI/.vscode/settings.json
+!WebUI/.vscode/tasks.json
+!WebUI/.vscode/launch.json
+!WebUI/.vscode/extensions.json
+WebUI/.history/*
+
+# Miscellaneous
+WebUI/.angular/cache
+WebUI/.sass-cache/
+WebUI/connect.lock
+WebUI/coverage
+WebUI/libpeerconnection.log
+WebUI/testem.log
+WebUI/typings
+
+# System files
+WebUI/.DS_Store
+WebUI/Thumbs.db
