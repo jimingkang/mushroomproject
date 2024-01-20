@@ -1,0 +1,108 @@
+<div class="row">
+    <div [ngClass]="isSidePanelVisible ? 'col-12' : 'col-12'" >
+        <div class="card">
+            <div class="card-header bg-primary">
+                <div class="row">
+                    <div class="col-6">
+                        Mushroom Warehouse
+                    </div>
+                    <div class="col-6 text-end">
+                        <button class="btn btn-sm btn-success" (click)="openSidePanel()">New</button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-3 pt-2" *ngFor="let product of productsList">
+                        <div class="card">
+                            <img class="card-img-top" style="height: 12.125rem !important" [src]="product.productImageUrl" alt="Card image">
+                            <div class="card-body">
+                              <h4 class="card-title">{{product.productShortName}}</h4>
+                              <p class="card-text">{{product.categoryName}}</p>
+                              <a class="btn btn-primary" (click)="onEdit(product)">Detail</a>
+                  
+                            </div>
+                          </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12" *ngIf="isSidePanelVisible">
+        <div class="card">
+            <div class="card-header bg-primary">
+                <div class="row">
+                    <div class="col-6">
+                       New Warehouse 
+                    </div>
+                    <div class="col-6  text-end">
+                        <button class="btn btn-sm btn-success" (click)="closeSidePanel()">Close</button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6">
+                        <label for=""><b>Id: </b>  {{productObj.productSku}}</label>
+                        <!--<input type="text" [(ngModel)]="productObj.productSku" class="form-control">-->
+                    </div>
+                    <div class="col-6">
+                        <label for=""><b>Name: </b>   {{productObj.productName}}</label>
+                        <!--<input type="text" [(ngModel)]="productObj.productName" class="form-control">-->
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-6">
+                        <label for=""><b>Status: </b>  {{productObj.productShortName}}</label>
+                        <!--<input type="text" [(ngModel)]="productObj.productShortName" class="form-control">-->
+                    </div>
+                    <div class="col-6">
+                        <label for=""><b>Number of Collected Mushrooms:</b>{{productObj.productPrice}}</label>
+                        <!--<input type="text" [(ngModel)]="productObj.productPrice" class="form-control">-->
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-6">
+                        <label for="">Current Working Frame</label>
+                        <select [(ngModel)]="productObj.categoryId" class="form-select">
+                            <option *ngFor="let cate of categoryList" [value]="cate.categoryId"> {{cate.categoryName}}</option>
+                        </select> 
+                    </div>
+                    <!--
+                    <div class="col-6">
+                        <label for="">Last Collected Time </label>
+                        <input type="text" [(ngModel)]="productObj.deliveryTimeSpan" class="form-control">
+                    </div>
+                -->
+                </div>
+                <!--
+                <div class="row">
+                    <div class="col-12">
+                        <label for=""><b>Total Number of Collected Mushrooms</b>{{productObj.productDescription}}</label>
+                        <input type="text" class="form-control" [(ngModel)]="productObj.productDescription"  >
+                    </div> 
+                </div>
+                -->
+                <div class="row">
+                    <div class="col-12">
+                        <label for=""><b>Video Url</b></label>
+                        <input type="text" [(ngModel)]="productObj.productImageUrl" class="form-control">
+                    </div> 
+                </div>
+                
+                <div class="row pt-2">
+                    <!--
+                    <div class="col-6 text-center">
+                       <button class="btn btn-success">Reset</button>
+                    </div>
+                    -->
+                    <div class="col-6 text-center">
+                        <button class="btn btn-success" *ngIf="productObj.productId == 0" (click)="onSave()">Create Frame</button>
+                        <button class="btn btn-primary" *ngIf="productObj.productId !==0" (click)="onUpdate()">Update Frame</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
