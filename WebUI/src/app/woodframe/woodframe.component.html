@@ -34,7 +34,7 @@
             <div class="card-header bg-primary">
                 <div class="row">
                     <div class="col-6">
-                       New Warehouse 
+                        Warehouse :{{productObj.productSku}}
                     </div>
                     <div class="col-6  text-end">
                         <button class="btn btn-sm btn-success" (click)="closeSidePanel()">Close</button>
@@ -42,11 +42,26 @@
                 </div>
             </div>
             <div class="card-body">
+                <div class="row pt-2">
+                    <!--
+                    <div class="col-6 text-center">
+                       <button class="btn btn-success">Reset</button>
+                    </div>
+                    -->
+                    <div class="col-2 text-left">
+                        <button class="btn btn-success" *ngIf="productObj.productId == 0" (click)="onSave()">Create Frame</button>
+                        <button class="btn btn-primary" *ngIf="productObj.productId !==0" (click)="onUpdate()">Update Frame</button>
+                    </div>
+                   
+                </div>
+             
                 <div class="row">
+                     <!--
                     <div class="col-6">
                         <label for=""><b>Id: </b>  {{productObj.productSku}}</label>
-                        <!--<input type="text" [(ngModel)]="productObj.productSku" class="form-control">-->
+                       <input type="text" [(ngModel)]="productObj.productSku" class="form-control">
                     </div>
+                -->
                     <div class="col-6">
                         <label for=""><b>Name: </b>   {{productObj.productName}}</label>
                         <!--<input type="text" [(ngModel)]="productObj.productName" class="form-control">-->
@@ -62,6 +77,7 @@
                         <!--<input type="text" [(ngModel)]="productObj.productPrice" class="form-control">-->
                     </div>
                 </div>
+                <!--
                 <div class="row">
                     <div class="col-6">
                         <label for="">Current Working Frame</label>
@@ -69,13 +85,14 @@
                             <option *ngFor="let cate of categoryList" [value]="cate.categoryId"> {{cate.categoryName}}</option>
                         </select> 
                     </div>
-                    <!--
+                    
                     <div class="col-6">
                         <label for="">Last Collected Time </label>
                         <input type="text" [(ngModel)]="productObj.deliveryTimeSpan" class="form-control">
                     </div>
-                -->
+               
                 </div>
+                 -->
                 <!--
                 <div class="row">
                     <div class="col-12">
@@ -91,16 +108,12 @@
                     </div> 
                 </div>
                 
-                <div class="row pt-2">
-                    <!--
-                    <div class="col-6 text-center">
-                       <button class="btn btn-success">Reset</button>
-                    </div>
-                    -->
-                    <div class="col-6 text-center">
-                        <button class="btn btn-success" *ngIf="productObj.productId == 0" (click)="onSave()">Create Frame</button>
-                        <button class="btn btn-primary" *ngIf="productObj.productId !==0" (click)="onUpdate()">Update Frame</button>
-                    </div>
+               
+                <div class="row ">
+                <iframe src="http://10.0.0.133:5000/video_feed"
+                 width="100%" height="500" frameborder="0"
+                 allowfullscreen sandbox>
+                </iframe>
                 </div>
             </div>
         </div>
