@@ -15,7 +15,7 @@
                 <div class="row">
                     <div class="col-3 pt-2" *ngFor="let product of productsList">
                         <div class="card">
-                            <img class="card-img-top" style="height: 12.125rem !important" [src]="product.productImageUrl" alt="Card image">
+                            <img class="card-img-top" style="height: 12.125rem !important" src="./assets/warehouse.jpg" alt="Card image">
                             <div class="card-body">
                               <h4 class="card-title">{{product.productShortName}}</h4>
                               <p class="card-text">{{product.categoryName}}</p>
@@ -104,7 +104,7 @@
                 <div class="row">
                     <div class="col-12">
                         <label for=""><b>Video Url</b></label>
-                        <input type="text" [(ngModel)]="productObj.productImageUrl" class="form-control">
+                        <input type="text" class="form-control" value="http://10.0.0.133:4200/video_feed">
                     </div> 
                 </div>
                 
