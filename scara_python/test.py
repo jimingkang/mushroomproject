@@ -14,6 +14,7 @@ def print_hi(name):
     hi.net_port_initial()
     ret=hi.initial(1,210); #// I add you on wechat
     print(hi.is_connect())
+    print(hi.unlock_position())
 
     print(ret)
     if ret == 1 :

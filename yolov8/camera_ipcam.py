@@ -67,7 +67,8 @@ class Camera(BaseCamera):
     @staticmethod
     def frames():
         #video = cv2.VideoCapture(video_source)
-        video = cv2.VideoCapture("http://192.168.1.3:5000/video_feed")
+        video = cv2.VideoCapture("http://10.0.0.133:5000/video_feed")
+        #video = cv2.VideoCapture("http://192.168.1.3:5000/video_feed")
         size_x =1280
         size_y = 720
         video.set(cv2.CAP_PROP_FRAME_WIDTH, size_x)

@@ -75,7 +75,7 @@ r = redis.Redis(connection_pool=pool)
 
 app = Flask(__name__)
 app.config['DEBUG'] = False
-broker = '192.168.1.4'
+#broker = '192.168.1.4'
 app.config['MQTT_BROKER_URL'] = broker
 # app.config['MQTT_BROKER_URL'] = '10.0.0.134'
 # app.config['MQTT_BROKER_URL'] = '192.168.254.42'

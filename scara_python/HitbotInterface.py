@@ -35,7 +35,7 @@ class HitbotInterface:
         self.efg_type = 0.0
 
     def net_port_initial(self):
-        self.dll=CDLL('./libsmall_scara_interface.so')
+        self.dll=CDLL('/home/pi/mushroomproject/scara_python/libsmall_scara_interface.so.3.0.0')
         return self.dll.net_port_initial()
 
     def initial(self, generation, z_trail):
@@ -196,6 +196,28 @@ class HitbotInterface:
 
     def new_movej_angle(self, goal_angle1, goal_angle2, goal_z, goal_r, speed, roughly):
         return self.dll.new_movej_angle(c_int(self.card_number), c_float(goal_angle1), c_float(goal_angle2), c_float(goal_z), c_float(goal_r), c_float(speed), c_float(roughly))
+
+    def com485_initial(self, baudRate):
+        return self.dll.com485_initial(c_int(self.card_number), c_int(baudRate))
+
+
+    def com485_send(self, data,len):
+        return self.dll.com485_send(c_int(self.card_number), c_char_p(data), c_char(len))
+
+    def com485_recv(self, data):
+        return self.dll.com485_recv(c_int(self.card_number), c_char_p(data))
+
+    def get_hard_emergency_stop_state(self):
+        return self.dll.get_hard_emergency_stop_state(c_int(self.card_number))
+
+    def check_joint(self, joint_num, state):
+        return self.dll.check_joint(c_int(self.card_number), c_int(joint_num), c_bool(state))
+
+    def is_robot_goto_target(self):
+        return self.dll.is_robot_goto_target(c_int(self.card_number))
+
+    def set_allow_distance_at_target_position(self, x_distance, y_distance, z_distance, r_distance):
+        self.dll.set_allow_distance_at_target_position(c_int(self.card_number), c_float(x_distance), c_float(y_distance), c_float(z_distance), c_float(r_distance))
 
 
 
