@@ -3,24 +3,26 @@
 
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
-import {  RouterLink } from '@angular/router';
+import {  RouterOutlet } from '@angular/router';
 import { ProductService } from '../services/product.service';
 import { FormsModule } from '@angular/forms';
 
 import "@babylonjs/core/Physics/physicsEngineComponent";
+import { VideoComponent } from '../video/video.component';
+import { SlidepanelComponent } from '../slidepanel/slidepanel.component';
 
 
 
 @Component({
   selector: 'app-woodframe',
   standalone: true,
-  imports: [CommonModule,FormsModule],
+  imports: [SlidepanelComponent,CommonModule,FormsModule,VideoComponent,RouterOutlet],
   templateUrl: './woodframe.component.html',
   styleUrl: './woodframe.component.scss'
 })
 
 export class WoodframeComponent implements OnInit {
-  
+  isSlidePanelOpen = false;
   isSidePanelVisible: boolean= false;
   productObj: IProduct = {
     "productId": 0,
@@ -43,6 +45,7 @@ export class WoodframeComponent implements OnInit {
   ngOnInit(): void {
    this.getProducts();
     this.getALlCategory();
+
   }
  
   getProducts() {
@@ -108,8 +111,9 @@ export class WoodframeComponent implements OnInit {
     this.isSidePanelVisible = false;
   }
 
-}
 
+
+}
 export interface IProduct{
   productId: number,
   productSku: string,

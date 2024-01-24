@@ -1,0 +1,96 @@
+@if (isOpen) {
+<div class="fixed top-0 right-0 bg-gray-900/60 w-screen h-screen z-30">
+    <div class="absolute right-0 max-w-md bg-white w-screen h-screen shadow" @fadeSlideInRight>
+    
+  
+       
+                <nav id="sidebar" class="col-md-4 col-lg-3 d-md-block bg-secondary absolute">
+                    <div>
+                        <ul class="nav  mx-auto justify-content-center">
+
+                            <li class="nav-item">
+
+                                <h4><span class="label label-default"> XY Move</span></h4>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link btn btn-light" href="/scan"><input type="button"
+                                        value="ZeroSetting"></a>
+                            </li>
+
+                            <li class="nav-item">
+
+                                <table>
+                                    <tr>
+                                        <td></td>
+                                        <td><a href="/xforward" id=xforward><input type="button" value="X+"></a>
+                                        </td>
+                                        <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td><a href="/yforward" id=yforward><input type="button" id='forward'
+                                                    name="forward" value="Y+"></a></td>
+                                        <td><a href="/home"><input type="button" value="Ho"></a></td>
+                                        <td><a href="/ybackward" id=ybackward><input type="button" id='backward'
+                                                    name="backward" value="Y-"></a></td>
+                                    </tr>
+                                    <tr>
+                                        <td></td>
+                                        <td><a href="/xbackward" id=xbackward><input type="button" value="X-"></a>
+                                        </td>
+                                        <td></td>
+                                    </tr>
+
+                                </table>
+
+
+                            </li>
+
+                            <br>
+                            <br>
+                            <li class="nav-item">
+
+                                <h4><span class="label label-default"> Gripper Move</span></h4>
+                            </li>
+
+                            <li class="nav-item">
+
+                                <table>
+                                    <tr>
+                                        <td></td>
+                                        <td><a href="/release" id=release><input type="button" id='release'
+                                                    name="release" value="R"></a></td>
+                                        <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td><a href="/zup"><input type="button" name="zup" value="Z+"></a>
+                                        </td>
+                                        <td><a><input type="button" value="H"></a></td>
+                                        <td><a href="/zdown"><input type="button" name="zdown" value="Z-"></a>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td></td>
+                                        <td><a href="/catch" id=catch><input type="button" id='catch' name="catch"
+                                                    value="C"></a></td>
+                                        <td></td>
+                                    </tr>
+
+                                </table>
+
+                            </li>
+                            <!--   -->
+                            <hr>
+                            <li>
+
+                                <a class="nav-link btn btn-light" href="/scan"><input type="button" id='scan'
+                                        name="scan" value=" Image Scan"></a>
+                            </li>
+
+                        </ul>
+                    </div>
+                </nav>
+            </div>
+     
+  
+</div>
+}

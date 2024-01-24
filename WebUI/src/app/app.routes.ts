@@ -1,7 +1,7 @@
 import { Routes } from '@angular/router';
 import { AppComponent } from './app.component';
 import { LoginComponent } from './login/login.component';
-import { LandingComponent } from './landing/landing.component';
+
 import { WoodframeComponent } from './woodframe/woodframe.component';
 import { HeaderComponent } from './header/header.component';
 
@@ -10,7 +10,7 @@ export const routes: Routes = [
    
     {
         path:'',
-        redirectTo:'landing',
+        redirectTo:'warehouse',
         pathMatch:'full'
     },
     {
@@ -23,7 +23,7 @@ export const routes: Routes = [
         component:HeaderComponent,
         children: [
             {
-                path:'landing',
+                path:'warehouse',
                 component:WoodframeComponent
             },
           
