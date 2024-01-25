@@ -21,14 +21,13 @@ export class LoginComponent {
 
   onLogin() {
     console.log(this.loginObj.userName == "admin")
-    console.log(this.loginObj.password)
-    //if(this.loginObj.userName == "admin" && this.loginObj.password == "334455") {
+    console.log(this.loginObj.password=="334455")
+if(this.loginObj.userName == "admin" && this.loginObj.password == "334455") {
  
-   //   this.router.navigateByUrl('/landing')
-
-   // } else {
-   //   alert('Wrong Credentials')
-   // }
+ this.router.navigateByUrl('/warehouse')
+} else {
+     alert('Wrong Credentials')
+  }
   }
 
 }

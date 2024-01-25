@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 
 @Component({
@@ -10,4 +10,11 @@ import { RouterOutlet } from '@angular/router';
 })
 export class AppComponent {
   title = 'WebUI';
+ 
+  //firestore = inject(Firestore);
+
+  ngOnInit() {
+   // getDocs(collection(this.firestore, "testPath")).then((response) => {
+   //   console.log(response.docs)
+   // }
 }
