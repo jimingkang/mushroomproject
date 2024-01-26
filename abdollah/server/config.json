@@ -1,0 +1,5 @@
+{
+    "_movement_step": 1.0,
+    "_feedback": 400,
+    "stream_address": "http://172.26.52.62:5001/stream_raw"
+}

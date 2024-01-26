@@ -1,0 +1,57 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Index</title>
+</head>
+<body>
+<center>
+<h1>MushRoom Robot System</h1>
+
+<table>
+<tr><td></td>
+<td><a href="/catch" id=up><input type="button" id='catch' name="catch" value="catch"></a></td>
+<td></td>
+</tr>
+
+<tr><td><a href="/forward" id=forward><input type="button" id='forward' name="forward" value="forward"></a></td>
+<td><a href="/home" id=home><input type="button" id="home" name="home" value="homr"></a></td>
+<td><a href="/backward" id=backward><input type="button" id='backward' name="backward" value="backward"></a>
+</td>
+</tr>
+<tr><td><a href="/test" id=test><input type="button" id='test' name="test" value="test"></a></td>
+<td><a href="/release" id=release><input type="button" id='release' name="release" value="release"></a></td>
+<td></td>
+</tr>
+
+</table>
+<!--
+<center>
+<iframe src="http://10.0.0.251:5000"
+        width="100%" height="500" frameborder="0"
+        allowfullscreen sandbox>
+  <p>     iframes</p>
+</iframe>
+</center>
+
+-->
+<!--
+<script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.6/socket.io.min.js"></script>
+<script type="text/javascript" charset="utf-8">
+  $(document).ready(function() {
+    var socket = io.connect('http://' + document.domain + ':' + location.port);
+
+    // listen for mqtt_message events
+    // when a new message is received, log and append the data to the page
+    socket.on('mqtt_message', function(data) {
+      console.log(data);
+      var text = '(' + data['topic'] + ' qos: ' + data['qos'] + ') ' + data['payload'];
+      $('#subscribe_messages').append(text + '<br><br>');
+    })
+  });
+</script>
+-->
+<div id="subscribe_messages"></div></body>

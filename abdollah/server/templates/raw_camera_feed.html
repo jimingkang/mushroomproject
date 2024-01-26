@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css">
+
+    <title>Web Application</title>
+    <style>
+        #sidebar {
+            height: 100vh; /* 100% viewport height */
+        }
+        .nav-link.btn {
+            margin: 5px 0; /* Add vertical margin between buttons */
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-secondary">
+                <div class="position-sticky">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link btn btn-light" href="/">Home</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active btn btn-light" href="#">Raw Camera Feed</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link btn btn-light" href="annotated_camera_feed">Annotated Camera Feed</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link btn btn-light" href="automatic_scan">Automatic Scan</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link btn btn-light" href="depth_feed">Depth feed</a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="row justify-content-center mt-5">
+                    <div class="col-md-10">
+                        <div class="text-center mt-3">
+                            <!-- Top arrow button -->
+                            <button class="btn btn-primary" id="up">
+                                <i class="fas fa-arrow-up"></i>
+                            </button>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-1 text-right d-flex align-items-center justify-content-end">
+                                <!-- Left arrow button -->
+                                <button class="btn btn-primary" id="left">
+                                    <i class="fas fa-arrow-left"></i>
+                                </button>
+                            </div>
+                            <div class="col-md-10 text-center">
+                                <!-- Image in the center -->
+                                <img src="{{ stream_address }}" class="img-fluid" alt="Centered Image">
+                            </div>
+                            <div class="col-md-1 text-left d-flex align-items-center justify-content-end">
+                                <!-- Right arrow button -->
+                                <button class="btn btn-primary" id="right">
+                                    <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="text-center mt-3">
+                            <!-- Bottom arrow button -->
+                            <button class="btn btn-primary" id="down">
+                                <i class="fas fa-arrow-down"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+        <!-- Bootstrap JS and FontAwesome (Make sure to include them) -->
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+        <script src="https://kit.fontawesome.com/a076d05399.js"></script>
+
+        <script>
+            $(document).ready(function () {
+                $("#up, #down, #right, #left").on("click", function () {
+                    var button = $(this);
+                    direction = button.attr("id")
+                    var originalIconClass = "fas fa-arrow-"+direction;
+                    var loadingIconClass = "fas fa-spinner fa-spin";
+                    
+                    // Disable the button and change the icon to loading
+                    button.prop("disabled", true);
+                    button.find("i").removeClass(originalIconClass).addClass(loadingIconClass);
+    
+                    // Send an AJAX request to the Flask route with the direction
+                    $.ajax({
+                        type: "GET",
+                        url: "/move/"+direction,
+                        //data: { direction: direction }, // Specify the direction here
+                        success: function (response) {
+                            console.log(response);
+                            // Re-enable the button and restore the original icon
+                            button.prop("disabled", false);
+                            button.find("i").removeClass(loadingIconClass).addClass(originalIconClass);
+                        },
+                        error: function (error) {
+                            console.error("Error:", error);
+                            // Re-enable the button and restore the original icon on error
+                            button.prop("disabled", false);
+                            button.find("i").removeClass(loadingIconClass).addClass(originalIconClass);
+                        }
+                    });
+                });
+            });
+        </script>
+</body>
+</html>

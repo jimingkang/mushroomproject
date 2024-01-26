@@ -281,9 +281,9 @@ class Camera(BaseCamera):
 
     @staticmethod
     def frames():
-        video = cv2.VideoCapture("http://10.0.0.134:5000/video_feed")
+        #video = cv2.VideoCapture("http://10.0.0.134:5000/video_feed")
         #video = cv2.VideoCapture("http://192.168.254.42:5000/video_feed")
-        #video = cv2.VideoCapture(Camera.video_source,cv2.CAP_V4L2)
+        video = cv2.VideoCapture(Camera.video_source,cv2.CAP_V4L2)
         #video = v4l2capture.Video_device(Camera.video_source)
 
         size_x =640

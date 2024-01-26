@@ -9,13 +9,14 @@ from paho.mqtt import client as mqtt_client
 
 broker=''
 try:
-    for line in open("ip.txt"):
+    for line in open("../ip.txt"):
         if line[0:6] == "broker":
-            broker = line[9:len(line)]
+            broker = line[9:len(line)-1]
 except:
     pass
 
-#broker = '192.168.254.42'
+broker = '192.168.1.3'
+print(broker)# = '172.26.52.69'
 #broker = '10.0.0.134'
 port = 1883
 topic = "/flask/xyz"

@@ -8,7 +8,7 @@ import redis
 import yaml
 from flask import Flask
 from flask_mqtt import Mqtt
-
+import serial
 from Mushroom import Mushroom
 from base_camera import BaseCamera
 #import pyrealsense2.pyrealsense2 as rs
@@ -32,6 +32,7 @@ from utils.datasets import LoadStreams, LoadImages, letterbox
 from models.experimental import attempt_load
 import torch.backends.cudnn as cudnn
 import torch
+import myutils as ut
 #torch.cuda.is_available()
 pipeline = rs.pipeline()  # 定义流程pipeline
 config = rs.config()  # 定义配置config
@@ -43,17 +44,8 @@ align = rs.align(align_to)
 colors = [(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)) for j in range(100)]
 detection_threshold = 0.5
 
-
-broker=''
-redis_server=''
-try:
-    for line in open("../ip.txt"):
-        if line[0:6] == "broker":
-            broker = line[9:len(line)-1]
-        if line[0:6] == "reddis":
-            redis_server=line[9:len(line)-1]
-except:
-    pass
+#ser = serial.Serial("/dev/ttyACM0",115200)
+broker,redis_server=ut.getbroker()
 print(broker)
 print(redis_server)
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
@@ -61,8 +53,6 @@ r = redis.Redis(connection_pool=pool)
 
 app = Flask(__name__)
 app.config['MQTT_BROKER_URL'] = broker
-#app.config['MQTT_BROKER_URL'] =  '192.168.254.43'
-#app.config['MQTT_BROKER_URL'] = '10.0.0.18'
 app.config['MQTT_BROKER_PORT'] = 1883
 app.config['MQTT_USERNAME'] = ''  # Set this item when you need to verify username and password
 app.config['MQTT_PASSWORD'] = ''  # Set this item when you need to verify username and password
@@ -324,6 +314,8 @@ class Camera(BaseCamera):
         if rc == 0:
             print('Connected successfully')
             mqtt_client.subscribe(topic2)  # subscribe topic
+            #mqtt_client.subscribe(topic)
+            mqtt_client.subscribe(topic)
         else:
             print('Bad connection. Code:', rc)
 
@@ -341,13 +333,15 @@ class Camera(BaseCamera):
             print("payload=" + xyz)
             if xyz:
                 global g_xyz
-                if g_xyz==xyz:
-                    return
+                #if g_xyz==xyz:
+                #    return
                 g_xyz=xyz
                 xyz = xyz.split(";")
                 x=xyz[0]
-                if x :
-                #for x in xyz:
+                print("x="+x)
+                #if x :
+                real_xyz=""
+                for x in xyz:
                     first_xyz = x.split(",");
                     print(first_xyz)
                     #camera_xyz_list.append([float(first_xyz[0]),float(first_xyz[1]),int(first_xyz[2])])
@@ -382,23 +376,30 @@ class Camera(BaseCamera):
                         #else:
                         camera_x = camera_x +int(float(global_camera_xy))
                         distance = int(math.sqrt(new_camera_x * new_camera_x+ new_camera_y*new_camera_y))
-                        if not r.hexists("detections",str(track_id)) and (len(detected_x)<=0 and len(detected_y)<=0):
-                            print("distance:" + str(distance))  # +"camera_x:"+int(float(camera_x)))
+                        #if  1:#(len(detected_x)<=0 and len(detected_y)<=0):
+                        if  1:# (len(detected_x)<=0 and len(detected_y)<=0):
+                            print(" seve distance:" + str(track_id)+","+str(new_camera_x)+","+str(new_camera_y))  # +"camera_x:"+int(float(camera_x)))
                             r.zadd("detections_index_x", {str(track_id)+"_"+str(new_camera_x): new_camera_x})
                             r.zadd("detections_index_y", {str(track_id)+"_"+str(new_camera_y): new_camera_y})
-                            r.hmset("detections", {str(track_id): str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id)})
+                            r.hset("detections", str(track_id), str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id))
                     else:
                         r.set("global_camera_xy","0,0")
                     x=1*float(camera_xyz[0]) * 1000
                     y=1*float(camera_xyz[1]) * 1000
+                    move_x=" X"+str(x/50)
+                    move_y=" Y"+str(y/25) + " F500\r\n"
+                    cmd="G21 G91 G1 " +move_x+move_y 
+            
+                    #ret=command(ser, cmd)
+                    #r.set("mode","pick_ready")
+
                     global pre_trackid
-                    if abs(x)> 5 or abs(y)>5:
-                        #move_x=str(x) + " F100\r\n"
-                        #cmd="G21 G91 G1 X" +move_x
-                        #print(camera_xyz)
-                        xyz=str(camera_xyz[0])+","+str(camera_xyz[1])+","+str(track_id)
-                        move_publish.run(topic3,xyz)
-                        print(xyz)
+                    if r.get("mode")=="camera_ready" :
+                    #if r.get("mode")=="camera_ready" and abs(x)> 5 or abs(y)>5:
+                        real_xyz=str(camera_xyz[0])+","+str(camera_xyz[1])+","+str(track_id)+";"
+                        real_xyz=real_xyz[0:len(real_xyz)-1]
+                        move_publish.run(topic3,real_xyz)
+                    #    print("real_xyz:"+real_xyz)
                 # socketio.emit('mqtt_message', data=data)
     @staticmethod
     def frames():

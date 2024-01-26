@@ -16,10 +16,10 @@ except:
     pass
 
 broker = broker
-#broker = '192.168.254.42'
 #broker = '10.0.0.134'
 port = 1883
 topic = "/flask/xyz"
+print("BROKER: ", broker)
 # generate client ID with pub prefix randomly
 client_id = f'python-mqtt-{random.randint(0, 10000)}'
 # username = 'emqx'
