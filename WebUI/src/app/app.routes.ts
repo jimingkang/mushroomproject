@@ -4,18 +4,23 @@ import { LoginComponent } from './login/login.component';
 
 import { WoodframeComponent } from './woodframe/woodframe.component';
 import { HeaderComponent } from './header/header.component';
+import {  FirebaseloginComponent } from './firebase-login/firebase-login.component';
 
 
 export const routes: Routes = [
    
     {
         path:'',
-        redirectTo:'warehouse',
+        redirectTo:'login',
         pathMatch:'full'
     },
     {
         path:'login',
         component:LoginComponent
+    },
+    {
+        path:'firebaselogin',
+        component:FirebaseloginComponent
     },
     
     {
