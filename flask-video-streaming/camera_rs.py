@@ -13,6 +13,7 @@ from Mushroom import Mushroom
 from base_camera import BaseCamera
 #import pyrealsense2.pyrealsense2 as rs
 import pyrealsense2 as rs
+from HitbotInterface import HitbotInterface
 
 import os
 import time
@@ -65,6 +66,12 @@ topic3 = '/flask/serial'
 
 app = Flask(__name__)
 mqtt_client = Mqtt(app)
+
+hi=HitbotInterface(92); #//92 is robotid? yes
+hi.net_port_initial()
+ret=hi.initial(1,210); #// I add you on wechat
+print(ret)
+
 
 camera_xyz_list = []
 
@@ -322,7 +329,7 @@ class Camera(BaseCamera):
     @mqtt_client.on_message()
     def handle_mqtt_message(client, userdata, message):
         #print('Received message on topic:')
-        #print(message.topic)
+        print(message.topic)
         if message.topic == topic2:
             data = dict(
                 topic=message.topic,
@@ -341,18 +348,22 @@ class Camera(BaseCamera):
                 print("x="+x)
                 #if x :
                 real_xyz=""
+                r.set("mode","pick_ready")
+
                 for x in xyz:
                     first_xyz = x.split(",");
                     print(first_xyz)
                     #camera_xyz_list.append([float(first_xyz[0]),float(first_xyz[1]),int(first_xyz[2])])
                     track_id=int(first_xyz[2])
-                    #print("G21 G91 G1 X" + str(int(float(first_xyz[0]) * 100)) + " F2540\r\n")
                     #if track_id == int(first_xyz[2]):
                     dis = aligned_depth_frame.get_distance(int(first_xyz[0]), int(first_xyz[1]))
                     camera_xyz = rs.rs2_deproject_pixel_to_point(depth_intrin, (int(first_xyz[0]), int(first_xyz[1])), dis)  # ????????xyz
                     print(camera_xyz)
                     camera_x=int(float(camera_xyz[0])*1000)
                     camera_y=int(float(camera_xyz[1])*1000)
+                    camera_z=int(float(camera_xyz[2])*1000)
+                    hi.movel_xyz_by_offset(camera_x,camera_y,camera_z,0,20)
+                    hi.wait_stop()
 
                     global_camera_xy=r.exists("global_camera_xy")
                     if global_camera_xy==True:
@@ -384,21 +395,14 @@ class Camera(BaseCamera):
                             r.hset("detections", str(track_id), str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id))
                     else:
                         r.set("global_camera_xy","0,0")
-                    x=1*float(camera_xyz[0]) * 1000
-                    y=1*float(camera_xyz[1]) * 1000
-                    move_x=" X"+str(x/50)
-                    move_y=" Y"+str(y/25) + " F500\r\n"
-                    cmd="G21 G91 G1 " +move_x+move_y 
-            
-                    #ret=command(ser, cmd)
-                    #r.set("mode","pick_ready")
+                    
+                    r.set("mode","camera_ready")
 
                     global pre_trackid
-                    if r.get("mode")=="camera_ready" :
                     #if r.get("mode")=="camera_ready" and abs(x)> 5 or abs(y)>5:
-                        real_xyz=str(camera_xyz[0])+","+str(camera_xyz[1])+","+str(track_id)+";"
-                        real_xyz=real_xyz[0:len(real_xyz)-1]
-                        move_publish.run(topic3,real_xyz)
+                    #    real_xyz=str(camera_xyz[0])+","+str(camera_xyz[1])+","+str(track_id)+";"
+                    #    real_xyz=real_xyz[0:len(real_xyz)-1]
+                    #    move_publish.run(topic3,real_xyz)
                     #    print("real_xyz:"+real_xyz)
                 # socketio.emit('mqtt_message', data=data)
     @staticmethod
