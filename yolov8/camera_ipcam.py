@@ -67,7 +67,7 @@ class Camera(BaseCamera):
     @staticmethod
     def frames():
         #video = cv2.VideoCapture(video_source)
-        video = cv2.VideoCapture("http://192.168.1.3:5000/video_feed")
+        video = cv2.VideoCapture("http://192.168.0.100:5000/video_feed")
         size_x =1280
         size_y = 720
         video.set(cv2.CAP_PROP_FRAME_WIDTH, size_x)
@@ -128,7 +128,7 @@ class Camera(BaseCamera):
                                 y2 = int(bbox[3])
                                 # score=int(bbox[4])
                                 track_id = track.track_id
-                                text = 'id:{},{:.1f}%,x1y1:{},{},x2y2:{},{}'.format(track_id,conf[i] * 100,x1,y1,x2,y2)
+                                text = 'id:{},x:{},y:{}'.format(track_id,(x1+x2)/2,(y1+y2)/2)
                                 font = cv2.FONT_HERSHEY_SIMPLEX
                                 txt_size = cv2.getTextSize(text, font, 0.4, 1)[0]
                                 cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 0), 1)
@@ -151,7 +151,7 @@ class Camera(BaseCamera):
                         #    coordx = coordx[0:len(coordx) - 1]
                         #    print("coordx=",coordx)
                         #    xyz_publish.run(coordx)
-                            #r.set("mode","pickup_ready")
+                        #    r.set("mode","pickup_ready")
 
                 yield cv2.imencode('.jpg', img)[1].tobytes()
         finally:

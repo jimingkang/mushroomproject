@@ -15,9 +15,10 @@ try:
 except:
     pass
 
-broker = '192.168.1.3'
-print(broker)# = '172.26.52.69'
-#broker = '10.0.0.134'
+
+print(broker)
+
+
 port = 1883
 topic = "/flask/xyz"
 # generate client ID with pub prefix randomly
@@ -30,7 +31,7 @@ def connect_mqtt():
     def on_connect(client, userdata, flags, rc):
         if rc == 0:
             i=1
-            #print("xyx publish Connected to MQTT Broker!")
+            print("xyx publish Connected to MQTT Broker!")
         else:
             i=0
             #print("Failed to connect, return code %d\n", rc)
@@ -44,8 +45,9 @@ def connect_mqtt():
 
 def publish(client,camera_xyz_list):
     #finalxyx = camera_xyz_list[0:len(camera_xyz_list) - 1]
-    #print(finalxyx)
+    print(topic)
     publish_result = client.publish(topic, camera_xyz_list,qos=0)
+    print(publish_result)
 
 
 

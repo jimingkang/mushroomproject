@@ -88,34 +88,17 @@ def command(ser, command):
 
 @app.route('/scan')
 def scan():
-    global prev_value
-    # video_dir.move_decrease_y(10)
-    r.set("mode", "camera_ready")
-    #r.set("global_camera_xy","0,0")
-    r.delete("detections")
-    #loop_pickup();
     return render_template('index.html');
 
 
 @app.route('/xbackward')
 def xbackward():
-    command(ser, "$X\r\n")
-    time.sleep(1)
-    command(ser, "G21 G91 G1 X1 F500\r\n")
-    xy = r.get("global_camera_xy").split(",")
-    print(xy)
-    r.set("global_camera_xy", str(int(xy[0]) - 25) + "," + xy[1])
     return render_template('index.html');
 
 
 @app.route('/xforward')
 def xfarward():
-    command(ser, "$X\r\n")
-    time.sleep(1)
-    command(ser, "G21 G91 G1 X-1 F500\r\n")
-    xy = r.get("global_camera_xy").split(",")
-    print(xy)
-    r.set("global_camera_xy", str(int(xy[0]) + 25) + "," + xy[1])
+ 
     return render_template('index.html');
 
 
@@ -123,8 +106,6 @@ def xfarward():
 
 @app.route('/catch')
 def catch():
-    video_dir.move_increase_y(10)
-    print("catch")
     return render_template('index.html');
 
 
@@ -157,13 +138,6 @@ def yforward():
 
 @app.route('/ybackward')
 def ybackward():
-    command(ser, "$X\r\n")
-    time.sleep(1)
-    # Moving forward code
-    command(ser, "G21 G91 G1  Y5 F500\r\n")
-    xy = r.get("global_camera_xy").split(",")
-    print(xy)
-    r.set("global_camera_xy", xy[0] + "," + str(int(xy[1]) + 60))
     return render_template('index.html');
 
 
@@ -176,21 +150,11 @@ def autopick():
 
 @app.route('/zerosetting')
 def zero():
-    # publish_result = mqtt_client.publish(topic, "/flask/home")
-    command(ser, "$X\r\n")
-    time.sleep(1)
-    command(ser, "$H\r\n")
-    r.set("global_camera_xy", "0,0")
     return render_template('index.html');
 
 
 @app.route('/home')
 def home():
-    # publish_result = mqtt_client.publish(topic, "/flask/home")
-    command(ser, "$X\r\n")
-    time.sleep(1)
-    command(ser, "G28 G91 X0.0 Y0.00 F500\r\n")
-    r.set("global_camera_xy", "0,0")
     return render_template('index.html');
 
 
