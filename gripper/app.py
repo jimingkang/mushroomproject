@@ -74,10 +74,14 @@ video_dir.home_x_y()
 ser = serial.Serial("/dev/ttyACM0", 115200)
 
 <<<<<<< HEAD
+#ser = serial.Serial("/dev/ttyACM0",115200)
+=======
+<<<<<<< HEAD
 redis_server = ''
 broker = ''
 =======
 ser = serial.Serial("/dev/ttyACM0",115200)
+>>>>>>> c7895ddb65b9ab98d0cb66980cb871a00ddb444e
 
 redis_server=''
 broker=''
@@ -93,13 +97,8 @@ except:
 #broker = broker.replace("\n", "").replace("\r\n", "")
 broker = "192.168.1.3"
 print(broker)
-<<<<<<< HEAD
-print(redis_server)
-pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True, password='jimmy')
-=======
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
->>>>>>> 2f9c2b9b5f4ee0211feb6c12d088236efcbe32d0
 r = redis.Redis(connection_pool=pool)
 app = Flask(__name__)
 app.config['MQTT_BROKER_URL'] = broker
@@ -110,7 +109,6 @@ app.config['MQTT_USERNAME'] = ''  # Set this item when you need to verify userna
 app.config['MQTT_PASSWORD'] = ''  # Set this item when you need to verify username and password
 app.config['MQTT_KEEPALIVE'] = 5  # Set KeepAlive time in seconds
 app.config['MQTT_TLS_ENABLED'] = False  # If your server supports TLS, set it True
-<<<<<<< HEAD
 # socketio = SocketIO(app)
 topic = '/flask/scan'
 topic2 = '/flask/xyz'
@@ -124,12 +122,6 @@ y = 0
 
 
 # app.config.from_object(config)
-=======
-#socketio = SocketIO(app)
-mqtt_client = Mqtt(app)
-
-#app.config.from_object(config)
->>>>>>> 2f9c2b9b5f4ee0211feb6c12d088236efcbe32d0
 
 
 def send_wake_up(ser):
@@ -251,6 +243,7 @@ def home():
 
 @app.route('/forward')
 def forward():
+
     move_forward();
     # video_dir.move_decrease_x()
     return render_template('index.html');
@@ -300,7 +293,6 @@ def msg():
 def handle_connect(client, userdata, flags, rc):
     if rc == 0:
         print('Connected successfully')
-<<<<<<< HEAD
         mqtt_client.subscribe(topic3)  # subscribe topic
         # mqtt_client.subscribe(topic5) # subscribe topic
     else:
@@ -311,12 +303,6 @@ pre_trackid = 0
 old_x = 0
 old_y = 0
 
-=======
-        mqtt_client.subscribe(topic3) # subscribe topic
-        #mqtt_client.subscribe(topic5) # subscribe topic
-   else:
-       print('Bad connection. Code:', rc)
->>>>>>> 2f9c2b9b5f4ee0211feb6c12d088236efcbe32d0
 
 @mqtt_client.on_message()
 def handle_mqtt_message(client, userdata, message):
@@ -344,7 +330,7 @@ def handle_mqtt_message(client, userdata, message):
         time.sleep(1)
         print(cmd)
         if ret == 'ok':
-            pub_ret = mqtt_client.publish(topic6, "drop")  # subscribe topic
+            pub_ret=mqtt_client.publish(topic6,"drop") # subscribe topic
     if message.topic == topic3:
         global pre_trackid, old_x, old_y
         xyz = data['payload']
@@ -367,7 +353,13 @@ def handle_mqtt_message(client, userdata, message):
         if not r.exists("pre_trackid"):
             r.set("pre_trackid", "0")
         else:
-            pre_trackid = r.get("pre_trackid")
+            pre_trackid=r.get("pre_trackid")
+        #if pre_trackid==real_xyz[2]:
+        #    print(" pre_trackid:"+pre_trackid)
+         #   return
+        #else:
+        r.set("pre_trackid",real_xyz[2])
+            #r.set("pre_trackid",real_xyz[2])
         #if pre_trackid == real_xyz[2]:
         #    print(" pre_trackid:" + pre_trackid)
         #    return
@@ -398,6 +390,26 @@ def handle_mqtt_message(client, userdata, message):
             print(y)
             print("\n")
             #if(abs(x/50)>3 or abs(y/25)>3):
+            #    return 
+            #r.set("mode","moving")
+            #move_x=" X"+str(x/50)
+            move_x=" X"+str(x/50)
+            move_y=" Y"+str(y/25) + " F500\r\n"
+            cmd="G21 G91 G1 " +move_x+move_y 
+            
+            #ret=command(ser, cmd)
+            time.sleep(1)
+            #print(cmd,ret)
+            if 1:#ret == 'ok':
+                r.set("global_camera_xy",""+str(x)+","+str(y))
+                r.set("old_x",str(x))
+                r.set("old_y",str(y))
+                print(abs(x))
+                print(abs(y))
+                #ret_ok=requests.get("http://172.26.52.69:8888/pickup")
+                #print(ret_ok)
+                #if(abs(x)<15 and abs(y)<(15)):
+                #pub_ret=mqtt_client.publish(topic4,"50") # subscribe topic
              #   return
             # r.set("mode","moving")
             # move_x=" X"+str(x/50)

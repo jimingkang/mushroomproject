@@ -58,4 +58,4 @@ def run(topic,cmd):
 
 
 if __name__ == '__main__':
-    run('/flask/serial','G21 G91 G1 X1 F500')
+    run('/flask/serial','G21 G91 G1 X0 F500')
