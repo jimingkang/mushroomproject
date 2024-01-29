@@ -35,7 +35,7 @@ class HitbotInterface:
         self.efg_type = 0.0
 
     def net_port_initial(self):
-        self.dll=CDLL('/home/pi/mushroomproject/scara_python/libsmall_scara_interface.so.3.0.0')
+        self.dll=CDLL('./libsmall_scara_interface.so.3.0.0')
         return self.dll.net_port_initial()
 
     def initial(self, generation, z_trail):
