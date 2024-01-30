@@ -23,6 +23,13 @@ from time import sleep
 import RPi.GPIO as GPIO
 import time
 import publish
+from HitbotInterface import HitbotInterface
+
+#hi=HitbotInterface(92); #//92 is robotid
+#hi.net_port_initial()
+#ret=hi.initial(1,210); #
+#print(hi.is_connect())
+#print(hi.unlock_position())
 
 # import camera driver
 if os.environ.get('CAMERA'):
@@ -34,27 +41,21 @@ else:
 #from camera_pi import Camera
 
 
-topic = "/flask/stop"
+
+
+
 # Pin Definitions
 input_pin = 12  # BCM pin 18, BOARD pin 12
 
 prev_value = None
 # GPIO.setmode(GPIO.BOARD)  # BCM pin-numbering scheme from Raspberry Pi
 # GPIO.setup(input_pin, GPIO.IN)  # set pin as an input pin
-
-
 # import config
 
-busnum = 1  # Edit busnum to 0, if you uses Raspberry Pi 1 or 0
-
-# video_dir.setup(busnum=busnum)
-# motor.setup(busnum=busnum)     # Initialize the Raspberry Pi GPIO connected to the DC motor.
-# motor.setSpeed(40)
-# video_dir.home_x_y()
 
 i = 0
 
-#ser = serial.Serial("/dev/ttyACM0", 115200)
+
 
 redis_server = ''
 broker = ''
@@ -75,16 +76,13 @@ r = redis.Redis(connection_pool=pool)
 
 app = Flask(__name__)
 app.config['DEBUG'] = False
-#broker = '192.168.1.4'
 app.config['MQTT_BROKER_URL'] = broker
-# app.config['MQTT_BROKER_URL'] = '10.0.0.134'
-# app.config['MQTT_BROKER_URL'] = '192.168.254.42'
 app.config['MQTT_BROKER_PORT'] = 1883
 app.config['MQTT_USERNAME'] = ''  # Set this item when you need to verify username and password
 app.config['MQTT_PASSWORD'] = ''  # Set this item when you need to verify username and password
 app.config['MQTT_KEEPALIVE'] = 5  # Set KeepAlive time in seconds
 app.config['MQTT_TLS_ENABLED'] = False  # If your server supports TLS, set it True
-# socketio = SocketIO(app)
+
 topic = '/flask/scan'
 topic2 = '/flask/xyz'
 topic3 = '/flask/serial'
@@ -96,49 +94,8 @@ mqtt_client = Mqtt(app)
 y = 0
 
 
-# app.config.from_object(config)
 
 
-def send_wake_up(ser):
-    # Wake up
-    # Hit enter a few times to wake the Printrbot
-    ser.write(str.encode("\r\n\r\n"))
-    time.sleep(2)  # Wait for Printrbot to initialize
-    ser.flushInput()  # Flush startup text in serial input
-
-
-def wait_for_movement_completion(ser, cleaned_line):
-    Event().wait(1)
-    if cleaned_line != '$X' or '$$':
-        idle_counter = 0
-        while True:
-            # Event().wait(0.01)
-            ser.reset_input_buffer()
-            command = str.encode('?' + '\n')
-            ser.write(command)
-            grbl_out = ser.readline()
-            grbl_response = grbl_out.strip().decode('utf-8')
-            if grbl_response != 'ok':
-                if grbl_response.find('Idle') > 0:
-                    idle_counter += 1
-            if idle_counter > 10:
-                break
-    return
-
-
-def command(ser, command):
-    # send_wake_up(ser)
-    if command:  # checks if string is empty
-        print("Sending gcode:" + str(command))
-        # converts string to byte encoded string and append newline
-        command = str.encode(command)
-        # command = str.encode(command + x'\r\n')
-        ser.write(command)  # Send g-code
-        # wait_for_movement_completion(ser, command)
-        # grbl_out = ser.readline()  # Wait for response with carriage return
-        # print(" : ", grbl_out.strip().decode('utf-8'))
-        return 'ok'
-        # return grbl_out.strip().decode('utf-8')
 
 
 @app.route('/scan')
@@ -165,12 +122,6 @@ def xbackward():
 
 @app.route('/xforward')
 def xfarward():
-    command(ser, "$X\r\n")
-    time.sleep(1)
-    command(ser, "G21 G91 G1 X-1 F500\r\n")
-    xy = r.get("global_camera_xy").split(",")
-    print(xy)
-    r.set("global_camera_xy", str(int(xy[0]) + 25) + "," + xy[1])
     return render_template('index.html');
 
 
@@ -279,6 +230,80 @@ def video_feed():
     """Video streaming route. Put this in the src attribute of an img tag."""
     return Response(gen(Camera()),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+@mqtt_client.on_connect()
+def handle_connect(client, userdata, flags, rc):
+    if rc == 0:
+        print(' topic3 =/flask/serial Connected successfully')
+        mqtt_client.subscribe(topic3)  # subscribe topic
+    else:
+        print('Bad connection. Code:', rc)
+
+
+@mqtt_client.on_message()
+def handle_mqtt_message(client, userdata, message):
+    # print(message.topic)
+    data = dict(topic=message.topic, payload=message.payload.decode())
+    print('Received message on topic: {topic} with payload: {payload}'.format(**data))
+    xyz = data['payload']
+    print("get xy payload=" + xyz)
+    if message.topic == topic3:
+        global pre_trackid, old_x, old_y
+        xyz = data['payload']
+        if xyz=="0.1,0.1,1":
+            return
+        print(xyz)
+        real_xyz = xyz.split(",")
+
+        # detections=r.hgetall("detections")
+        # for item in r.hkeys("detections"):
+        #    real_xyz=r.hget("detections",item).split(",")
+        # real_xyz=detections[0].split(",")
+        real_x = int(float(real_xyz[0]) * 1000)
+        real_y = int(float(real_xyz[1]) * 1000)
+        real_z = int(float(real_xyz[2]) * 1000)
+        real_y = real_y - 190
+        #real_x = real_x + 10
+        x =   real_x
+        y = real_y
+        z=-real_z
+        if not r.exists("pre_trackid"):
+            r.set("pre_trackid", "0")
+        else:
+            pre_trackid=r.get("pre_trackid")
+        #if pre_trackid==real_xyz[2]:
+        #    print(" pre_trackid:"+pre_trackid)
+         #   return
+        #else:
+        r.set("pre_trackid",real_xyz[2])
+            #r.set("pre_trackid",real_xyz[2])
+        #if pre_trackid == real_xyz[2]:
+        #    print(" pre_trackid:" + pre_trackid)
+        #    return
+       # else:
+       #     r.set("pre_trackid", real_xyz[2])
+        # r.set("pre_trackid",real_xyz[2])
+
+        if abs(float(old_x)-x)<10 and abs(float(old_y)-y)<10:
+           print("return")
+           print(abs((float(old_x)-x)))
+           print(abs((float(old_y)-y)))
+           return
+        else:
+            r.set("old_x",str(real_x))
+            r.set("old_y",str(real_y))
+
+        if 1:#(abs(x) > 10 or abs(y) > 10):
+            hi.get_scara_param()
+            print("realx,y")
+            hi.new_movej_xyz_lr()(x,y,z,0,20,0,1)
+            hi.wait_stop()
+            r.set("mode", "camera_ready")
+
+
+ 
+
 
 
 if __name__ == '__main__':

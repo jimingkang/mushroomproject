@@ -69,23 +69,8 @@ video_dir.setup(busnum=busnum)
 video_dir.home_x_y()
 
 
->>>>>>> 2f9c2b9b5f4ee0211feb6c12d088236efcbe32d0
-
-ser = serial.Serial("/dev/ttyACM0", 115200)
-
-<<<<<<< HEAD
-#ser = serial.Serial("/dev/ttyACM0",115200)
-=======
-<<<<<<< HEAD
 redis_server = ''
 broker = ''
-=======
-ser = serial.Serial("/dev/ttyACM0",115200)
->>>>>>> c7895ddb65b9ab98d0cb66980cb871a00ddb444e
-
-redis_server=''
-broker=''
->>>>>>> 2f9c2b9b5f4ee0211feb6c12d088236efcbe32d0
 try:
     for line in open("../ip.txt"):
         if line[0:6] == "broker":
@@ -95,7 +80,7 @@ try:
 except:
     pass
 #broker = broker.replace("\n", "").replace("\r\n", "")
-broker = "192.168.1.3"
+
 print(broker)
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')

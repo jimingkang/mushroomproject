@@ -6,21 +6,21 @@ import time
 from paho.mqtt import client as mqtt_client
 
 
+
 broker=''
 try:
     for line in open("../ip.txt"):
         if line[0:6] == "broker":
-            broker = line[9:-1]
+            broker = line[9:len(line)-1]
 except:
     pass
 
-print("BROKER:", broker)
 broker = broker
-#broker = '10.0.0.134'
 port = 1883
-tpoic_flask_downmove = "/flask/downmove"
+topic = "/flask/serial"
+print("BROKER: ", broker)
 # generate client ID with pub prefix randomly
-client_id = f'python-mqtt-{random.randint(0, 1000)}'
+client_id = f'python-mqtt-{random.randint(0, 10000)}'
 # username = 'emqx'
 # password = 'public'
 
@@ -29,7 +29,7 @@ def connect_mqtt():
     def on_connect(client, userdata, flags, rc):
         if rc == 0:
             i=1
-            #print("get downmove publish Connected to MQTT Broker!")
+            print("move publish Connected to MQTT Broker!")
         else:
             i=0
             #print("Failed to connect, return code %d\n", rc)
@@ -40,22 +40,21 @@ def connect_mqtt():
     return client
 
 
-def publish(client,topic,cmd):
-    publish_result = client.publish(topic, cmd,qos=1)
-    cmd= ""
-    return publish_result
+
+def publish(client,camera_xyz_list):
+    publish_result = client.publish(topic, camera_xyz_list,qos=0)
 
 
 
 
 
-def run(topic,cmd):
+
+def run(camera_xyz_list):
     client = connect_mqtt()
     client.loop_start()
-    ret=publish(client,topic,cmd)
+    publish(client,camera_xyz_list)
     client.loop_stop()
-    return ret
 
 
 if __name__ == '__main__':
-    run('/flask/serial','G21 G91 G1 X0 F500')
+    run('1,2,3;')

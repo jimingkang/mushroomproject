@@ -17,7 +17,7 @@ except:
 broker = '192.168.254.42'
 #broker = '10.0.0.134'
 port = 1883
-tpoic_flask_downmove = "/flask/downmove"
+tpoic_flask_serial = "/flask/serial"
 # generate client ID with pub prefix randomly
 client_id = f'python-mqtt-{random.randint(0, 1000)}'
 # username = 'emqx'
@@ -28,7 +28,7 @@ def connect_mqtt():
     def on_connect(client, userdata, flags, rc):
         if rc == 0:
             i=1
-            #print("get downmove publish Connected to MQTT Broker!")
+            print("get serial publish Connected to MQTT Broker!")
         else:
             i=0
             #print("Failed to connect, return code %d\n", rc)
