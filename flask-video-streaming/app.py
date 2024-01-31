@@ -82,46 +82,6 @@ hi.movej_angle(10,0,0,0,20,0)
 
 
 
-def send_wake_up(ser):
-    # Wake up
-    # Hit enter a few times to wake the Printrbot
-    ser.write(str.encode("\r\n\r\n"))
-    time.sleep(2)   # Wait for Printrbot to initialize
-    ser.flushInput()  # Flush startup text in serial input
-
-def wait_for_movement_completion(ser,cleaned_line):
-
-    Event().wait(1)
-    if cleaned_line != '$X' or '$$':
-        idle_counter = 0
-        while True:
-            # Event().wait(0.01)
-            ser.reset_input_buffer()
-            command = str.encode('?' + '\n')
-            ser.write(command)
-            grbl_out = ser.readline()
-            grbl_response = grbl_out.strip().decode('utf-8')
-            if grbl_response != 'ok':
-                if grbl_response.find('Idle') > 0:
-                    idle_counter += 1
-            if idle_counter > 10:
-                break
-    return
-
-def command(ser, command):
-    #send_wake_up(ser)
-    if command:  # checks if string is empty
-        print("Sending gcode:" + str(command))
-        # converts string to byte encoded string and append newline
-        command = str.encode(command)
-        #command = str.encode(command + x'\r\n')
-        ser.write(command)  # Send g-code
-        #wait_for_movement_completion(ser, command)
-        #grbl_out = ser.readline()  # Wait for response with carriage return
-        #print(" : ", grbl_out.strip().decode('utf-8'))
-    return 'ok'
-    #return grbl_out.strip().decode('utf-8')
-
 
 
 @app.route('/scan')
@@ -133,14 +93,14 @@ def scan():
 def xbackward():
     hi.get_scara_param()
     hi.new_movej_xyz_lr(hi.x-10,hi.y,hi.z,0,70,0,1)
-    return render_template('index.html');
+    return ;
 
 
 @app.route('/xforward')
 def xfarward():
     hi.get_scara_param()
     hi.new_movej_xyz_lr(hi.x+10,hi.y,hi.z,0,70,0,1)
-    return render_template('index.html');
+    return ;
 
 
 
@@ -178,13 +138,6 @@ def yforward():
 
 @app.route('/ybackward')
 def ybackward():
-    command(ser, "$X\r\n")
-    time.sleep(1)
-    # Moving forward code
-    command(ser, "G21 G91 G1  Y1 F500\r\n")
-    xy = r.get("global_camera_xy").split(",")
-    print(xy)
-    r.set("global_camera_xy", xy[0] + "," + str(int(xy[1]) + 60))
     return render_template('index.html');
 
 
@@ -197,21 +150,11 @@ def autopick():
 
 @app.route('/zerosetting')
 def zero():
-    # publish_result = mqtt_client.publish(topic, "/flask/home")
-    command(ser, "$X\r\n")
-    time.sleep(1)
-    command(ser, "$H\r\n")
-    r.set("global_camera_xy", "0,0")
     return render_template('index.html');
 
 
 @app.route('/home')
 def home():
-    # publish_result = mqtt_client.publish(topic, "/flask/home")
-    command(ser, "$X\r\n")
-    time.sleep(1)
-    command(ser, "G28 G91 X0.0 Y0.00 F500\r\n")
-    r.set("global_camera_xy", "0,0")
     return render_template('index.html');
 
 

@@ -16,7 +16,6 @@ except:
     pass
 
 broker = broker
-#broker = '10.0.0.134'
 port = 1883
 topic = "/flask/xyz"
 print("BROKER: ", broker)

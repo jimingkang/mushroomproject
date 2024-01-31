@@ -80,7 +80,6 @@ mqtt_client = Mqtt(app)
 #print(hi.unlock_position())
 
 
-
 camera_xyz_list = []
 
 def send_wake_up(ser):
@@ -375,6 +374,7 @@ class Camera(BaseCamera):
                     #print(hi.x)
 
                     #hi.new_movej_xyz_lr(hi.x+camera_x,hi.y+camera_y,hi.z-camera_z,0,20,0,1)
+                    #hi.movel_xyz_by_offset(camera_x,camera_y,camera_z,0,20)
                     #hi.wait_stop()
 
                     global_camera_xy=r.exists("global_camera_xy")
@@ -411,10 +411,14 @@ class Camera(BaseCamera):
                     r.set("mode","camera_ready")
 
                     global pre_trackid
-                    if r.get("mode")=="camera_ready" and abs(x)> 5 or abs(y)>5:
+                    #if r.get("mode")=="camera_ready" and abs(x)> 5 or abs(y)>5:
+                    if r.get("mode")=="camera_ready" :
                         real_xyz=str(camera_xyz[0])+","+str(camera_xyz[1])+","+str(track_id)+";"
                         real_xyz=real_xyz[0:len(real_xyz)-1]
-                        move_publish.run(topic3,real_xyz)
+                        #hi.get_scara_param()
+                        #hi.new_movej_xyz_lr(hi.x+x,hi.y+y,hi.z+z,0,20,0,1)
+                        #hi.wait_stop()
+                        #move_publish.run(real_xyz)
                         print("real_xyz:"+real_xyz)
                 # socketio.emit('mqtt_message', data=data)
     @staticmethod
