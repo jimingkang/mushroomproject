@@ -28,8 +28,6 @@ print(redis_server)
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
 
-#broker = '192.168.254.42'
-#broker = '10.0.0.134'
 port = 1883
 topic = "/flask/xyz"
 topic4 = "/flask/downmove"
@@ -63,11 +61,15 @@ def takeSecond(ele):
 class Camera(BaseCamera):
     """Requires python-v4l2capture module: https://github.com/gebart/python-v4l2capture"""
 
-    video_source = "/dev/video0"
+    #video_source = "/dev/video0"
     @staticmethod
     def frames():
+        #video_source = "/dev/video0"
+        #video = cv2.VideoCapture(1)
         #video = cv2.VideoCapture(video_source)
-        video = cv2.VideoCapture("http://10.0.0.133:5000/video_feed")
+        #video = cv2.VideoCapture(Camera.video_source,cv2.CAP_V4L2)
+
+        video = cv2.VideoCapture("http://192.168.0.100:5000/video_feed")
         #video = cv2.VideoCapture("http://192.168.1.3:5000/video_feed")
         size_x =1280
         size_y = 720
@@ -129,7 +131,7 @@ class Camera(BaseCamera):
                                 y2 = int(bbox[3])
                                 # score=int(bbox[4])
                                 track_id = track.track_id
-                                text = 'id:{},{:.1f}%,x1y1:{},{},x2y2:{},{}'.format(track_id,conf[i] * 100,x1,y1,x2,y2)
+                                text = 'id:{},x:{},y:{}'.format(track_id,(x1+x2)/2,(y1+y2)/2)
                                 font = cv2.FONT_HERSHEY_SIMPLEX
                                 txt_size = cv2.getTextSize(text, font, 0.4, 1)[0]
                                 cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 0), 1)
@@ -141,6 +143,7 @@ class Camera(BaseCamera):
                                     coordx = "" + str(int((x1 + x2) / 2)) + "," + str(int((y1 + y2) / 2)) + "," + str(track_id) + ";"
                                     coordx = coordx[0:len(coordx) - 1]
                                     print("coordx=",coordx)
+                                    r.set("mode","pickup_ready")
                                     xyz_publish.run(coordx)
 
                                 #if   (abs(x1-x2)>5 and abs(x1-x2)<200) and (abs(y1-y2)<200 and abs(y2-y1)>5) and (abs(abs(x1-x2)-abs(y1-y2))<10):
@@ -152,7 +155,7 @@ class Camera(BaseCamera):
                         #    coordx = coordx[0:len(coordx) - 1]
                         #    print("coordx=",coordx)
                         #    xyz_publish.run(coordx)
-                            #r.set("mode","pickup_ready")
+                        #    r.set("mode","pickup_ready")
 
                 yield cv2.imencode('.jpg', img)[1].tobytes()
         finally:

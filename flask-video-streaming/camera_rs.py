@@ -13,6 +13,7 @@ from Mushroom import Mushroom
 from base_camera import BaseCamera
 #import pyrealsense2.pyrealsense2 as rs
 import pyrealsense2 as rs
+
 from HitbotInterface import HitbotInterface
 
 import os
@@ -67,10 +68,16 @@ topic3 = '/flask/serial'
 app = Flask(__name__)
 mqtt_client = Mqtt(app)
 
-hi=HitbotInterface(92); #//92 is robotid? yes
-hi.net_port_initial()
-ret=hi.initial(1,210); #// I add you on wechat
-print(ret)
+
+#hi=HitbotInterface(92); #//92 is robotid? yes
+##hi.net_port_initial()
+#ret=hi.initial(1,210); #// I add you on wechat
+#print(ret)
+#print(hi.is_connect())
+#print(hi.unlock_position())
+#hi.movej_angle(0,0,0,0,20,0)
+
+#print(hi.unlock_position())
 
 
 camera_xyz_list = []
@@ -362,8 +369,13 @@ class Camera(BaseCamera):
                     camera_x=int(float(camera_xyz[0])*1000)
                     camera_y=int(float(camera_xyz[1])*1000)
                     camera_z=int(float(camera_xyz[2])*1000)
-                    hi.movel_xyz_by_offset(camera_x,camera_y,camera_z,0,20)
-                    hi.wait_stop()
+			
+                    #hi.get_scara_param()
+                    #print(hi.x)
+
+                    #hi.new_movej_xyz_lr(hi.x+camera_x,hi.y+camera_y,hi.z-camera_z,0,20,0,1)
+                    #hi.movel_xyz_by_offset(camera_x,camera_y,camera_z,0,20)
+                    #hi.wait_stop()
 
                     global_camera_xy=r.exists("global_camera_xy")
                     if global_camera_xy==True:
@@ -400,10 +412,14 @@ class Camera(BaseCamera):
 
                     global pre_trackid
                     #if r.get("mode")=="camera_ready" and abs(x)> 5 or abs(y)>5:
-                    #    real_xyz=str(camera_xyz[0])+","+str(camera_xyz[1])+","+str(track_id)+";"
-                    #    real_xyz=real_xyz[0:len(real_xyz)-1]
-                    #    move_publish.run(topic3,real_xyz)
-                    #    print("real_xyz:"+real_xyz)
+                    if r.get("mode")=="camera_ready" :
+                        real_xyz=str(camera_xyz[0])+","+str(camera_xyz[1])+","+str(track_id)+";"
+                        real_xyz=real_xyz[0:len(real_xyz)-1]
+                        #hi.get_scara_param()
+                        #hi.new_movej_xyz_lr(hi.x+x,hi.y+y,hi.z+z,0,20,0,1)
+                        #hi.wait_stop()
+                        #move_publish.run(real_xyz)
+                        print("real_xyz:"+real_xyz)
                 # socketio.emit('mqtt_message', data=data)
     @staticmethod
     def frames():

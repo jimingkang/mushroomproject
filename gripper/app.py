@@ -17,28 +17,16 @@ import RPi.GPIO as GPIO
 import time
 import publish
 
-<<<<<<< HEAD
-topic = "/flask/stop"
-=======
-topic = '/flask/scan'
-topic2 = '/flask/xyz'
-topic3 = '/flask/serial'
-topic4 = '/flask/pickup'
-topic5 = '/flask/home'
-topic6 = '/flask/drop'
-topic7 = '/flask/stop'
 pre_trackid=0
 old_x=0
 old_y=0
 
->>>>>>> 2f9c2b9b5f4ee0211feb6c12d088236efcbe32d0
 # Pin Definitions
 input_pin = 12  # BCM pin 18, BOARD pin 12
 busnum = 1          # Edit busnum to 0, if you uses Raspberry Pi 1 or 0
 y=0
 i=0
 prev_value = None
-<<<<<<< HEAD
 # GPIO.setmode(GPIO.BOARD)  # BCM pin-numbering scheme from Raspberry Pi
 # GPIO.setup(input_pin, GPIO.IN)  # set pin as an input pin
 
@@ -53,7 +41,6 @@ busnum = 1  # Edit busnum to 0, if you uses Raspberry Pi 1 or 0
 # video_dir.home_x_y()
 
 i = 0
-=======
 
 
 
@@ -69,23 +56,13 @@ video_dir.setup(busnum=busnum)
 video_dir.home_x_y()
 
 
->>>>>>> 2f9c2b9b5f4ee0211feb6c12d088236efcbe32d0
 
-ser = serial.Serial("/dev/ttyACM0", 115200)
 
-<<<<<<< HEAD
-#ser = serial.Serial("/dev/ttyACM0",115200)
-=======
-<<<<<<< HEAD
-redis_server = ''
-broker = ''
-=======
-ser = serial.Serial("/dev/ttyACM0",115200)
->>>>>>> c7895ddb65b9ab98d0cb66980cb871a00ddb444e
 
 redis_server=''
-broker=''
->>>>>>> 2f9c2b9b5f4ee0211feb6c12d088236efcbe32d0
+redis_server = ''
+broker = ''
+>>>>>>> b4315742597bad01a7dee0eb5cfc4364e18a9bda
 try:
     for line in open("../ip.txt"):
         if line[0:6] == "broker":
@@ -95,7 +72,7 @@ try:
 except:
     pass
 #broker = broker.replace("\n", "").replace("\r\n", "")
-broker = "192.168.1.3"
+
 print(broker)
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
