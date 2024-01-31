@@ -10,12 +10,21 @@ import cv2
 from ultralytics import YOLO
 import urllib
 import pyrealsense2 as rs
+from hitbot.HitbotInterface import HitbotInterface
 
 camera_x = camera_y = 0
 ds = []
 pipeline_started = False
 
-app = Flask(__name__)
+hi=HitbotInterface(92); #//92 is robotid? yes
+hi.net_port_initial()
+ret=hi.initial(1,210); #// I add you on wechat
+print(hi.is_connect())
+print(hi.unlock_position())
+hi.movej_angle(0,0,0,0,100,0)
+hi.wait_stop()
+
+app = Flask(__name__,static_folder="assets")
 
 def read_config(filename):
     with open(filename, 'r') as config_file:
@@ -23,18 +32,16 @@ def read_config(filename):
     return config_data
 config = read_config('config.json')
 for key, value in config.items():
-    globals()[key] = value
+    globals()[key] = value    
 
-ser = serial.Serial("/dev/ttyACM0",115200)
-def command(ser, command):
-    if command:  # checks if string is empty
-        print("Sending gcode:" + str(command))
-        command = str.encode(command)
-        ser.write(command)  # Send g-code
-        return 'ok'
 
 def generate_raw_frames():
 
+    pipeline = rs.pipeline()
+    config = rs.config()
+    config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
+    config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
+    pipeline.start(config)
     while True:
         frames = pipeline.wait_for_frames()
         color_frame = frames.get_color_frame()
@@ -97,35 +104,30 @@ def raw_camera_feed():
 
 @app.route('/move/<string:direction>')
 def move(direction,amount=_movement_step,custom_x=_movement_step,custom_y=_movement_step):
-    global camera_x,camera_y,_movement_step,_feedback
+    global camera_x,camera_y,_movement_step,_feedback,hi
     # Open the serial port
     #ser = serial.Serial("/dev/ttyACM0", 115200, timeout=5)
     if direction == "home":
-        command(ser, "$X\r\n")
-        time.sleep(1)
-        command(ser, "$H\r\n")
-        camera_x = camera_y = 0
+        hi.movej_angle(0,0,0,0, 100, 0)
+        hi.wait_stop()
         return "home"
     elif direction == "custom":
-        command(ser, "$X\r\n")
-        time.sleep(1)
-        command(ser, "$H\r\n")
-        camera_x = camera_y = 0
-
-        time.sleep(7)
-
-        x = float(request.args.get('x', custom_x))
-        y = float(request.args.get('y', custom_y))
-        cmd =f'G91 G21 G1 X{x} Y{y}'
-        command(ser, f"{cmd} F{_feedback}\r\n")
-        camera_x += x
-        camera_y += y
-        return cmd
+        x = float(request.args.get('x', _movement_step))
+        y = float(request.args.get('y', _movement_step))
+        z = float(request.args.get('z', _movement_step))
+        r = float(request.args.get('r', 20))
+        roughly = float(request.args.get('roughly', 0))
+        lr = float(request.args.get('lr', 1))
+        hi.new_movej_xyz_lr(goal_x=x,goal_y=y,goal_z=z,goal_r=r,100,roughly = roughly,1)
+        hi.wait_stop()
+        return f"{direction}<br>x = {x}<br>y = {y}<br>z = {z}<br>roughly = {roughly}"
     else:
         if "amount" in request.args:
             amount = float(request.args.get('amount', _movement_step))
         x=0
         y=0
+        z=0
+
         if direction=="right":
             x=-amount
         elif direction=="left":
@@ -134,11 +136,14 @@ def move(direction,amount=_movement_step,custom_x=_movement_step,custom_y=_movem
             y=amount
         elif direction=="down":
             y=-amount
-        cmd =f'G91 G21 G1 X{x} Y{y}'
-        command(ser, f"{cmd} F{_feedback}\r\n")
-        camera_x += x
-        camera_y += y
-        return f"{cmd} F{_feedback}\r\n"
+        elif direction=="top":
+            z=amount
+        elif direction=="bottom":
+            z=-amount
+        hi.new_movej_xyz_lr(x,y,z,20,100,0,1)
+        hi.wait_stop()
+        
+        return f"{direction}\nx = {x}\ny = {y}\nz = {z}"
 
 def find_common_points(frames, threshold, n_common_points):
     # Flatten the frames into 2D array of points
