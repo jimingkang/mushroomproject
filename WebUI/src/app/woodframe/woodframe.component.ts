@@ -37,14 +37,15 @@ export class WoodframeComponent implements OnInit {
     "productImageUrl": ""
   };
   categoryList: any [] = [];
-  productsList: any [] = [];
+  productsList: any [] = [this.productObj];
 
   constructor(private productSrv: ProductService) {
     
   }
   ngOnInit(): void {
-   this.getProducts();
-    this.getALlCategory();
+  // this.getProducts();
+  //  this.getALlCategory();
+  //this.productsList.
 
   }
  
@@ -55,9 +56,9 @@ export class WoodframeComponent implements OnInit {
   }
 
   getALlCategory() {
-    this.productSrv.getCategory().subscribe((res:any)=>{
-      this.categoryList = res.data;
-    })
+    //this.productSrv.getCategory().subscribe((res:any)=>{
+   //   this.categoryList = res.data;
+   // })
   }
   onUpdate() {
     this.productSrv.saveProduct(this.productObj).subscribe((res:any)=>{

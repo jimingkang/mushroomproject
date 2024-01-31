@@ -20,5 +20,30 @@
     "storage": {
       "port": 9199
     }
-  }
+  },
+  
+  "hosting": [
+    {
+      "target": "web",
+      "public": "build",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ],
+      "headers": [
+        {
+          "source": "**/*",
+          "headers": [
+            {
+              "key": "Cross-Origin-Embedder-Policy",
+              "value": "unsafe-none"
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }

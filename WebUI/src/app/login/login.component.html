@@ -18,16 +18,16 @@
                         <span class="checkbox-custom"></span>
                         <label for="rememberMe">Remember me</label>
                     </div>
-                    
-                 <div class="social-login">
-                        <i class="fab fa-google social-icon"> <a href="/firebaselogin" ></a></i>
-                        </div>
+                    <button type="button" (click)="onLogin()">Login</button>
+                 <div class="social-login mt-2">
+                    <a (click)="onGoogleLogin()"><i class="fab fa-google social-icon"> </i></a>
+                </div>
                    <!--      
                         <i class="fab fa-facebook-f social-icon"></i>
                         <i class="fab fa-twitter social-icon"></i>
-                    </div>
+                 
                     --> 
-                    <button type="button" (click)="onLogin()">Login</button>
+                    
                 </form>
             </div>
         </div>

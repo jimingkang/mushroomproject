@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "mushroom-30b6a"
-  }
+  },
+  "targets": {
+    "mushroom-30b6a": {
+      "hosting": {
+        "web": [
+          "mushroom-30b6a"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

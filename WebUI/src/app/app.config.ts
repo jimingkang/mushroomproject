@@ -14,7 +14,9 @@ import { getFirestore, provideFirestore, connectFirestoreEmulator, enableIndexed
 import { getStorage, provideStorage, connectStorageEmulator } from '@angular/fire/storage';
 import { getAnalytics, provideAnalytics } from '@angular/fire/analytics';
 import { getFunctions, provideFunctions, connectFunctionsEmulator} from '@angular/fire/functions';
+import { FIREBASE_OPTIONS } from '@angular/fire/compat';
 
+//"mushroom-30b6a.firebaseapp.com",
 const firebaseConfig = {
   apiKey: "AIzaSyCYPDBw1Ub8v33C2BB2PhRUIg3a57opPz4",
   authDomain: "mushroom-30b6a.firebaseapp.com",
@@ -34,7 +36,8 @@ export const appConfig: ApplicationConfig = {
       provideStorage(() => getStorage())
     
     ]
-    )
+    ),
+    {provide: FIREBASE_OPTIONS, useValue: firebaseConfig}
   ]
     
 };

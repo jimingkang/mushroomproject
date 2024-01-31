@@ -9,6 +9,7 @@ import {
   transition,
 } from '@angular/animations';
 import { VideoComponent } from '../video/video.component';
+import { RpiService } from '../services/rpi.service';
 
 @Component({
   selector: 'app-slidepanel',
@@ -32,8 +33,13 @@ export class SlidepanelComponent {
   @Input() isOpen = true;
   @Input() headerText = 'Slide Panel Header';
   @Output() onClose = new EventEmitter();
+  constructor(private rpiservice:RpiService){}
 
   onClosePanel() {
     this.onClose.emit(false);
+  }
+  xforward(){
+    this.rpiservice.farward();
+
   }
 }
