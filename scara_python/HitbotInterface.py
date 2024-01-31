@@ -34,6 +34,10 @@ class HitbotInterface:
         self.efg_dis = 0.0
         self.efg_type = 0.0
 
+    def movel_xyz_by_offset(self, x_offset, y_offset, z_offset, r_offset, speed):
+        return self.dll.movel_xyz_by_offset(c_int(self.card_number), c_float(x_offset), c_float(y_offset), c_float(z_offset), c_float(r_offset), c_float(speed))
+
+
     def net_port_initial(self):
         self.dll=CDLL('/home/pi/mushroomproject/scara_python/libsmall_scara_interface.so.3.0.0')
         return self.dll.net_port_initial()

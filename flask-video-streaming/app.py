@@ -19,6 +19,8 @@ import RPi.GPIO as GPIO
 import time
 import publish
 
+from HitbotInterface import HitbotInterface
+
 
 topic = '/flask/scan'
 topic2 = '/flask/xyz'
@@ -39,7 +41,7 @@ else:
     from camera_rs import Camera
 # Raspberry Pi camera module (requires picamera package)
 
-app = Flask(__name__)
+
 
 broker=''
 redis_server=''
@@ -56,15 +58,30 @@ pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,
 r = redis.Redis(connection_pool=pool)
 
 
+app = Flask(__name__)
 app.config['MQTT_BROKER_URL'] = broker
-#app.config['MQTT_BROKER_URL'] = '10.0.0.134'
-#app.config['MQTT_BROKER_URL'] = '192.168.254.42'
 app.config['MQTT_BROKER_PORT'] = 1883
 app.config['MQTT_USERNAME'] = ''  # Set this item when you need to verify username and password
 app.config['MQTT_PASSWORD'] = ''  # Set this item when you need to verify username and password
 app.config['MQTT_KEEPALIVE'] = 5  # Set KeepAlive time in seconds
 app.config['MQTT_TLS_ENABLED'] = False  # If your server supports TLS, set it True
 mqtt_client = Mqtt(app)
+
+
+
+
+
+
+hi=HitbotInterface(92); #//92 is robotid? yes
+hi.net_port_initial()
+ret=hi.initial(1,210); #// I add you on wechat
+print(ret)
+print(hi.is_connect())
+print(hi.unlock_position())
+hi.movej_angle(10,0,0,0,20,0)
+
+
+
 def send_wake_up(ser):
     # Wake up
     # Hit enter a few times to wake the Printrbot
@@ -109,34 +126,20 @@ def command(ser, command):
 
 @app.route('/scan')
 def scan():
-    global prev_value
-    # video_dir.move_decrease_y(10)
-    r.set("mode", "camera_ready")
-    #r.set("global_camera_xy","0,0")
-    r.delete("detections")
-    #loop_pickup();
     return render_template('index.html');
 
 
 @app.route('/xbackward')
 def xbackward():
-    command(ser, "$X\r\n")
-    time.sleep(1)
-    command(ser, "G21 G91 G1 X1 F500\r\n")
-    xy = r.get("global_camera_xy").split(",")
-    print(xy)
-    r.set("global_camera_xy", str(int(xy[0]) - 25) + "," + xy[1])
+    hi.get_scara_param()
+    hi.new_movej_xyz_lr(hi.x-10,hi.y,hi.z,0,70,0,1)
     return render_template('index.html');
 
 
 @app.route('/xforward')
 def xfarward():
-    command(ser, "$X\r\n")
-    time.sleep(1)
-    command(ser, "G21 G91 G1 X-1 F500\r\n")
-    xy = r.get("global_camera_xy").split(",")
-    print(xy)
-    r.set("global_camera_xy", str(int(xy[0]) + 25) + "," + xy[1])
+    hi.get_scara_param()
+    hi.new_movej_xyz_lr(hi.x+10,hi.y,hi.z,0,70,0,1)
     return render_template('index.html');
 
 
@@ -144,19 +147,14 @@ def xfarward():
 
 @app.route('/catch')
 def catch():
-    video_dir.move_increase_y(10)
-    print("catch")
     return render_template('index.html');
 
 
 @app.route('/release')
 def release():
-    video_dir.move_decrease_y(10)
     return render_template('index.html');
 @app.route('/zup')
 def zup():
-    command(ser, "G21 G91 G1  Z1 F500\r\n")
-
     return render_template('index.html');
 
 @app.route('/zdown')
@@ -253,8 +251,148 @@ def video_feed():
 
 
 
+@mqtt_client.on_message()
+def handle_mqtt_message(client, userdata, message):
+    # print(message.topic)
+    data = dict(topic=message.topic, payload=message.payload.decode())
+    print('Received message on topic: {topic} with payload: {payload}'.format(**data))
+    xyz = data['payload']
+    print("get xy payload=" + xyz)
+    if message.topic == topic7:
+        # camers_xy=r.get("global_camera_xy").split(",")
+        # move_x=" X"+str(-1*int(camers_xy[0])/25)
+        # move_y=" Y"+str(-1*int(camers_xy[1])/12) + " F500\r\n"
+        cmd = "M00 \r\n"  # +move_x+move_y
+        ret = command(ser, cmd)
+        time.sleep(1)
+        print(cmd)
+        # if ret == 'ok':
+        #   pub_ret=mqtt_client.publish(topic6,"drop") # subscribe topic
+    if message.topic == topic5:
+        # camers_xy=r.get("global_camera_xy").split(",")
+        # move_x=" X"+str(-1*int(camers_xy[0])/25)
+        # move_y=" Y"+str(-1*int(camers_xy[1])/12) + " F500\r\n"
+        cmd = "G28 G91 X0 Y0 F500 \r\n"  # +move_x+move_y
+        ret = command(ser, cmd)
+        time.sleep(1)
+        print(cmd)
+        if ret == 'ok':
+            pub_ret=mqtt_client.publish(topic6,"drop") # subscribe topic
+    if message.topic == topic3:
+        global pre_trackid, old_x, old_y
+        xyz = data['payload']
+        if xyz=="0.1,0.1,1":
+            return
+        print(xyz)
+        real_xyz = xyz.split(",")
+        real_xyz = xyz.split(",")
+        # detections=r.hgetall("detections")
+        # for item in r.hkeys("detections"):
+        #    real_xyz=r.hget("detections",item).split(",")
+        # real_xyz=detections[0].split(",")
+        real_x = int(float(real_xyz[0]) * 1000)
+        real_y = int(float(real_xyz[1]) * 1000)
+        real_y = real_y - 190
+        real_x = real_x + 10
+        # real_x=real_x-25
+        x = -1 * real_x
+        y = -1 * real_y
+        if not r.exists("pre_trackid"):
+            r.set("pre_trackid", "0")
+        else:
+            pre_trackid=r.get("pre_trackid")
+        #if pre_trackid==real_xyz[2]:
+        #    print(" pre_trackid:"+pre_trackid)
+         #   return
+        #else:
+        r.set("pre_trackid",real_xyz[2])
+            #r.set("pre_trackid",real_xyz[2])
+        #if pre_trackid == real_xyz[2]:
+        #    print(" pre_trackid:" + pre_trackid)
+        #    return
+       # else:
+       #     r.set("pre_trackid", real_xyz[2])
+        # r.set("pre_trackid",real_xyz[2])
+        if not r.exists("old_x"):
+            r.set("old_x", "0")
+        else:
+            old_x = r.get("old_x")
+        if not r.exists("old_y"):
+            r.set("old_y", "0")
+        else:
+            old_y = r.get("old_y")
+        if abs(float(old_x)-x)<10 and abs(float(old_y)-y)<10:
+           print("return")
+           print(abs((float(old_x)-x)))
+           print(abs((float(old_y)-y)))
+           return
+        else:
+            r.set("old_x",str(real_x))
+            r.set("old_y",str(real_y))
+
+        if (abs(x) > 10 or abs(y) > 10):
+            r.set("mode", "pickup_ready")
+            print("realx,y")
+            print(x)
+            print(y)
+            print("\n")
+            #if(abs(x/50)>3 or abs(y/25)>3):
+            #    return 
+            #r.set("mode","moving")
+            #move_x=" X"+str(x/50)
+            move_x=" X"+str(x/50)
+            move_y=" Y"+str(y/25) + " F500\r\n"
+            cmd="G21 G91 G1 " +move_x+move_y 
+            
+            #ret=command(ser, cmd)
+            time.sleep(1)
+            #print(cmd,ret)
+            if 1:#ret == 'ok':
+                r.set("global_camera_xy",""+str(x)+","+str(y))
+                r.set("old_x",str(x))
+                r.set("old_y",str(y))
+                print(abs(x))
+                print(abs(y))
+                #ret_ok=requests.get("http://172.26.52.69:8888/pickup")
+                #print(ret_ok)
+                #if(abs(x)<15 and abs(y)<(15)):
+                #pub_ret=mqtt_client.publish(topic4,"50") # subscribe topic
+             #   return
+            # r.set("mode","moving")
+            # move_x=" X"+str(x/50)
+            command(ser, "$X\r\n")
+            time.sleep(1)
+            move_x = " X" + str(x / 25)
+            move_y = " Y" + str(y / 12) + " F500\r\n"
+            cmd = "G21 G91 G1 " + move_x + move_y
+
+            ret = command(ser, cmd)
+            time.sleep(1)
+            print(cmd, ret)
+            if ret == 'ok':
+                print("ret==", ret)
+                r.set("global_camera_xy", "" + str(x) + "," + str(y))
+                r.set("old_x", str(x))
+                r.set("old_y", str(y))
+                print(abs(x))
+                print(abs(y))
+                ret_ok = requests.get("http://192.168.1.3:8888/pickup")
+                time.sleep(1)
+                #ret_ok = requests.get("http://172.26.52.51:8888/pickup")
+                #command(ser, "$X\r\n")
+                #time.sleep(1)
+                #command(ser, "G28 G91 X0.0 Y0.00 F500\r\n")
+                print(ret_ok)
+                #ret_ok = requests.get("http://172.26.52.51:8888/drop")
+                r.set("mode", "camera_ready")
+                # if(abs(x)<15 and abs(y)<(15)):
+                # pub_ret=mqtt_client.publish(topic4,"50") # subscribe topic
+                #    print("test if send pickup ")
+                #   print("ready for pickup")
+    # socketio.emit('mqtt_message', data=data)
 
 
 if __name__ == '__main__':
+
     app.run(host='0.0.0.0', threaded=True)
     #app.run(host='192.168.1.3', threaded=True)

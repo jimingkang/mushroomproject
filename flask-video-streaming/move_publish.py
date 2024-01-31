@@ -16,7 +16,6 @@ except:
 
 print("BROKER:", broker)
 broker = broker
-#broker = '10.0.0.134'
 port = 1883
 tpoic_flask_downmove = "/flask/downmove"
 # generate client ID with pub prefix randomly
