@@ -10,12 +10,12 @@ broker=''
 try:
     for line in open("ip.txt"):
         if line[0:6] == "broker":
-            broker = line[9:-1]
+            broker = line[9:len(line)-1]
 except:
     pass
 
-broker = '192.168.254.42'
-#broker = '10.0.0.134'
+#broker = '192.168.0.100'
+
 port = 1883
 tpoic_flask_serial = "/flask/serial"
 # generate client ID with pub prefix randomly

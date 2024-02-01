@@ -45,8 +45,6 @@ align_to = rs.stream.color  # 与color流对齐
 align = rs.align(align_to)
 colors = [(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)) for j in range(100)]
 detection_threshold = 0.5
-
-#ser = serial.Serial("/dev/ttyACM0",115200)
 broker,redis_server=ut.getbroker()
 print(broker)
 print(redis_server)
@@ -69,15 +67,6 @@ app = Flask(__name__)
 mqtt_client = Mqtt(app)
 
 
-#hi=HitbotInterface(92); #//92 is robotid? yes
-##hi.net_port_initial()
-#ret=hi.initial(1,210); #// I add you on wechat
-#print(ret)
-#print(hi.is_connect())
-#print(hi.unlock_position())
-#hi.movej_angle(0,0,0,0,20,0)
-
-#print(hi.unlock_position())
 
 
 camera_xyz_list = []
@@ -120,10 +109,6 @@ def command(ser, command):
         print(" : ", grbl_out.strip().decode('utf-8'))
     return grbl_out.strip().decode('utf-8')
 
-
-#def command(ser, command):
-#  ser.write(str.encode(command)) 
-#  time.sleep(1)
 
 def get_aligned_images():
     frames = pipeline.wait_for_frames()  # 等待获取图像帧
@@ -328,7 +313,6 @@ class Camera(BaseCamera):
         if rc == 0:
             print('Connected successfully')
             mqtt_client.subscribe(topic2)  # subscribe topic
-            #mqtt_client.subscribe(topic)
             mqtt_client.subscribe(topic)
         else:
             print('Bad connection. Code:', rc)
@@ -344,7 +328,7 @@ class Camera(BaseCamera):
             )
             #print('Received message on topic: {topic} with payload: {payload}'.format(**data))
             xyz = data['payload']
-            print("payload=" + xyz)
+            print(" class Camera payload=" + xyz)
             if xyz:
                 global g_xyz
                 #if g_xyz==xyz:
@@ -353,10 +337,7 @@ class Camera(BaseCamera):
                 xyz = xyz.split(";")
                 x=xyz[0]
                 print("x="+x)
-                #if x :
                 real_xyz=""
-                r.set("mode","pick_ready")
-
                 for x in xyz:
                     first_xyz = x.split(",");
                     print(first_xyz)
@@ -371,12 +352,6 @@ class Camera(BaseCamera):
                     camera_z=int(float(camera_xyz[2])*1000)
 			
                     #hi.get_scara_param()
-                    #print(hi.x)
-
-                    #hi.new_movej_xyz_lr(hi.x+camera_x,hi.y+camera_y,hi.z-camera_z,0,20,0,1)
-                    #hi.movel_xyz_by_offset(camera_x,camera_y,camera_z,0,20)
-                    #hi.wait_stop()
-
                     global_camera_xy=r.exists("global_camera_xy")
                     if global_camera_xy==True:
                         gxy=r.get("global_camera_xy").split(",")
@@ -384,8 +359,8 @@ class Camera(BaseCamera):
                         new_camera_y=camera_y+int(float(gxy[1]))
 
                         #distance = int(math.sqrt(old_camera_x * old_camera_x + camera_y * camera_y))
-                        detected_x=r.zrangebyscore("detections_index_x",min=new_camera_x-5,max=new_camera_x+5)
-                        detected_y=r.zrangebyscore("detections_index_y",min=new_camera_y-5,max=new_camera_y+5)
+                        #detected_x=r.zrangebyscore("detections_index_x",min=new_camera_x-5,max=new_camera_x+5)
+                        #detected_y=r.zrangebyscore("detections_index_y",min=new_camera_y-5,max=new_camera_y+5)
 
                         #for mush in detected:
                         #    obj = mush#pickle.loads(tmp[0]) #json.loads(Mushroom,tmp)
@@ -397,30 +372,26 @@ class Camera(BaseCamera):
                         #        #r.zadd("detections_index", {obj: distance})
                         #        break
                         #else:
-                        camera_x = camera_x +int(float(global_camera_xy))
-                        distance = int(math.sqrt(new_camera_x * new_camera_x+ new_camera_y*new_camera_y))
+                        #camera_x = camera_x +int(float(global_camera_xy))
+                        #distance = int(math.sqrt(new_camera_x * new_camera_x+ new_camera_y*new_camera_y))
                         #if  1:#(len(detected_x)<=0 and len(detected_y)<=0):
-                        if  1:# (len(detected_x)<=0 and len(detected_y)<=0):
-                            print(" seve distance:" + str(track_id)+","+str(new_camera_x)+","+str(new_camera_y))  # +"camera_x:"+int(float(camera_x)))
-                            r.zadd("detections_index_x", {str(track_id)+"_"+str(new_camera_x): new_camera_x})
-                            r.zadd("detections_index_y", {str(track_id)+"_"+str(new_camera_y): new_camera_y})
-                            r.hset("detections", str(track_id), str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id))
+                        #if  1:# (len(detected_x)<=0 and len(detected_y)<=0):
+                        #    print(" seve distance:" + str(track_id)+","+str(new_camera_x)+","+str(new_camera_y))  # +"camera_x:"+int(float(camera_x)))
+                        #    r.zadd("detections_index_x", {str(track_id)+"_"+str(new_camera_x): new_camera_x})
+                        #    r.zadd("detections_index_y", {str(track_id)+"_"+str(new_camera_y): new_camera_y})
+                        #    r.hset("detections", str(track_id), str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id))
                     else:
                         r.set("global_camera_xy","0,0")
-                    
-                    r.set("mode","camera_ready")
+
 
                     global pre_trackid
                     #if r.get("mode")=="camera_ready" and abs(x)> 5 or abs(y)>5:
                     if r.get("mode")=="camera_ready" :
                         real_xyz=str(camera_xyz[0])+","+str(camera_xyz[1])+","+str(track_id)+";"
                         real_xyz=real_xyz[0:len(real_xyz)-1]
-                        #hi.get_scara_param()
-                        #hi.new_movej_xyz_lr(hi.x+x,hi.y+y,hi.z+z,0,20,0,1)
-                        #hi.wait_stop()
-                        #move_publish.run(real_xyz)
-                        print("real_xyz:"+real_xyz)
-                # socketio.emit('mqtt_message', data=data)
+                        move_publish.run(real_xyz)
+                        print("class Camera real_xyz:"+real_xyz)
+
     @staticmethod
     def frames():
         #camera=cv2.VideoCapture(0)

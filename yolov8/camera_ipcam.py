@@ -40,19 +40,6 @@ model = YOLO('best_v3.engine',task="segment")  # pretrained YOLOv8n model
 tracker = Tracker()
 
 
-def connect_mqtt():
-    def on_connect(client, userdata, flags, rc):
-        if rc == 0:
-            i=1
-            #print("xyx publish Connected to MQTT Broker!")
-        else:
-            i=0
-            #print("Failed to connect, return code %d\n", rc)
-
-    client = mqtt_client.Client(client_id)
-    client.on_connect = on_connect
-    client.connect(broker, port)
-    return client
 
 
 def takeSecond(ele):
@@ -60,6 +47,8 @@ def takeSecond(ele):
 
 class Camera(BaseCamera):
     """Requires python-v4l2capture module: https://github.com/gebart/python-v4l2capture"""
+
+	
 
     #video_source = "/dev/video0"
     @staticmethod
@@ -96,8 +85,6 @@ class Camera(BaseCamera):
                     results = model.predict(img, imgsz=(736, 1280))  # return a generator of Results objects
                     # Process results generator
                     for result in results:
-                        print(result)
-
                         boxes = result.boxes  # Boxes object for bbox outputs
                         xyxy=result.boxes.xyxy  # box with xyxy format, (N, 4)
                         xyxy_list=xyxy.tolist()
@@ -117,7 +104,7 @@ class Camera(BaseCamera):
                         detections.sort(key=takeSecond,reverse=True)
                         new_detections=[]
                         coordx = ""
-                        if len(detections) > 0:
+                        if len(detections) > 0  :
                             new_detections.append(detections[0])
                             #global pre_tracker
                             #pre_tracker = tracker
@@ -143,7 +130,6 @@ class Camera(BaseCamera):
                                     coordx = "" + str(int((x1 + x2) / 2)) + "," + str(int((y1 + y2) / 2)) + "," + str(track_id) + ";"
                                     coordx = coordx[0:len(coordx) - 1]
                                     print("coordx=",coordx)
-                                    r.set("mode","pickup_ready")
                                     xyz_publish.run(coordx)
 
                                 #if   (abs(x1-x2)>5 and abs(x1-x2)<200) and (abs(y1-y2)<200 and abs(y2-y1)>5) and (abs(abs(x1-x2)-abs(y1-y2))<10):

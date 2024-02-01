@@ -15,7 +15,7 @@ try:
 except:
     pass
 
-broker = broker
+broker = "192.168.0.100"
 port = 1883
 topic = "/flask/serial"
 print("BROKER: ", broker)

@@ -117,10 +117,13 @@ def move(direction,amount=_movement_step,custom_x=_movement_step,custom_y=_movem
         z = float(request.args.get('z', _movement_step))
         r = float(request.args.get('r', 20))
         roughly = float(request.args.get('roughly', 0))
-        lr = float(request.args.get('lr', 1))
-        hi.new_movej_xyz_lr(goal_x=x,goal_y=y,goal_z=z,goal_r=r,100,roughly = roughly,1)
+        lr = int(request.args.get('lr', 1))
+        hi.get_scara_param()
+        rett=hi.movel_xyz(hi.x+x,hi.y+y,hi.z+z,r,100)
+        #custom?x=0&y=0&z=-10&r=0&roughly=0
+        #res = hi.new_movej_xyz_lr(0,0,-100,0,100,0,1)
         hi.wait_stop()
-        return f"{direction}<br>x = {x}<br>y = {y}<br>z = {z}<br>roughly = {roughly}"
+        return f"{rett}<br>x = {x} {type(x)}<br>y = {y} {type(y)}<br>z = {z} {type(z)}<br>roughly = {roughly} {type(roughly)}"
     else:
         if "amount" in request.args:
             amount = float(request.args.get('amount', _movement_step))

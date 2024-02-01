@@ -6,6 +6,11 @@ from HitbotInterface import HitbotInterface
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 
+import redis
+
+redis_server='192.168.0.100'
+pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
+r = redis.Redis(connection_pool=pool)
 
 def print_hi(name):
     # Use a breakpoint in the code line below to debug your script.
@@ -15,37 +20,24 @@ def print_hi(name):
     ret=hi.initial(1,210); #// I add you on wechat
     print(hi.is_connect())
     print(hi.unlock_position())
-
-    hi.movej_angle(0,0,0,0,70,0)
+    hi.movej_angle(0,0,0,25,20,0)
     print(ret)
-    if ret == 1 :
-        while True:	
-            #hi.movel_xyz_by_offset(10,10,0,0,20)
-            #hi.new_movej_xyz_lr(25,25,0,0,20,0,1)
+    while 1 :
+        all=r.hgetall("detections")
+        for k,v in all.items():
             hi.get_scara_param()
-            print(hi.x)
-            print(hi.y)
-            print(hi.z)
-            print(hi.move_flag)
-            rett=hi.movel_xyz(hi.x-10,hi.y-10,hi.z,0,20)
-            #rett=hi.movej_xyz(hi.x-10,hi.y-10,hi.z,0,70,0)
-            #rett=hi.new_movej_xyz_lr(hi.x-100,hi.y-100,hi.z,0,70,0,1)
+            r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
+            r.set("mode","pickup_ready")
+            xyz=v.split(",")
+            hi.movel_xyz(float(xyz[0]),float(xyz[1]),0,25,20)
             hi.wait_stop()
-            print(rett)
+            r.delete("detections",k)
             hi.get_scara_param()
-            rett=hi.movel_xyz(hi.x+10,hi.y+10,hi.z,0,20)
-            #rett=hi.new_movej_xyz_lr(hi.x+10,hi.y+10,hi.z,0,70,0,1)
-            hi.wait_stop()
-            #hi.get_scara_param()
+            r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
+
             #hi.new_movej_xyz_lr(hi.x-10,hi.y-10,hi.z+10,0,70,0,1)
             #hi.wait_stop()
-
-            #print(hi.x)
-            #print(hi.y)
-            #hi.movej_angle(0,0,0,0,20,0)
-            #hi.wait_stop()
-            #hi.movej_angle(0,0, -200, 0, 20, 0)
-            #hi.wait_stop()
+            r.set("mode","camera_ready")
 
 
 

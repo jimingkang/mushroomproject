@@ -19,17 +19,21 @@ import datetime
 import time
 import os
 from time import sleep
+import math
 
 import RPi.GPIO as GPIO
 import time
 import publish
 from HitbotInterface import HitbotInterface
 
+from paho.mqtt import client as mqtt_client
+
 #hi=HitbotInterface(92); #//92 is robotid
 #hi.net_port_initial()
 #ret=hi.initial(1,210); #
 #print(hi.is_connect())
 #print(hi.unlock_position())
+#hi.movel_xyz(0,0,0,25,20)
 
 # import camera driver
 if os.environ.get('CAMERA'):
@@ -48,9 +52,6 @@ else:
 input_pin = 12  # BCM pin 18, BOARD pin 12
 
 prev_value = None
-# GPIO.setmode(GPIO.BOARD)  # BCM pin-numbering scheme from Raspberry Pi
-# GPIO.setup(input_pin, GPIO.IN)  # set pin as an input pin
-# import config
 
 
 i = 0
@@ -68,7 +69,6 @@ try:
 except:
     pass
 #broker = broker.replace("\n", "").replace("\r\n", "")
-#broker = "192."
 print(broker)
 print(redis_server)
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True, password='jimmy')
@@ -95,6 +95,51 @@ y = 0
 
 
 
+@app.route('/move/<string:direction>')
+def move(direction,amount=0,custom_x=0,custom_y=0):
+    global camera_x,camera_y,_movement_step,_feedback,hi
+    # Open the serial port
+    #ser = serial.Serial("/dev/ttyACM0", 115200, timeout=5)
+    if direction == "home":
+        hi.movej_angle(0,0,0,0, 100, 0)
+        hi.wait_stop()
+        return "home"
+    elif direction == "custom":
+        x = float(request.args.get('x', 0))
+        y = float(request.args.get('y', 0))
+        z = float(request.args.get('z', 0))
+        r = float(request.args.get('r', 20))
+        roughly = float(request.args.get('roughly', 0))
+        lr = int(request.args.get('lr', 1))
+        hi.get_scara_param()
+        rett=hi.movel_xyz(hi.x+x,hi.y+y,hi.z+z,r,100)
+        #custom?x=0&y=0&z=-10&r=0&roughly=0
+        #res = hi.new_movej_xyz_lr(0,0,-100,0,100,0,1)
+        hi.wait_stop()
+        return f"{rett}<br>x = {x} {type(x)}<br>y = {y} {type(y)}<br>z = {z} {type(z)}<br>roughly = {roughly} {type(roughly)}"
+    else:
+        if "amount" in request.args:
+            amount = float(request.args.get('amount', _movement_step))
+        x=0
+        y=0
+        z=0
+
+        if direction=="right":
+            x=-amount
+        elif direction=="left":
+            x=amount
+        elif direction=="up":
+            y=amount
+        elif direction=="down":
+            y=-amount
+        elif direction=="top":
+            z=amount
+        elif direction=="bottom":
+            z=-amount
+        hi.new_movej_xyz_lr(x,y,z,20,100,0,1)
+        hi.wait_stop()
+        
+        return f"{direction}\nx = {x}\ny = {y}\nz = {z}"
 
 
 
@@ -232,10 +277,11 @@ def video_feed():
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
+
 @mqtt_client.on_connect()
 def handle_connect(client, userdata, flags, rc):
     if rc == 0:
-        print(' topic3 =/flask/serial Connected successfully')
+        print('App_ipcam topic3 =/flask/serial Connected successfully')
         mqtt_client.subscribe(topic3)  # subscribe topic
     else:
         print('Bad connection. Code:', rc)
@@ -245,14 +291,11 @@ def handle_connect(client, userdata, flags, rc):
 def handle_mqtt_message(client, userdata, message):
     # print(message.topic)
     data = dict(topic=message.topic, payload=message.payload.decode())
-    print('Received message on topic: {topic} with payload: {payload}'.format(**data))
+    print('App_ipcam  Received message on topic: {topic} with payload: {payload}'.format(**data))
     xyz = data['payload']
-    print("get xy payload=" + xyz)
     if message.topic == topic3:
-        global pre_trackid, old_x, old_y
+        print("get xy payload=" + xyz)
         xyz = data['payload']
-        if xyz=="0.1,0.1,1":
-            return
         print(xyz)
         real_xyz = xyz.split(",")
 
@@ -263,46 +306,34 @@ def handle_mqtt_message(client, userdata, message):
         real_x = int(float(real_xyz[0]) * 1000)
         real_y = int(float(real_xyz[1]) * 1000)
         real_z = int(float(real_xyz[2]) * 1000)
-        real_y = real_y - 190
+        #:wqreal_y = real_y - 190
         #real_x = real_x + 10
         x =   real_x
         y = real_y
         z=-real_z
-        if not r.exists("pre_trackid"):
-            r.set("pre_trackid", "0")
-        else:
-            pre_trackid=r.get("pre_trackid")
-        #if pre_trackid==real_xyz[2]:
-        #    print(" pre_trackid:"+pre_trackid)
-         #   return
-        #else:
-        r.set("pre_trackid",real_xyz[2])
-            #r.set("pre_trackid",real_xyz[2])
-        #if pre_trackid == real_xyz[2]:
-        #    print(" pre_trackid:" + pre_trackid)
-        #    return
-       # else:
-       #     r.set("pre_trackid", real_xyz[2])
-        # r.set("pre_trackid",real_xyz[2])
-
-        if abs(float(old_x)-x)<10 and abs(float(old_y)-y)<10:
-           print("return")
-           print(abs((float(old_x)-x)))
-           print(abs((float(old_y)-y)))
-           return
-        else:
-            r.set("old_x",str(real_x))
-            r.set("old_y",str(real_y))
-
         if 1:#(abs(x) > 10 or abs(y) > 10):
-            hi.get_scara_param()
-            print("realx,y")
-            hi.new_movej_xyz_lr()(x,y,z,0,20,0,1)
-            hi.wait_stop()
-            r.set("mode", "camera_ready")
+            track_id=real_xyz[2]
+            camera_xyz=r.get("global_camera_xy").split(",")
+            cam_x=float(camera_xyz[0])
+            cam_y=float(camera_xyz[1])
+            print(cam_x)
+            new_camera_x=x+cam_x
+            new_camera_y=y+cam_y
+            distance = int(math.sqrt(new_camera_x * new_camera_x + new_camera_y * new_camera_y))
+            print(distance)
+            detected_index=r.zrangebyscore("detections_index",min=distance-10,max=distance +10)
+            print(len(detected_index))
+            if len(detected_index)<1:
+                obj=str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id)
+                r.zadd("detections_index",{obj:distance} )
+                r.hset("detections", str(distance), str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id))
+                print("before move realx,y")
+                print(x)
+                print(y)
+                #rett=hi.movel_xyz(hi.x+x,hi.y+y,hi.z,25,20)
+                #hi.wait_stop()
+                #print(rett)
 
-
- 
 
 
 

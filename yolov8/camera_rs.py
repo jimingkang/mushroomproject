@@ -59,8 +59,6 @@ r = redis.Redis(connection_pool=pool)
 
 app = Flask(__name__)
 app.config['MQTT_BROKER_URL'] = broker
-#app.config['MQTT_BROKER_URL'] =  '192.168.254.43'
-#app.config['MQTT_BROKER_URL'] = '10.0.0.18'
 app.config['MQTT_BROKER_PORT'] = 1883
 app.config['MQTT_USERNAME'] = ''  # Set this item when you need to verify username and password
 app.config['MQTT_PASSWORD'] = ''  # Set this item when you need to verify username and password
@@ -76,48 +74,7 @@ mqtt_client = Mqtt(app)
 
 camera_xyz_list = []
 
-def send_wake_up(ser):
-    # Wake up
-    # Hit enter a few times to wake the Printrbot
-    ser.write(str.encode("\r\n\r\n"))
-    time.sleep(2)   # Wait for Printrbot to initialize
-    ser.flushInput()  # Flush startup text in serial input
 
-def wait_for_movement_completion(ser,cleaned_line):
-
-    Event().wait(1)
-    if cleaned_line != '$X' or '$$':
-        idle_counter = 0
-        while True:
-            # Event().wait(0.01)
-            ser.reset_input_buffer()
-            command = str.encode('?' + '\n')
-            ser.write(command)
-            grbl_out = ser.readline()
-            grbl_response = grbl_out.strip().decode('utf-8')
-            if grbl_response != 'ok':
-                if grbl_response.find('Idle') > 0:
-                    idle_counter += 1
-            if idle_counter > 10:
-                break
-    return
-
-def command(ser, command):
-    send_wake_up(ser)
-    if command:  # checks if string is empty
-        print("Sending gcode:" + str(command))
-        # converts string to byte encoded string and append newline
-        command = str.encode(command + '\r\n')
-        ser.write(command)  # Send g-code
-        wait_for_movement_completion(ser, command)
-        grbl_out = ser.readline()  # Wait for response with carriage return
-        print(" : ", grbl_out.strip().decode('utf-8'))
-    return grbl_out.strip().decode('utf-8')
-
-
-#def command(ser, command):
-#  ser.write(str.encode(command)) 
-#  time.sleep(1)
 def get_405_aligned_images():
     frames = pipeline.wait_for_frames()
     depth_frame = frames.get_depth_frame()
@@ -148,7 +105,7 @@ def get_aligned_images():
     aligned_depth_frame = aligned_frames.get_depth_frame()  # 获取对齐帧中的depth帧
     color_frame = aligned_frames.get_color_frame()  # 获取对齐帧中的color帧
 
-    ############### 相机参数的获取 #######################
+
     intr = color_frame.profile.as_video_stream_profile().intrinsics  # 获取相机内参
     depth_intrin = aligned_depth_frame.profile.as_video_stream_profile(
     ).intrinsics  # 获取深度参数（像素坐标系转相机坐标系会用到）
