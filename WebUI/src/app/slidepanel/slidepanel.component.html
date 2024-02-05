@@ -13,7 +13,7 @@
                                 <h4><span class="label label-default"> XY Move</span></h4>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link btn btn-light" href="/scan"><input type="button"
+                                <a class="nav-link btn btn-light" (click)="scan" ><input type="button"
                                         value="ZeroSetting"></a>
                             </li>
 
@@ -22,20 +22,20 @@
                                 <table>
                                     <tr>
                                         <td></td>
-                                        <td><a (click)="xforward" id=xforward><input type="button" value="X+"></a>
+                                        <td><a id=xforward><input type="button" (click)="xforward()"  value="X+"></a>
                                         </td>
                                         <td></td>
                                     </tr>
                                     <tr>
-                                        <td><a href="http:192.168.0.100:5000/yforward" id=yforward><input type="button" id='forward'
+                                        <td><a id=yforward><input type="button" (click)="yforward()" id='forward'
                                                     name="forward" value="Y+"></a></td>
-                                        <td><a href="http:192.168.0.100:5000/home"><input type="button" value="Ho"></a></td>
-                                        <td><a href="http:192.168.0.100:5000/ybackward" id=ybackward><input type="button" id='backward'
+                                        <td><a ><input type="button"  (click)="home()" value="Ho"></a></td>
+                                        <td><a  id=ybackward><input type="button" (click)="ybackward()" id='backward'
                                                     name="backward" value="Y-"></a></td>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td><a href="/xbackward" id=xbackward><input type="button" value="X-"></a>
+                                        <td><input (click)="xbackward()" type="button" value="X-">
                                         </td>
                                         <td></td>
                                     </tr>
@@ -82,8 +82,8 @@
                             <hr>
                             <li>
 
-                                <a class="nav-link btn btn-light" href="/scan"><input type="button" id='scan'
-                                        name="scan" value=" Image Scan"></a>
+                                <input type="button" (click)="scan()" id='scan'
+                                        name="scan" value=" Image Scan">
                             </li>
 
                         </ul>

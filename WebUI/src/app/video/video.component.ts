@@ -16,7 +16,7 @@ export class VideoComponent {
   categoryList: any [] = [];
   productsList: any [] = [];
   constructor(private productSrv: ProductService) {
-    debugger;
+    
   }
  
   

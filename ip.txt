@@ -1,2 +1,7 @@
+<<<<<<< Updated upstream
 broker = 172.26.52.46
 reddis = 172.26.52.46
+=======
+broker = 10.0.0.133
+reddis = 10.0.0.133
+>>>>>>> Stashed changes

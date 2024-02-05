@@ -20,8 +20,12 @@ import time
 import os
 from time import sleep
 import math
+<<<<<<< Updated upstream
 from flask_cors import CORS, cross_origin
 import RPi.GPIO as GPIO
+=======
+
+>>>>>>> Stashed changes
 import time
 import publish
 from HitbotInterface import HitbotInterface
@@ -295,9 +299,16 @@ def handle_mqtt_message(client, userdata, message):
             new_camera_y=y+cam_y
             print("new_camera_xy:",new_camera_x,new_camera_y)
             distance = int(math.sqrt(new_camera_x * new_camera_x + new_camera_y * new_camera_y))
+<<<<<<< Updated upstream
             print("distance:",distance)
             detected_index=r.zrangebyscore("detections_index",min=distance-20,max=distance +20)
             print(len(detected_index))
+=======
+            print(distance)
+            print("distance:", distance)
+            detected_index=r.zrangebyscore("detections_index",min=distance-50,max=distance +50)
+            print("len(detected_index):" ,len(detected_index))
+>>>>>>> Stashed changes
             if len(detected_index)<1:
                 obj=str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id)
                 r.zadd("detections_index",{obj:distance} )

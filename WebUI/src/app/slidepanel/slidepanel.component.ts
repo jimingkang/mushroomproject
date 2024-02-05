@@ -39,7 +39,48 @@ export class SlidepanelComponent {
     this.onClose.emit(false);
   }
   xforward(){
-    this.rpiservice.farward();
+    this.rpiservice.xfarward().subscribe((res:any)=>{
+      console.log(res)
+    });
+
+  }
+  xbackward(){
+    console.log("x backward")
+    this.rpiservice.xbackward().subscribe((res:any)=>{
+     
+      console.log(res)
+    });
+
+  }
+  ybackward(){
+    console.log("y backward")
+    this.rpiservice.ybackward().subscribe((res:any)=>{
+      console.log(res)
+    });
+
+  }
+  yforward(){
+    console.log(" y forward")
+    this.rpiservice.yfarward().subscribe((res:any)=>{
+      console.log(res)
+    });
+
+  }
+  home(){
+    console.log("home")
+    const res=this.rpiservice.home().subscribe((res:any)=>{
+      console.log(res)
+    });
+    
+
+    
+  }
+
+  scan(){
+    console.log("scan")
+    this.rpiservice.scan().subscribe((res:any)=>{
+      console.log(res)
+    });
 
   }
 }
