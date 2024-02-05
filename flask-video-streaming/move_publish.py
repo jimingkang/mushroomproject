@@ -15,7 +15,7 @@ try:
 except:
     pass
 
-broker = "192.168.0.100"
+broker = "172.26.52.46"
 port = 1883
 topic = "/flask/serial"
 print("BROKER: ", broker)
@@ -29,7 +29,7 @@ def connect_mqtt():
     def on_connect(client, userdata, flags, rc):
         if rc == 0:
             i=1
-            print("move publish Connected to MQTT Broker!")
+            #print("move publish Connected to MQTT Broker!")
         else:
             i=0
             #print("Failed to connect, return code %d\n", rc)

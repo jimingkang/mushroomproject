@@ -58,7 +58,7 @@ class Camera(BaseCamera):
         #video = cv2.VideoCapture(video_source)
         #video = cv2.VideoCapture(Camera.video_source,cv2.CAP_V4L2)
 
-        video = cv2.VideoCapture("http://192.168.0.100:5000/video_feed")
+        video = cv2.VideoCapture("http://172.26.52.46:5000/video_feed")
         #video = cv2.VideoCapture("http://192.168.1.3:5000/video_feed")
         size_x =1280
         size_y = 720

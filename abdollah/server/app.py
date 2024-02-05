@@ -12,6 +12,15 @@ import urllib
 import pyrealsense2 as rs
 from hitbot.HitbotInterface import HitbotInterface
 
+def read_config(filename):
+    with open(filename, 'r') as config_file:
+        config_data = json.load(config_file)
+    return config_data
+
+config = read_config('config.json')
+for key, value in config.items():
+    globals()[key] = value  
+
 camera_x = camera_y = 0
 ds = []
 pipeline_started = False
@@ -21,19 +30,10 @@ hi.net_port_initial()
 ret=hi.initial(1,210); #// I add you on wechat
 print(hi.is_connect())
 print(hi.unlock_position())
-hi.movej_angle(0,0,0,0,100,0)
+hi.movej_angle(0,0,0,_degree_offset,_movement_speed,0)
 hi.wait_stop()
 
 app = Flask(__name__,static_folder="assets")
-
-def read_config(filename):
-    with open(filename, 'r') as config_file:
-        config_data = json.load(config_file)
-    return config_data
-config = read_config('config.json')
-for key, value in config.items():
-    globals()[key] = value    
-
 
 def generate_raw_frames():
 
@@ -103,38 +103,35 @@ def raw_camera_feed():
     return render_template('raw_camera_feed.html', stream_address=stream_address)
 
 @app.route('/move/<string:direction>')
-def move(direction,amount=_movement_step,custom_x=_movement_step,custom_y=_movement_step):
-    global camera_x,camera_y,_movement_step,_feedback,hi
+def move(direction,amount=_default_step,custom_x=_movement_step,custom_y=_movement_step):
+    global camera_x,camera_y,_movement_speed,_degree_offset,hi
     # Open the serial port
     #ser = serial.Serial("/dev/ttyACM0", 115200, timeout=5)
     if direction == "home":
-        hi.movej_angle(0,0,0,0, 100, 0)
+        hi.movej_angle(0,0,0,_degree_offset, _movement_speed, 0)
         hi.wait_stop()
         return "home"
     elif direction == "custom":
-        x = float(request.args.get('x', _movement_step))
-        y = float(request.args.get('y', _movement_step))
-        z = float(request.args.get('z', _movement_step))
-        r = float(request.args.get('r', 20))
-        roughly = float(request.args.get('roughly', 0))
-        lr = int(request.args.get('lr', 1))
+        x = float(request.args.get('x', _default_step))
+        y = float(request.args.get('y', _default_step))
+        z = float(request.args.get('z', _default_step))
+        r = float(request.args.get('r', _degree_offset))
         hi.get_scara_param()
-        rett=hi.movel_xyz(hi.x+x,hi.y+y,hi.z+z,r,100)
-        #custom?x=0&y=0&z=-10&r=0&roughly=0
-        #res = hi.new_movej_xyz_lr(0,0,-100,0,100,0,1)
+        rett=hi.movel_xyz(hi.x+x,hi.y+y,hi.z+z,_degree_offset,_movement_speed)
         hi.wait_stop()
+
         return f"{rett}<br>x = {x} {type(x)}<br>y = {y} {type(y)}<br>z = {z} {type(z)}<br>roughly = {roughly} {type(roughly)}"
     else:
         if "amount" in request.args:
-            amount = float(request.args.get('amount', _movement_step))
+            amount = float(request.args.get('amount', _default_step))
         x=0
         y=0
         z=0
 
         if direction=="right":
-            x=-amount
-        elif direction=="left":
             x=amount
+        elif direction=="left":
+            x=-amount
         elif direction=="up":
             y=amount
         elif direction=="down":
@@ -143,10 +140,11 @@ def move(direction,amount=_movement_step,custom_x=_movement_step,custom_y=_movem
             z=amount
         elif direction=="bottom":
             z=-amount
-        hi.new_movej_xyz_lr(x,y,z,20,100,0,1)
+        hi.get_scara_param()
+        rett=hi.movel_xyz(hi.x+x,hi.y+y,hi.z+z,_degree_offset,_movement_speed)
         hi.wait_stop()
         
-        return f"{direction}\nx = {x}\ny = {y}\nz = {z}"
+        return f"{rett}\nx = {x}\ny = {y}\nz = {z}"
 
 def find_common_points(frames, threshold, n_common_points):
     # Flatten the frames into 2D array of points
@@ -352,6 +350,6 @@ def stream_depth():
     return Response(generate_depth(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')
+    app.run(debug=True, host='0.0.0.0', port=5001)
 
     

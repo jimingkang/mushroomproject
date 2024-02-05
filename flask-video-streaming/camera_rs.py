@@ -390,7 +390,7 @@ class Camera(BaseCamera):
                         real_xyz=str(camera_xyz[0])+","+str(camera_xyz[1])+","+str(track_id)+";"
                         real_xyz=real_xyz[0:len(real_xyz)-1]
                         move_publish.run(real_xyz)
-                        print("class Camera real_xyz:"+real_xyz)
+                        print(" real_xyz:"+real_xyz)
 
     @staticmethod
     def frames():

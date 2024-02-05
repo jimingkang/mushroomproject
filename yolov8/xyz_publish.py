@@ -31,7 +31,7 @@ def connect_mqtt():
     def on_connect(client, userdata, flags, rc):
         if rc == 0:
             i=1
-            print("xyx publish Connected to MQTT Broker!")
+            #print("xyx publish Connected to MQTT Broker!")
         else:
             i=0
             #print("Failed to connect, return code %d\n", rc)

@@ -20,20 +20,26 @@ def print_hi(name):
     ret=hi.initial(1,210); #// I add you on wechat
     print(hi.is_connect())
     print(hi.unlock_position())
-    rett=hi.movej_angle(10,0,0,0,20,0)
-    print(rett)
-    i=0
-    while i<10:
-        i=i+1
-        hi.get_scara_param()
-        print(hi.x,hi.y)
-        rett=hi.movel_xyz(hi.x,hi.y-50,0,25,20)
-        print(rett)
-        hi.wait_stop()
-        hi.get_scara_param()
-        print(hi.x,hi.y)
-        hi.movel_xyz(hi.x,hi.y+50,0,25,20)
-        hi.wait_stop()
+    hi.get_scara_param()
+    print(hi.x,hi.y)
+    hi.movej_angle(0,0,0,25,20,0)
+    hi.get_scara_param()
+    print(hi.x,hi.y)
+    while 1 :
+        all=r.hgetall("detections")
+        for k,v in all.items():
+            hi.get_scara_param()
+            r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
+            r.set("mode","pickup_ready")
+            xyz=v.split(",")
+            hi.movel_xyz(float(xyz[0]),float(xyz[1]),0,25,20)
+            hi.wait_stop()
+            r.delete("detections",k)
+            hi.get_scara_param()
+            r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
+            #hi.new_movej_xyz_lr(hi.x-10,hi.y-10,hi.z+10,0,70,0,1)
+            #hi.wait_stop()
+            r.set("mode","camera_ready")
 
 
 
