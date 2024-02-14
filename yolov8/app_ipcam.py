@@ -20,12 +20,9 @@ import time
 import os
 from time import sleep
 import math
-<<<<<<< Updated upstream
 from flask_cors import CORS, cross_origin
 import RPi.GPIO as GPIO
-=======
 
->>>>>>> Stashed changes
 import time
 import publish
 from HitbotInterface import HitbotInterface
@@ -37,7 +34,7 @@ hi.net_port_initial()
 ret=hi.initial(1,210); #
 print(hi.is_connect())
 print(hi.unlock_position())
-hi.movel_xyz(0,0,0,25,20)
+hi.movel_xyz(0,0,-150,25,20)
 
 # import camera driver
 if os.environ.get('CAMERA'):
@@ -284,7 +281,7 @@ def handle_mqtt_message(client, userdata, message):
         #real_y = real_y - 190
         #real_x = real_x + 10
         x =   real_x
-        y = -real_y
+        y = real_y
         z=-real_z
         if (abs(x) > 10 or abs(y) > 10):
             track_id=real_xyz[2]
@@ -302,14 +299,17 @@ def handle_mqtt_message(client, userdata, message):
 
             print(distance)
             print("distance:", distance)
-            detected_index=r.zrangebyscore("detections_index",min=distance-50,max=distance +50)
+            #detected_index=r.zrangebyscore("detections_index",min=distance-50,max=distance +50)
+            detected_index=r.zrangebyscore("detections_index",min=track_id,max=track_id)
             print("len(detected_index):" ,len(detected_index))
             if len(detected_index)<1:
                 obj=str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id)
+                #r.zadd("detections_index",{obj:distance} )
+                #r.hset("detections", str(distance), str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id))
                 r.zadd("detections_index",{obj:distance} )
                 r.hset("detections", str(distance), str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id))
                 print("move to new_camera:",new_camera_x,new_camera_y)
-                rett=hi.movel_xyz(new_camera_x,new_camera_y,0,25,20)
+                rett=hi.movel_xyz(new_camera_x,new_camera_y,hi.z,25,20)
                 hi.wait_stop()
                 print(rett)
                 #time.sleep(3)

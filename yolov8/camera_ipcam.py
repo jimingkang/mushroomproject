@@ -35,7 +35,10 @@ topic4 = "/flask/downmove"
 client_id = f'python-mqtt-{random.randint(0, 100)}'
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
+#model = YOLO('best_detect.pt',task="detect")  # pretrained YOLOv8n model
+#model = YOLO('best_2024.engine',task="segment")  # pretrained YOLOv8n model
 model = YOLO('best_v3.engine',task="segment")  # pretrained YOLOv8n model
+#model = YOLO('best_detect.engine',task="detect")  # pretrained YOLOv8n model
 
 tracker = Tracker()
 
@@ -58,7 +61,8 @@ class Camera(BaseCamera):
         #video = cv2.VideoCapture(video_source)
         #video = cv2.VideoCapture(Camera.video_source,cv2.CAP_V4L2)
 
-        video = cv2.VideoCapture("http://172.26.52.46:5000/video_feed")
+        video = cv2.VideoCapture("http://172.25.144.18:5000/video_feed")
+        #video = cv2.VideoCapture("http://172.26.52.46:5000/video_feed")
         #video = cv2.VideoCapture("http://192.168.1.3:5000/video_feed")
         size_x =1280
         size_y = 720
@@ -82,9 +86,11 @@ class Camera(BaseCamera):
                 #if len(r.hkeys("detections"))<=0 and ret:
                 if r.get("mode")=="camera_ready" and ret:
                 #if  ret:
-                    results = model.predict(img, imgsz=(736, 1280))  # return a generator of Results objects
+                    results = model.predict(img, imgsz=(736,1280)) #imgsz=(736, 1280))  # return a generator of Results objects
+                    #results = model.predict(img, imgsz=(640,640)) #imgsz=(736, 1280))  # return a generator of Results objects
                     # Process results generator
                     for result in results:
+                        #print(result)
                         boxes = result.boxes  # Boxes object for bbox outputs
                         xyxy=result.boxes.xyxy  # box with xyxy format, (N, 4)
                         xyxy_list=xyxy.tolist()
@@ -95,11 +101,13 @@ class Camera(BaseCamera):
                         detections = []
                         for i  in  range(len(xyxy_list)):
                             xyz=xyxy_list[i]
+                            print("xyz",xyz)
                             x0 = int(xyz[0])
                             y0 = int(xyz[1])
                             x1 = int(xyz[2])
                             y1 = int(xyz[3])
-                            if (conf[i]*100)>50 and (abs(x1-x0)>5 and abs(x1-x0)<200) and (abs(y1-y0)<200 and abs(y0-y1)>5) and (abs(abs(x1-x0)-abs(y1-y0))<10):
+                            #if (conf[i]*100)>30:
+                            if (conf[i]*100)>50 and (abs(x1-x0)>5 and abs(x1-x0)<400) and (abs(y1-y0)<400 and abs(y0-y1)>5) and (abs(abs(x1-x0)-abs(y1-y0))<20):
                                 detections.append([x0, y0, x1, y1, conf[i]*100])
                         detections.sort(key=takeSecond,reverse=True)
                         new_detections=[]
@@ -124,7 +132,7 @@ class Camera(BaseCamera):
                                 cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 0), 1)
                                 cv2.putText(img, text, (x1, y1 + txt_size[1]), font, 0.4, (0, 255, 0), thickness=1)
                                 #if count>20 and (x2<800 and x1>50) and (y2<450 and y1>50) and (abs(x1-x2)>5 and abs(x1-x2)<200) and (abs(y1-y2)<200 and abs(y2-y1)>5) and abs(abs(x1-x2)-abs(y1-y2))<10 and  ( (int((x1 + x2) / 2)>440 or int((x1 + x2) / 2)<400) or (int((y1 +y2) / 2)>(260+0) or int((y1 + y2) / 2)<(220+0))):
-                                if  r.get("mode")=="camera_ready":
+                                if r.get("mode")=="camera_ready":
                                     count=0
                                     print(" global count=",count)
                                     coordx = "" + str(int((x1 + x2) / 2)) + "," + str(int((y1 + y2) / 2)) + "," + str(track_id) + ";"

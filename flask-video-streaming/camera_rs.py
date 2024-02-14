@@ -340,7 +340,7 @@ class Camera(BaseCamera):
                 real_xyz=""
                 for x in xyz:
                     first_xyz = x.split(",");
-                    print(first_xyz)
+                    #print(first_xyz)
                     #camera_xyz_list.append([float(first_xyz[0]),float(first_xyz[1]),int(first_xyz[2])])
                     track_id=int(first_xyz[2])
                     #if track_id == int(first_xyz[2]):

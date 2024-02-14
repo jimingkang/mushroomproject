@@ -20,7 +20,7 @@ __all__ = ["vis"]
 
 from paho.mqtt import client as mqtt_client
 
-broker = '10.0.0.134'
+broker = '172.25.144.18'
 port = 1883
 topic = "/flask/scan"
 #topic4 = "/flask/downmove"
@@ -31,7 +31,7 @@ client_id = f'python-mqtt-{random.randint(0, 100)}'
 tracker = Tracker()
 colors = [(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)) for j in range(80)]
 
-pool = redis.ConnectionPool(host="172.26.52.41", port=6379, decode_responses=True,password='jimmy')
+pool = redis.ConnectionPool(host=broker, port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
 
 def takeSecond(elem):
@@ -73,11 +73,11 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
     print(detections)
     new_detections=[]
     if len(detections)>0:
-        new_detections.append(detections[0])
+        #new_detections.append(detections[0])
         global pre_tracker
         pre_tracker=tracker
-        tracker.update(img, new_detections)
-        #tracker.update(img, detections)
+        #tracker.update(img, new_detections)
+        tracker.update(img, detections)
         coordx =""
         for track in tracker.tracks:
 
@@ -139,13 +139,13 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
 
 
             #ret=move_subcribe.run(val)#mqtt_get_value_blocking()
-            if count>20  and  ( (int((x1 + x2) / 2)>440 or int((x1 + x2) / 2)<400) or (int((y1 +y2) / 2)>(260+0) or int((y1 + y2) / 2)<(220+0))):
-            #if  r.get("global_mode")=="camera_ready":
+            #if count>20  and  ( (int((x1 + x2) / 2)>440 or int((x1 + x2) / 2)<400) or (int((y1 +y2) / 2)>(260+0) or int((y1 + y2) / 2)<(220+0))):
+            if  r.get("mode")=="camera_ready":
             #if  r.get("detections")is None:
                 count=0
                 print("count=",count)
                 coordx =coordx+ "" + str(int((x1 + x2) / 2)) + "," + str(int((y1 + y2) / 2)) + "," + str(track_id) + ";"
-        if  coordx != "":
+        if  coordx != "" and r.get("mode")=="camera_ready":
             coordx = coordx[0:len(coordx) - 1]
             print("coordx=",coordx)
             xyz_publish.run(coordx)

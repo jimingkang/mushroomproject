@@ -260,9 +260,11 @@ class Predictor(object):
         global count
         count=(count+1)%100
         print(count,"count")
-
-        vis_res = vis(img, bboxes, scores, cls,count, cls_conf, self.cls_names)
-        return vis_res
+        if r.get("mode")=="camera_ready":
+            vis_res = vis(img, bboxes, scores, cls,count, cls_conf, self.cls_names)
+            return vis_res
+        else:
+            return img
 
 
 
@@ -282,7 +284,7 @@ class Camera(BaseCamera):
     def frames():
         ip=broker.strip().replace("\n","")
         print(ip)
-        video = cv2.VideoCapture("http://172.26.52.51:5000/video_feed")
+        video = cv2.VideoCapture("http://172.25.144.18:5000/video_feed")
         #video = cv2.VideoCapture("http://"+ip+":5000/video_feed")
         #video = cv2.VideoCapture(Camera.video_source,cv2.CAP_V4L2)
         #video = v4l2capture.Video_device(Camera.video_source)

@@ -11,6 +11,11 @@ from ultralytics import YOLO
 import urllib
 import pyrealsense2 as rs
 from hitbot.HitbotInterface import HitbotInterface
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+import numpy as np
+import math
+import matplotlib.patches as patches
 
 def read_config(filename):
     with open(filename, 'r') as config_file:
@@ -30,8 +35,11 @@ hi.net_port_initial()
 ret=hi.initial(1,210); #// I add you on wechat
 print(hi.is_connect())
 print(hi.unlock_position())
-hi.movej_angle(0,0,0,_degree_offset,_movement_speed,0)
+ret = hi.movej_angle(0,0,-100,_degree_offset,_movement_speed*2,0)
 hi.wait_stop()
+hi.get_scara_param()
+print("# Ret:", ret)
+print("# Current:", hi.x,hi.y,hi.z)
 
 app = Flask(__name__,static_folder="assets")
 
@@ -57,7 +65,11 @@ def generate_raw_frames():
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
 
+average = np.array([])
+coef = 0
+
 def generate_depth():
+    global average,coef
     pipeline = rs.pipeline()
     config = rs.config()
     config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
@@ -67,15 +79,19 @@ def generate_depth():
     while True:
         frames = pipeline.wait_for_frames()
         depth_frame = frames.get_depth_frame()
+        frame_data = np.array(depth_frame.get_data())
+        if coef == 0:
+            average = frame_data[:]
+        else:
+            average = np.sum([average * min([coef,1]), frame_data], axis=0) / min([coef+1,2])
+        coef += 1
 
         # Convert the color frame to a NumPy array
-        frame_data = np.array(depth_frame.get_data())
         
         # Apply colormap on depth image (image must be converted to 8-bit per pixel first)
-        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(frame_data, alpha=0.03), cv2.COLORMAP_JET)
+        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(average, alpha=0.03), cv2.COLORMAP_JET)
         # Encode the frame as JPEG before streaming
         _, buffer = cv2.imencode('.jpg', depth_colormap)
-        print(depth_colormap.shape)
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
 
@@ -117,10 +133,10 @@ def move(direction,amount=_default_step,custom_x=_movement_step,custom_y=_moveme
         z = float(request.args.get('z', _default_step))
         r = float(request.args.get('r', _degree_offset))
         hi.get_scara_param()
-        rett=hi.movel_xyz(hi.x+x,hi.y+y,hi.z+z,_degree_offset,_movement_speed)
+        rett=hi.movel_xyz(x,y,z,_degree_offset,_movement_speed)
         hi.wait_stop()
 
-        return f"{rett}<br>x = {x} {type(x)}<br>y = {y} {type(y)}<br>z = {z} {type(z)}<br>roughly = {roughly} {type(roughly)}"
+        return f"{rett}<br>x = {hi.x} {type(x)}<br>y = {hi.y} {type(y)}<br>z = {hi.z} {type(z)}"
     else:
         if "amount" in request.args:
             amount = float(request.args.get('amount', _default_step))
@@ -237,64 +253,111 @@ def process_ds():
 
 @app.route('/scan')
 def scan():
-    global ds
-    move("custom",custom_x=-7,custom_y=-3)
-    time.sleep(13)
+    global camera_x,camera_y,_movement_speed,_degree_offset,hi
     
-    filtered_centers = get_filtered_centers()
-    ds += [{
-        "centers": filtered_centers,
-        "camera_x": camera_x,
-        "camera_y": camera_y
-    }]
+    def scan_half_circle(r, h, w):
+        # Calculate the number of vertical rectangles
+        vertical_rectangles = math.ceil(r / h)
+        
+        # Initialize the list to hold the center of each rectangle
+        rectangle_centers = []
+        
+        # Loop through each row of rectangles
+        for i in range(vertical_rectangles):
+            # Calculate the y-coordinate of the rectangle's center
+            y_center = (i + 0.5) * h
+            
+            # Calculate the maximum x-coordinate (half-width) at this height
+            y = r - y_center  # Actual y-coordinate in the circle's coordinate system
+            max_x = math.sqrt(r**2 - y**2) if y_center < r else 0
+            
+            # Calculate the number of horizontal rectangles at this height
+            horizontal_rectangles = math.ceil((2 * max_x) / w)
+            
+            # Calculate the width of each rectangle to fit in the half-circle exactly
+            actual_w = (2 * max_x) / horizontal_rectangles if max_x > 0 else w
+            
+            centers = []
+            # Loop through each rectangle in this row
+            for j in range(horizontal_rectangles):
+                # Calculate the x-coordinate of the rectangle's center
+                x_center = (j + 0.5) * actual_w - max_x
+                
+                # Store the center of this rectangle
+                centers.append((x_center, y_center))
+            
+            rectangle_centers += centers if i%2 else centers[::-1]
+        
+        return rectangle_centers
 
-    move("down",10)
-    time.sleep(5)
+    def plot_scan(r, h, w, scanned_success, scanned_fail):
+        # Get the sequence of rectangle centers
+        
+        fig = Figure()
+        canvas = fig.canvas
+        ax = fig.gca()
+        canvas.draw()
+        # Plot the half-circle
+        theta = np.linspace(0, np.pi, 100)
+        x = r * np.cos(theta)
+        y = r * np.sin(theta)
+        ax.plot(x, r-y, 'b')  # Half-circle border
+        
+        i = 0
+        # Plot the rectangles
+        for center in scanned_success:
+            rect = plt.Rectangle((center[0]-w/2, center[1]-h/2), w, h, linewidth=1, edgecolor='g', facecolor='#00FF005F')
+            ax.text(center[0], center[1], f'{i+1}', fontsize = 14)
+            ax.add_patch(rect)
+            i+=1
+        
+        # Plot the rectangles
+        for center in scanned_fail:
+            rect = plt.Rectangle((center[0]-w/2, center[1]-h/2), w, h, linewidth=1, edgecolor='r', facecolor='#FF00005F')
+            ax.text(center[0], center[1], f'{i+1}', fontsize = 14)
+            ax.add_patch(rect)
+            i+=1
 
-    filtered_centers = get_filtered_centers()
-    ds += [{
-        "centers": filtered_centers,
-        "camera_x": camera_x,
-        "camera_y": camera_y
-    }]
+        
+        # Adjust plot limits and aspect ratio
+        ax.set_xlim(-r*1.5, r*1.5)
+        ax.set_ylim(0, r*1.5)
+        ax.set_aspect('equal', adjustable='box')
+        fig.savefig("scan.png")
 
-    move("down",15)
-    time.sleep(5)
+    # Example parameters
+    hi.get_scara_param()
+    r = 60.0  # Radius of the half-circle
+    w = math.tan(87/2 * math.pi / 180.0) * (29 + (hi.z/10)) * 2  # Height of the rectangles
+    h = math.tan(58/2 * math.pi / 180.0) * (29 + (hi.z/10)) * 2 
+    rectangle_centers = scan_half_circle(r, h, w)
+    scanned_success = []
+    scanned_fail = []
+    for c in rectangle_centers:
+        y , x = c[0] * 10, c[1] * 10  
+        x_target = 600 - x
+        y_target = y
+        print(x_target, y_target)
+        ret=hi.new_movej_xyz_lr(x_target, y_target, hi.z, _degree_offset, _movement_speed, 0, -1)
+        print(ret)
+        hi.wait_stop()
+        if ret == 7:
+            hi.movej_angle(0,0,hi.z,_degree_offset,_movement_speed*2,0)
+            hi.wait_stop()
+            #ret=hi.movel_xyz(x_target / 2, y_target / 2, hi.z, _degree_offset, _movement_speed)
+            ret=hi.new_movej_xyz_lr(x_target, y_target, hi.z, _degree_offset, _movement_speed, 0, 1)
+            hi.wait_stop()
+            if ret != 1:
+                scanned_fail += [c]
+            else:
+                scanned_success += [c]
+        else:
+            scanned_success += [c]
+        plot_scan(r,h,w,scanned_success,scanned_fail)
+        
 
-    filtered_centers = get_filtered_centers()
-    ds += [{
-        "centers": filtered_centers,
-        "camera_x": camera_x,
-        "camera_y": camera_y
-    }]
 
-    # move("down",10)
-    # time.sleep(5)
-
-    # filtered_centers = get_filtered_centers()
-    # ds += [{
-    #     "centers": filtered_centers,
-    #     "camera_x": camera_x,
-    #     "camera_y": camera_y
-    # }]
-
-    # move("down",10)
-    # time.sleep(5)
-
-    # filtered_centers = get_filtered_centers()
-    # ds += [{
-    #     "centers": filtered_centers,
-    #     "camera_x": camera_x,
-    #     "camera_y": camera_y
-    # }]
-
-    unique_points = process_ds()
-
-    coords = []
-    for c_mm in unique_points:
-        x,y = c_mm
-        coords += [[mm2coord(x,y)]]
-    return Response(json.dumps(coords), content_type='application/json')
+    return Response("Done")
 
 def generate_annotated_frames():
     global stream_address
