@@ -25,16 +25,32 @@ import RPi.GPIO as GPIO
 
 import time
 from HitbotInterface import HitbotInterface
-
+import redis
 from paho.mqtt import client as mqtt_client
+
+broker=''
+redis_server=''
+try:
+    for line in open("../ip.txt"):
+        if line[0:6] == "broker":
+            broker = line[9:len(line)-1]
+        if line[0:6] == "reddis":
+            redis_server=line[9:len(line)-1]
+except:
+    pass
+print(broker+" "+redis_server)
+
+pool = redis.ConnectionPool(host=redis_server, port=6379,password='jimmy')
+r = redis.Redis(connection_pool=pool)
 
 hi=HitbotInterface(92); #//92 is robotid
 hi.net_port_initial()
 ret=hi.initial(1,210); #
 print(hi.is_connect())
 print(hi.unlock_position())
-#hi.movel_xyz(0,0,-150,25,20)
-
+hi.get_scara_param()
+r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
+print(r.get("global_camera_xy"))
 # import camera driver
 if os.environ.get('CAMERA'):
     Camera = import_module('camera_' + os.environ['CAMERA']).Camera
@@ -93,7 +109,10 @@ def move(direction,amount=0,custom_x=0,custom_y=0):
     if direction == "home":
         hi.movej_angle(0,0,0,25, 100, 0)
         hi.wait_stop()
+        hi.get_scara_param()
+        r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
         return "home"
+
     elif direction == "custom":
         x = float(request.args.get('x', 0))
         y = float(request.args.get('y', 0))
@@ -108,6 +127,8 @@ def move(direction,amount=0,custom_x=0,custom_y=0):
         hi.wait_stop()
         ret=f"ret={rett}: x = {hi.x+x} y = {hi.y+y} z = {hi.z+z} roughly = {roughly} "
         resp={'ret':ret}
+        hi.get_scara_param()
+        r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
         return jsonify(resp)
 
     else:
@@ -133,6 +154,8 @@ def move(direction,amount=0,custom_x=0,custom_y=0):
         hi.wait_stop()
         ret=f"{direction} x = {x}y = {y}z = {z}"
         resp={'ret':ret}
+        hi.get_scara_param()
+        r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
         return jsonify(resp)
 
 
@@ -141,9 +164,17 @@ def move(direction,amount=0,custom_x=0,custom_y=0):
 def scan():
     global prev_value
     r.set("mode", "camera_ready")
-    #r.set("global_camera_xy","0,0")
     r.delete("detections")
-    #loop_pickup();
+          #while 1:
+        #rett=hi.movel_xyz(hi.x,hi.y+50,hi.z,25,20)
+        #hi.wait_stop()
+    #    rett=hi.movel_xyz(hi.x,hi.y+50,hi.z,25,20)
+    #    hi.wait_stop()
+    #hi.get_scara_param()
+        #r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
+    #r.set("mode", "camera_ready")
+           #time.sleep(100)
+       #rett=hi.movel_xyz(hi.x+50,hi.y-100,hi.z,25,20)
     return " camera_ready OK";
 
 
@@ -245,7 +276,7 @@ def gen(camera):
 def video_feed():
     """Video streaming route. Put this in the src attribute of an img tag."""
     return Response(gen(Camera()),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
+                    mimetype='multipart/x-mixed-replace; boundary=--frame')
 
 
 
@@ -279,38 +310,56 @@ def handle_mqtt_message(client, userdata, message):
         real_z = int(float(real_xyz[2]) * 1000)
         #real_y = real_y - 190
         #real_x = real_x + 10
-        x =   real_x
-        y =- real_y
+        x = real_x
+        y =-real_y
         #z=-real_z
         if (abs(x) > 10 or abs(y) > 10):
             track_id=real_xyz[2]
-            #camera_xyz=r.get("global_camera_xy").split(",")
-            #cam_x=float(camera_xyz[0])
-            #cam_y=float(camera_xyz[1])
             hi.get_scara_param()
             cam_x=hi.x
             cam_y=hi.y
-            print("hi camera_xy:",cam_x,cam_y)
-            new_camera_x=x+cam_x
-            new_camera_y=y+cam_y
-            print("new_camera_xy:",new_camera_x,new_camera_y)
-            distance = int(math.sqrt(new_camera_x * new_camera_x + new_camera_y * new_camera_y))
-
-            print(distance)
-            print("distance:", distance)
+            r.set("global_camera_xy",str(cam_x)+","+str(cam_y))
+            #new_camera_x=x+cam_x
+            #new_camera_y=y+cam_y
+            #print("new_camera_xy:",new_camera_x,new_camera_y)
+            #distance = int(math.sqrt(new_camera_x * new_camera_x + new_camera_y * new_camera_y))
+            #print(distance)
+            #print("distance:", distance)
             #detected_index=r.zrangebyscore("detections_index",min=distance-50,max=distance +50)
-            detected_index=r.zrangebyscore("detections_index",min=track_id,max=track_id)
-            print("len(detected_index):" ,len(detected_index))
-            if len(detected_index)<1:
-                obj=str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id)
+            #detected=r.zrangebyscore("detections_index",min=track_id,max=track_id)
+            #print("len(detected):" ,len(detected))
+            all=r.hgetall("detections")
+            print("all:" ,all)
+
+            #if len(detected_index)<1:
+            if len(all)>0:
+                new_camera_x=0;
+                new_camera_y=0;
+                track_id=0;
+                items=all.items()
+                for k,v in items:
+                    print(k,v)
+                    detection_xyz=v.split(",");
+                    new_camera_x=float(detection_xyz[0]);
+                    new_camera_y=float(detection_xyz[1]);
+                    track_id=detection_xyz[2];
+                    break
+
+                #obj=str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id)
                 #r.zadd("detections_index",{obj:distance} )
                 #r.hset("detections", str(distance), str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id))
-                r.zadd("detections_index",{obj:distance} )
-                r.hset("detections", str(distance), str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id))
                 print("move to new_camera:",new_camera_x,new_camera_y)
                 rett=hi.movel_xyz(new_camera_x,new_camera_y,hi.z,25,20)
                 hi.wait_stop()
+                if rett>0:
+                    r.hdel("detections",track_id)
+                hi.get_scara_param()
+                r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
                 print(rett)
+                #rett=hi.movel_xyz(50,0,hi.z,25,20)
+                #hi.wait_stop()
+                #rett=hi.movel_xyz(new_camera_x,new_camera_y,hi.z,25,20)
+                #hi.wait_stop()
                 time.sleep(1)
         r.set("mode","camera_ready")
 

@@ -61,6 +61,8 @@ yolov8/best_v3.onnx
 yolov8/best_v3.engine
 yolov8/best_v3.pt
 abdollah/server/best_v3.engine
+abdollah/server/best.pt
+abdollah/server/best_v3.pt
 
 
 # See http://help.github.com/ignore-files/ for more about ignoring files.

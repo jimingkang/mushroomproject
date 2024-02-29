@@ -20,7 +20,7 @@ import time
 import publish
 
 from HitbotInterface import HitbotInterface
-
+from flask_cors import CORS, cross_origin
 
 topic = '/flask/scan'
 topic2 = '/flask/xyz'
@@ -59,6 +59,9 @@ app.config['MQTT_USERNAME'] = ''  # Set this item when you need to verify userna
 app.config['MQTT_PASSWORD'] = ''  # Set this item when you need to verify username and password
 app.config['MQTT_KEEPALIVE'] = 5  # Set KeepAlive time in seconds
 app.config['MQTT_TLS_ENABLED'] = False  # If your server supports TLS, set it True
+cors = CORS(app)
+app.config['CORS_HEADERS'] = 'Content-Type'
+
 mqtt_client = Mqtt(app)
 
 
@@ -80,6 +83,8 @@ def scan():
 def xbackward():
     hi.get_scara_param()
     hi.new_movej_xyz_lr(hi.x-10,hi.y,hi.z,0,70,0,1)
+    hi.get_scara_param()
+    r.set("global_camera_xy",hi.x+","+hi.y)
     return ;
 
 
@@ -87,6 +92,8 @@ def xbackward():
 def xfarward():
     hi.get_scara_param()
     hi.new_movej_xyz_lr(hi.x+10,hi.y,hi.z,0,70,0,1)
+    hi.get_scara_param()
+    r.set("global_camera_xy",hi.x+","+hi.y)
     return ;
 
 
@@ -106,20 +113,11 @@ def zup():
 
 @app.route('/zdown')
 def zdown():
-
-    command(ser, "G21 G91 G1  Z-1 F500\r\n")
     return render_template('index.html');
 
 
 @app.route('/yforward')
 def yforward():
-    command(ser, "$X\r\n")
-    time.sleep(1)
-    # Moving forward code
-    command(ser, "G21 G91 G1  Y-1 F500\r\n")
-    xy = r.get("global_camera_xy").split(",")
-    print(xy)
-    r.set("global_camera_xy", xy[0] + "," + str(int(xy[1]) + 60))
     return render_template('index.html');
 
 
@@ -129,9 +127,10 @@ def ybackward():
 
 
 
+
+
 def autopick():
     publish_result = mqtt_client.publish(topic, "flask/scan")
-    command(ser, "G21 G91 G1 X1 F2540\r\n")
     return render_template('index.html');
 
 
@@ -160,7 +159,7 @@ def msg():
 
 @app.route('/update_mushroom_map' ,methods=['GET'])
 def update_mushroom_map():
-    detections=r.hgetall("detections")
+    detections=r.hgetall("detections_history")
     print(jsonify({"response":detections}))
     return jsonify({"response":detections})
 
@@ -185,5 +184,5 @@ def video_feed():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', threaded=True)
+    app.run(host='172.25.144.18', threaded=True)
 

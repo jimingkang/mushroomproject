@@ -326,7 +326,7 @@ class Camera(BaseCamera):
                 topic=message.topic,
                 payload=message.payload.decode()
             )
-            #print('Received message on topic: {topic} with payload: {payload}'.format(**data))
+            print('Received message on topic: {topic} with payload: {payload}'.format(**data))
             xyz = data['payload']
             print(" class Camera payload=" + xyz)
             if xyz:
@@ -348,20 +348,28 @@ class Camera(BaseCamera):
                     camera_xyz = rs.rs2_deproject_pixel_to_point(depth_intrin, (int(first_xyz[0]), int(first_xyz[1])), dis)  # ????????xyz
                     print(camera_xyz)
                     camera_x=int(float(camera_xyz[0])*1000)
-                    camera_y=int(float(camera_xyz[1])*1000)
+                    camera_y=-int(float(camera_xyz[1])*1000)
                     camera_z=int(float(camera_xyz[2])*1000)
-			
-                    #hi.get_scara_param()
-                    global_camera_xy=r.exists("global_camera_xy")
-                    if global_camera_xy==True:
-                        gxy=r.get("global_camera_xy").split(",")
-                        new_camera_x=camera_x+int(float(gxy[0]))
-                        new_camera_y=camera_y+int(float(gxy[1]))
 
-                        #distance = int(math.sqrt(old_camera_x * old_camera_x + camera_y * camera_y))
-                        #detected_x=r.zrangebyscore("detections_index_x",min=new_camera_x-5,max=new_camera_x+5)
-                        #detected_y=r.zrangebyscore("detections_index_y",min=new_camera_y-5,max=new_camera_y+5)
+                    global_camera_xy=r.get("global_camera_xy")
+                    print("global camera xy:",global_camera_xy)
+                    global_camera_xy=global_camera_xy.split(",")
+                    print("detections",r.hget("detections",track_id))
+                    new_camera_x=camera_x+float(global_camera_xy[0])
+                    new_camera_y=camera_y+float(global_camera_xy[1])
+                    distance = int(math.sqrt(new_camera_x * new_camera_x + new_camera_y * new_camera_y))
+                    allrange=r.zrangebyscore("detections_index",min=distance -5,max=distance +5)
+                    print(allrange)
+                    print("detections,track_id:",r.hget("detections",track_id))
+                    if len(allrange)<2 and r.hget("detections",track_id)==None:
+                        obj=str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id)
+                        r.hset("detections", str(track_id), obj)
+                        r.hset("detections_history", str(track_id), obj)
+                        r.zadd("detections_index",{obj:distance} )
 
+                        #gxy=r.get("global_camera_xy").split(",")
+                        #new_camera_x=camera_x+int(float(gxy[0]))
+                        #new_camera_y=camera_y+int(float(gxy[1]))
                         #for mush in detected:
                         #    obj = mush#pickle.loads(tmp[0]) #json.loads(Mushroom,tmp)
                         #    oldobj=obj.split(",")
@@ -377,11 +385,9 @@ class Camera(BaseCamera):
                         #if  1:#(len(detected_x)<=0 and len(detected_y)<=0):
                         #if  1:# (len(detected_x)<=0 and len(detected_y)<=0):
                         #    print(" seve distance:" + str(track_id)+","+str(new_camera_x)+","+str(new_camera_y))  # +"camera_x:"+int(float(camera_x)))
-                        #    r.zadd("detections_index_x", {str(track_id)+"_"+str(new_camera_x): new_camera_x})
-                        #    r.zadd("detections_index_y", {str(track_id)+"_"+str(new_camera_y): new_camera_y})
                         #    r.hset("detections", str(track_id), str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id))
-                    else:
-                        r.set("global_camera_xy","0,0")
+                    #else:
+                    #    r.set("global_camera_xy","0,0")
 
 
                     global pre_trackid
@@ -389,8 +395,11 @@ class Camera(BaseCamera):
                     if r.get("mode")=="camera_ready" :
                         real_xyz=str(camera_xyz[0])+","+str(camera_xyz[1])+","+str(track_id)+";"
                         real_xyz=real_xyz[0:len(real_xyz)-1]
-                        move_publish.run(real_xyz)
+                        #move_publish.run(real_xyz)
                         print(" real_xyz:"+real_xyz)
+
+                #r.set("mode","pickup_ready")
+
 
     @staticmethod
     def frames():

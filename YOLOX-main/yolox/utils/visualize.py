@@ -73,11 +73,11 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
     print(detections)
     new_detections=[]
     if len(detections)>0:
-        #new_detections.append(detections[0])
+        new_detections.append(detections[0])
         global pre_tracker
         pre_tracker=tracker
-        #tracker.update(img, new_detections)
-        tracker.update(img, detections)
+        tracker.update(img, new_detections)
+        #tracker.update(img, detections)
         coordx =""
         for track in tracker.tracks:
 
@@ -135,16 +135,14 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
             cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (colors[track_id % len(colors)]), 1)
             cv2.circle(img, (int((x1+x2)/2), int((y1+y2)/2)), 4, (255, 255, 255), 1)
             #cv2.putText(img, 'xy:{} {} '.format(str((x1+x2)/2), str((y1+y2)/2)), ((x1+x2)/2, (y1+y2)/2), font, 0.4, txt_color, thickness=1)
-
-
-
+            print("count=",count)
             #ret=move_subcribe.run(val)#mqtt_get_value_blocking()
             #if count>20  and  ( (int((x1 + x2) / 2)>440 or int((x1 + x2) / 2)<400) or (int((y1 +y2) / 2)>(260+0) or int((y1 + y2) / 2)<(220+0))):
             if  r.get("mode")=="camera_ready":
             #if  r.get("detections")is None:
                 count=0
-                print("count=",count)
                 coordx =coordx+ "" + str(int((x1 + x2) / 2)) + "," + str(int((y1 + y2) / 2)) + "," + str(track_id) + ";"
+                print("coordx =",coordx )
         if  coordx != "" and r.get("mode")=="camera_ready":
             coordx = coordx[0:len(coordx) - 1]
             print("coordx=",coordx)

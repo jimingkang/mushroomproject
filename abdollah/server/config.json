@@ -2,7 +2,7 @@
     "_movement_step": 1.0,
     "_feedback": 400,
     "stream_address": "/stream_raw",
-    "_degree_offset": -65,
+    "_degree_offset": 120,
     "_movement_speed": 100,
     "_default_step": 100
 }

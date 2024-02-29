@@ -17,6 +17,13 @@ import numpy as np
 import math
 import matplotlib.patches as patches
 
+rs_pipeline = rs.pipeline()
+rs_config = rs.config()
+rs_config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
+rs_config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
+
+model = YOLO('best_v3.pt',task="detect")
+
 def read_config(filename):
     with open(filename, 'r') as config_file:
         config_data = json.load(config_file)
@@ -35,7 +42,7 @@ hi.net_port_initial()
 ret=hi.initial(1,210); #// I add you on wechat
 print(hi.is_connect())
 print(hi.unlock_position())
-ret = hi.movej_angle(0,0,-100,_degree_offset,_movement_speed*2,0)
+ret = hi.movej_angle(0,0,0,_degree_offset,_movement_speed,0)
 hi.wait_stop()
 hi.get_scara_param()
 print("# Ret:", ret)
@@ -44,14 +51,10 @@ print("# Current:", hi.x,hi.y,hi.z)
 app = Flask(__name__,static_folder="assets")
 
 def generate_raw_frames():
-
-    pipeline = rs.pipeline()
-    config = rs.config()
-    config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
-    config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
-    pipeline.start(config)
+    global rs_config,rs_pipeline
+    rs_pipeline.start(rs_config)
     while True:
-        frames = pipeline.wait_for_frames()
+        frames = rs_pipeline.wait_for_frames()
         color_frame = frames.get_color_frame()
         if not color_frame:
             continue
@@ -69,13 +72,7 @@ average = np.array([])
 coef = 0
 
 def generate_depth():
-    global average,coef
-    pipeline = rs.pipeline()
-    config = rs.config()
-    config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
-    config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
-
-    pipeline.start(config)
+    global rs_config,rs_pipeline
     while True:
         frames = pipeline.wait_for_frames()
         depth_frame = frames.get_depth_frame()
@@ -253,7 +250,7 @@ def process_ds():
 
 @app.route('/scan')
 def scan():
-    global camera_x,camera_y,_movement_speed,_degree_offset,hi
+    global camera_x,camera_y,_movement_speed,_degree_offset,hi, rs_config, rs_pipeline
     
     def scan_half_circle(r, h, w):
         # Calculate the number of vertical rectangles
@@ -290,7 +287,18 @@ def scan():
         
         return rectangle_centers
 
-    def plot_scan(r, h, w, scanned_success, scanned_fail):
+    def check_points(points, threshold):
+        def distance(point1, point2):
+            return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
+
+        unique_points = []
+        for point in points:
+            if all(distance(point, unique_point) >= threshold for unique_point in unique_points):
+                unique_points.append(point)
+
+        return unique_points
+
+    def plot_scan(r, h, w, scanned_success, scanned_fail, center_xs, center_ys):
         # Get the sequence of rectangle centers
         
         fig = Figure()
@@ -318,22 +326,44 @@ def scan():
             ax.add_patch(rect)
             i+=1
 
+        ax.plot(center_xs,center_ys,'ro')
+
         
         # Adjust plot limits and aspect ratio
         ax.set_xlim(-r*1.5, r*1.5)
-        ax.set_ylim(0, r*1.5)
+        ax.set_ylim(-r/2, r*1.5)
         ax.set_aspect('equal', adjustable='box')
         fig.savefig("scan.png")
 
+    def capture_annotate(i):
+        global rs_pipeline, rs_config, model
+        rs_pipeline.start(rs_config)
+        frames = rs_pipeline.wait_for_frames()
+        color_frame = frames.get_color_frame()
+        # Convert the color frame to a NumPy array
+        frame_data = np.array(color_frame.get_data())
+        rs_pipeline.stop()
+        results = model.predict(frame_data, stream=False, imgsz=(736,1280),conf=0.9)
+        centers = []
+        for r in results:
+            # Convert the color frame to a NumPy array
+            annotated_data = r.plot()
+            boxes = r.boxes.xyxyn.cpu().numpy()
+            centers += [((box[0]+box[2]) / 2 - 0.5, (box[1]+box[3]) / 2 - 0.5) for box in boxes]
+            cv2.imwrite(f"annotated.jpg",annotated_data)
+        return centers
     # Example parameters
     hi.get_scara_param()
     r = 60.0  # Radius of the half-circle
     w = math.tan(87/2 * math.pi / 180.0) * (29 + (hi.z/10)) * 2  # Height of the rectangles
     h = math.tan(58/2 * math.pi / 180.0) * (29 + (hi.z/10)) * 2 
-    rectangle_centers = scan_half_circle(r, h, w)
+    print(f"W x H = ({w} x {h})")
+    rectangle_centers = scan_half_circle(r, h * 0.5, w * 0.5)
     scanned_success = []
     scanned_fail = []
-    for c in rectangle_centers:
+    mushrooms_centers_xs = []
+    mushrooms_centers_ys = []
+    for i,c in enumerate(rectangle_centers):
         y , x = c[0] * 10, c[1] * 10  
         x_target = 600 - x
         y_target = y
@@ -353,7 +383,21 @@ def scan():
                 scanned_success += [c]
         else:
             scanned_success += [c]
-        plot_scan(r,h,w,scanned_success,scanned_fail)
+        
+        mushroom_centers = capture_annotate(i)
+        current_x, current_y = c
+        center_xs = []
+        center_ys = []
+        for center in mushroom_centers:
+            x,y = center
+            center_xs += [current_x + x * w]
+            center_ys += [current_y - y * h]
+        mushrooms_centers_xs += center_xs
+        mushrooms_centers_ys += center_ys
+        mushrooms_centers = check_points(list(zip(mushrooms_centers_xs, mushrooms_centers_ys)), 10)
+        mushrooms_centers = list(zip(*mushrooms_centers))
+        mushrooms_centers_xs, mushrooms_centers_ys = list(mushrooms_centers[0]), list(mushrooms_centers[1])
+        plot_scan(r,h,w,scanned_success,scanned_fail, mushrooms_centers_xs, mushrooms_centers_ys)
         
 
 

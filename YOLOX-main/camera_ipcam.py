@@ -284,6 +284,7 @@ class Camera(BaseCamera):
     def frames():
         ip=broker.strip().replace("\n","")
         print(ip)
+        #video = cv2.VideoCapture("http://192.168.0.100:5000/video_feed")
         video = cv2.VideoCapture("http://172.25.144.18:5000/video_feed")
         #video = cv2.VideoCapture("http://"+ip+":5000/video_feed")
         #video = cv2.VideoCapture(Camera.video_source,cv2.CAP_V4L2)
@@ -310,7 +311,7 @@ class Camera(BaseCamera):
                 if not ret:
                     break
                 global count
-                #count = (count + 1) % 10000
+                count = (count + 1) % 10000
 
                 if ret:
                     if r.get("mode")=="camera_ready":
