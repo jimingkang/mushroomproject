@@ -20,7 +20,7 @@ __all__ = ["vis"]
 
 from paho.mqtt import client as mqtt_client
 
-broker = '172.25.144.18'
+broker = '172.27.34.65'
 port = 1883
 topic = "/flask/scan"
 #topic4 = "/flask/downmove"

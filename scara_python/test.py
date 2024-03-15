@@ -20,14 +20,17 @@ def print_hi(name):
     ret=hi.initial(1,210); #// I add you on wechat
     print(hi.is_connect())
     print(hi.unlock_position())
-    rett=hi.movej_angle(10,0,0,0,20,0)
-    print(rett)
+    hi.get_scara_param()
+    print(hi.x,hi.y)
+    #ret=hi.movel_xyz(hi.x,hi.y,hi.z-100,25,20)
+    #ret=hi.movej_angle(10,0,0,0,20,0)
+    print(ret)
     i=0
     while i<10:
         i=i+1
         hi.get_scara_param()
         print(hi.x,hi.y)
-        rett=hi.movel_xyz(hi.x,hi.y-50,0,25,20)
+        rett=hi.movel_xyz(hi.x,hi.y-50,hi.z-100,25,20)
         print(rett)
         hi.wait_stop()
         hi.get_scara_param()

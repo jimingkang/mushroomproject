@@ -184,5 +184,5 @@ def video_feed():
 
 
 if __name__ == '__main__':
-    app.run(host='172.25.144.18', threaded=True)
+    app.run(host='172.27.34.65', threaded=True)
 
