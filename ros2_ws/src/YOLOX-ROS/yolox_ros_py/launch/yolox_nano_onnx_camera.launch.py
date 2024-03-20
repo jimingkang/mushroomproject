@@ -14,7 +14,7 @@ def generate_launch_description():
     video_device = LaunchConfiguration('video_device', default='/dev/video0')
     video_device_arg = DeclareLaunchArgument(
         'video_device',
-        default_value='/dev/video0',
+        default_value='/dev/video4',
         description='Video device'
     )
 

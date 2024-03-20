@@ -1,0 +1,1 @@
+/home/jimmy/Downloads/mushroomproject/build/realsense2_camera_msgs/rosidl_cmake/srv/DeviceInfo_Request.msg

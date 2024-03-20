@@ -25,7 +25,7 @@ def generate_launch_description():
             {'topic_name': '/image_raw'},
             {'cache_path': youtube_publisher_share_dir + '/cache'},
             {'video_url' : 'https://www.youtube.com/watch?v=CFLOiR2EbKM'},
-            {'using_youtube_dl' : True},
+            {'using_youtube_dl' : False},
             {'clear_cache_force' : False},
             {'width' : 640},
             {'height' : 360},

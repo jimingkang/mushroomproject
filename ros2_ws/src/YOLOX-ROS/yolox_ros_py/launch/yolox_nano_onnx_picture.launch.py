@@ -13,7 +13,9 @@ def generate_launch_description():
     yolox_ros_share_dir = get_package_share_directory('yolox_ros_py')
 
     dog_path = os.path.join(yolox_ros_share_dir, "./", "dog.jpg")
-    url = "https://raw.githubusercontent.com/pjreddie/darknet/master/data/dog.jpg"
+    #url = "https://raw.githubusercontent.com/pjreddie/darknet/master/data/dog.jpg"
+    url = "https://172.27.34.65:5000/video_feed"
+
     if not os.path.exists(dog_path):
         os.system("wget {} -O {}".format(url, dog_path))
 

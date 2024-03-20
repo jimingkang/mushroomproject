@@ -20,7 +20,7 @@
 
 // cv_bridge.h last supported version is humble
 #if defined(CV_BRDIGE_HAS_HPP)
-#include <cv_bridge/cv_bridge.hpp>
+#include <cv_bridge/cv_bridge.h>
 #else
 #include <cv_bridge/cv_bridge.h>
 #endif

@@ -167,7 +167,7 @@ else()
   message(FATAL_ERROR "Unsupported ROS Distribution: " "$ENV{ROS_DISTRO}")
 endif()
 
-# The header 'cv_bridge/cv_bridge.hpp' was added in version 3.3.0. For older
+# The header 'cv_bridge/cv_bridge.h' was added in version 3.3.0. For older
 # cv_bridge versions, we have to use the header 'cv_bridge/cv_bridge.h'.
 if(${cv_bridge_VERSION} VERSION_GREATER_EQUAL "3.3.0")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCV_BRDIGE_HAS_HPP")

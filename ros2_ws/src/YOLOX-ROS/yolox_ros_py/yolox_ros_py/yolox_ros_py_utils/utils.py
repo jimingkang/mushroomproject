@@ -14,10 +14,10 @@ from loguru import logger
 import sys
 
 class yolox_py(Node):
-    def __init__(self, name, load_params=True):
+    def __init__(self, name, load_params=False):
         super().__init__(name)
-        if load_params:
-            self.parameter_ros2()
+        #if load_params:
+        #    self.parameter_ros2()
 
     def yolox2bboxes_msgs(self, bboxes, scores, cls, cls_names, img_header: Header, image: np.ndarray) -> BoundingBoxes:
         bboxes_msg = BoundingBoxes()
@@ -55,10 +55,10 @@ class yolox_py(Node):
     def parameter_ros2(self):
         # パラメータ設定 ###################################################
         self.declare_parameter('model_path', './model/model.onnx')
-        # self.declare_parameter('score_th', 0.4)
+        # self.declare_parameter('score_th', 0.3)
         self.declare_parameter('nms_th', 0.5)
         self.declare_parameter('conf', 0.3)
-        self.declare_parameter('device', "CPU")
+        self.declare_parameter('device', "gpu")
 
         self.declare_parameter('num_threads', None)
         self.declare_parameter('input_shape/height', 416)
