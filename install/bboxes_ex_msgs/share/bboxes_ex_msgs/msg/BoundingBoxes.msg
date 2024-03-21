@@ -1,1 +1,0 @@
-/home/jimmy/Downloads/mushroomproject/ros2_ws/src/YOLOX-ROS/bbox_ex_msgs/msg/BoundingBoxes.msg

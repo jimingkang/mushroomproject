@@ -1,8 +1,0 @@
-source;share/tl_expected/hook/cmake_prefix_path.ps1
-source;share/tl_expected/hook/cmake_prefix_path.dsv
-source;share/tl_expected/hook/cmake_prefix_path.sh
-source;share/tl_expected/local_setup.bash
-source;share/tl_expected/local_setup.dsv
-source;share/tl_expected/local_setup.ps1
-source;share/tl_expected/local_setup.sh
-source;share/tl_expected/local_setup.zsh

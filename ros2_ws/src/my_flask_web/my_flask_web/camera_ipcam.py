@@ -7,9 +7,9 @@ from PIL import Image
 import select
 import cv2
 
-#import move_subcribe
+
 #import v4l2capture
-from yolox_ros_py.base_camera import BaseCamera
+from base_camera import BaseCamera
 #from ultralytics import YOLO
 #from yolov8 import YOLOv8
 
@@ -22,14 +22,10 @@ import os
 import time
 from loguru import logger
 import torch
-from yolox_ros_py.yolox.data.data_augment import ValTransform
-from yolox_ros_py.yolox.data.datasets import COCO_CLASSES
-from yolox_ros_py.yolox.exp import get_exp
-from yolox_ros_py.yolox.utils import fuse_model, get_model_info, postprocess, vis
-
-
-
-
+from yolox.data.data_augment import ValTransform
+from yolox.data.datasets import COCO_CLASSES
+from yolox.exp import get_exp
+from yolox.utils import fuse_model, get_model_info, postprocess, vis
 
 from paho.mqtt import client as mqtt_client
 
@@ -244,15 +240,14 @@ class Predictor(object):
                 outputs, self.num_classes, self.confthre,
                 self.nmsthre, class_agnostic=True
             )
-            logger.info("in .camera Infer time: {:.4f}s".format(time.time() - t0))
+            logger.info("Infer time: {:.4f}s".format(time.time() - t0))
         return outputs, img_info
 
     def visual(self, output, img_info, cls_conf=0.35):
-        logger.info("new test in .camera_ipcam visual")
         ratio = img_info["ratio"]
         img = img_info["raw_img"]
-        #if output is None:
-        #    return img
+        if output is None:
+            return img
         output = output.cpu()
 
         bboxes = output[:, 0:4]
@@ -262,10 +257,12 @@ class Predictor(object):
 
         cls = output[:, 6]
         scores = output[:, 4] * output[:, 5]
-        if 1:#r.get("mode")=="camera_ready":
-            vis_res, track_ids = vis(img, bboxes, scores, cls,count, cls_conf, self.cls_names)
-            logger.info(track_ids)
-            return vis_res,bboxes, scores, cls, self.cls_names,track_ids
+        global count
+        count=(count+1)%100
+        print(count,"count")
+        if r.get("mode")=="camera_ready":
+            vis_res = vis(img, bboxes, scores, cls,count, cls_conf, self.cls_names)
+            return vis_res
         else:
             return img
 

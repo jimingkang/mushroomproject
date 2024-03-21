@@ -1,7 +1,7 @@
-from deep_sort.deep_sort.tracker import Tracker as DeepSortTracker
-from deep_sort.tools import generate_detections as gdet
-from deep_sort.deep_sort import nn_matching
-from deep_sort.deep_sort.detection import Detection
+from .deep_sort.deep_sort.tracker import Tracker as DeepSortTracker
+from .deep_sort.tools import generate_detections as gdet
+from .deep_sort.deep_sort import nn_matching
+from .deep_sort.deep_sort.detection import Detection
 import numpy as np
 
 
@@ -14,7 +14,7 @@ class Tracker:
         max_cosine_distance = 0.4
         nn_budget = None
 
-        encoder_model_filename = './mars-small128.pb'
+        encoder_model_filename = '/home/jimmy/Downloads/mushroomproject/ros2_ws/src/YOLOX-ROS/yolox_ros_py/yolox_ros_py/mars-small128.pb'
 
         metric = nn_matching.NearestNeighborDistanceMetric("cosine", max_cosine_distance, nn_budget)
         self.tracker = DeepSortTracker(metric)

@@ -51,7 +51,7 @@ import cv2
 
 
 #import v4l2capture
-from .base_camera import BaseCamera
+from base_camera import BaseCamera
 #from ultralytics import YOLO
 #from yolov8 import YOLOv8
 
@@ -149,18 +149,7 @@ class TestPublisher(Node):
 
 
 
-class ImageSubscriber(Node): 
-    def __init__(self,depth_image_topic, depth_info_topic,raw_image_topic):
-        super().__init__('image_subscriber')
-        self.bridge = CvBridge()
-        #self.sub_rawImage = self.create_subscription(Image, raw_image_topic, self.imageRawCallback, 1)
-        self.sub = self.create_subscription(Image, depth_image_topic, self.imageDepthCallback, 1)
-        self.sub_info = self.create_subscription(CameraInfo, depth_info_topic, self.imageDepthInfoCallback, 1)
-        self.intrinsics = None
-        self.pix = None
-        self.pix_grade = None
-
-
+class ImageSubscriber(Node):
     def imageRawCallback(self, data):
         global bounding_boxes
         cv_image = self.bridge.imgmsg_to_cv2(data, data.encoding)
@@ -173,9 +162,7 @@ class ImageSubscriber(Node):
                     font = cv2.FONT_HERSHEY_SIMPLEX
                     #txt_size = cv2.getTextSize(text, font, 0.4, 1)[0]
                     #cv2.putText(result_frame, text, (x1, y1 + txt_size[1]), font, 0.4, txt_color, thickness=1)
-                    #cv2.rectangle(result_frame, (int(x1), int(y1)), (int(x2), int(y2)), (colors[track_id % len(colors)]), 1)
-
- 
+                    #cv2.rectangle(result_frame, (int(x1), int(y1)), (int(x2), int(y2)), (colors[track_id % len(colors)]), 1) 
         else:
             result_frame=cv_image
         cv2.imshow("camera", result_frame)
@@ -187,7 +174,7 @@ class ImageSubscriber(Node):
         try:
             cv_image = self.bridge.imgmsg_to_cv2(data, data.encoding)
             # pick one pixel among all the pixels with the closest range:
-            indices = np.array(np.where(cv_image == cv_image[cv_image > 0].min()))[:,0]
+            #indices = np.array(np.where(cv_image == cv_image[cv_image > 0].min()))[:,0]
             print(bounding_boxes)
             if bounding_boxes is not None:
                 for box in bounding_boxes:
@@ -231,7 +218,20 @@ class ImageSubscriber(Node):
             self.intrinsics.coeffs = [i for i in cameraInfo.d]
         except CvBridgeError as e:
             print(e)
-            return    
+            return
+        
+    def __init__(self,depth_image_topic, depth_info_topic,raw_image_topic):
+        super().__init__('image_subscriber')
+        self.bridge = CvBridge()
+        #self.sub_rawImage = self.create_subscription(Image, raw_image_topic, self.imageRawCallback, 1)
+        self.sub = self.create_subscription(Image, depth_image_topic, self.imageDepthCallback, 1)
+        self.sub_info = self.create_subscription(CameraInfo, depth_info_topic, self.imageDepthInfoCallback, 1)
+        self.intrinsics = None
+        self.pix = None
+        self.pix_grade = None
+
+
+    
 
 
 def main(args=None):

@@ -9,13 +9,14 @@ import threading
 import time
 
 import cv2
+from loguru import logger
 import numpy as np
 import redis
 
 #import fcntl
 #import xyz_publish
 #import pickup_publish
-from tracker import Tracker
+from yolox_ros_py.tracker import Tracker
 __all__ = ["vis"]
 
 from paho.mqtt import client as mqtt_client
@@ -49,8 +50,7 @@ def find_distance(focus_length,real_width,width_in_pixel):
     return real_width*focus_length/width_in_pixel
 def find_XY(width_in_pixel,real_distance,real_width):
     return width_in_pixel*real_distance/focus
-def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
-    #count=(count+1)%100
+def vis(img, boxes, scores, cls_ids,count,conf=0.3, class_names=None):
     detections = []
     min_distance=[10000000 ,-1,-1,-1,-1,-1]
     for i in range(len(boxes)):
@@ -65,18 +65,18 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
         y1 = int(box[3])
         print('mushroom size')
         print(x1-x0)
-        if score > 0.3 and int(x1-x0)<100:
+        if 1:#score > 0.2 and abs(int(x1-x0)/int(y1-y0))<1.1 and abs(int(x1-x0)/int(y1-y0))>0.9:
             #min_distance[0]=math.sqrt((x1-x0)*(x1-x0)+(y1-y0)*(y1-y0))
             #min_distance[1:5]=score,x0,y0,x1,y1,
             detections.append([x0,y0,x1,y1,score])
     #detections.sort(key=takeSecond)
-    print(detections)
+    #logger.info("local site_packages detections:",detections)
     new_detections=[]
     if len(detections)>0:
         new_detections.append(detections[0])
         global pre_tracker
         pre_tracker=tracker
-        tracker.update(img, new_detections)
+        tracker.update(img, detections)
         #tracker.update(img, detections)
         coordx =""
         for track in tracker.tracks:
@@ -130,12 +130,11 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
             font = cv2.FONT_HERSHEY_SIMPLEX
             txt_size = cv2.getTextSize(text, font, 0.4, 1)[0]
             txt_bk_color = (_COLORS[cls_id] * 255 * 0.7).astype(np.uint8).tolist()
-            cv2.rectangle(img, (x1, y1 + 1), (x1 + txt_size[0] + 1, y1 + int(1.5 * txt_size[1])), txt_bk_color, -1)
-            cv2.putText(img, text, (x1, y1 + txt_size[1]), font, 0.4, txt_color, thickness=1)
-            cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (colors[track_id % len(colors)]), 1)
+            #cv2.rectangle(img, (x1, y1 + 1), (x1 + txt_size[0] + 1, y1 + int(1.5 * txt_size[1])), txt_bk_color, -1)
+            cv2.putText(img, text, (x1, y1 - txt_size[1]), font, 0.4, txt_color, thickness=1)
+            cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (colors[track_id % len(colors)]),2)
             cv2.circle(img, (int((x1+x2)/2), int((y1+y2)/2)), 4, (255, 255, 255), 1)
             #cv2.putText(img, 'xy:{} {} '.format(str((x1+x2)/2), str((y1+y2)/2)), ((x1+x2)/2, (y1+y2)/2), font, 0.4, txt_color, thickness=1)
-            print("count=",count)
             #ret=move_subcribe.run(val)#mqtt_get_value_blocking()
             #if count>20  and  ( (int((x1 + x2) / 2)>440 or int((x1 + x2) / 2)<400) or (int((y1 +y2) / 2)>(260+0) or int((y1 + y2) / 2)<(220+0))):
             if  r.get("mode")=="camera_ready":

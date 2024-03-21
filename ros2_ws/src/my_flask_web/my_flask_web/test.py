@@ -149,18 +149,7 @@ class TestPublisher(Node):
 
 
 
-class ImageSubscriber(Node): 
-    def __init__(self,depth_image_topic, depth_info_topic,raw_image_topic):
-        super().__init__('image_subscriber')
-        self.bridge = CvBridge()
-        #self.sub_rawImage = self.create_subscription(Image, raw_image_topic, self.imageRawCallback, 1)
-        self.sub = self.create_subscription(Image, depth_image_topic, self.imageDepthCallback, 1)
-        self.sub_info = self.create_subscription(CameraInfo, depth_info_topic, self.imageDepthInfoCallback, 1)
-        self.intrinsics = None
-        self.pix = None
-        self.pix_grade = None
-
-
+class ImageSubscriber(Node):
     def imageRawCallback(self, data):
         global bounding_boxes
         cv_image = self.bridge.imgmsg_to_cv2(data, data.encoding)
@@ -231,7 +220,20 @@ class ImageSubscriber(Node):
             self.intrinsics.coeffs = [i for i in cameraInfo.d]
         except CvBridgeError as e:
             print(e)
-            return    
+            return
+        
+    def __init__(self,depth_image_topic, depth_info_topic,raw_image_topic):
+        super().__init__('image_subscriber')
+        self.bridge = CvBridge()
+        #self.sub_rawImage = self.create_subscription(Image, raw_image_topic, self.imageRawCallback, 1)
+        self.sub = self.create_subscription(Image, depth_image_topic, self.imageDepthCallback, 1)
+        self.sub_info = self.create_subscription(CameraInfo, depth_info_topic, self.imageDepthInfoCallback, 1)
+        self.intrinsics = None
+        self.pix = None
+        self.pix_grade = None
+
+
+    
 
 
 def main(args=None):

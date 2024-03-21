@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'flask_ros_app'
+package_name = 'my_flask_web'
 
 setup(
     name=package_name,
@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-	'flask_ros_web= flask_ros_app.yolox_ros:ros_main'
+            'my_flask_web_node = my_flask_web.my_flask_web_node:main'
         ],
     },
 )

@@ -520,35 +520,40 @@ class yolox_ros(yolox_py):
 
 
     def imageflow_callback(self,msg:Image) -> None:
+        try:
             img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
             outputs, img_info = self.predictor.inference(img_rgb)
             #logger.info("outputs: {},".format(outputs))
 
             try:
-                result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
+                result_img_rgb, bboxes, scores, cls, cls_names = self.predictor.visual(outputs[0], img_info)
 
-                bboxes_msg = self.yolox2bboxes_msgs(bboxes, scores, cls, cls_names,track_ids, msg.header, img_rgb)
+                bboxes_msg = self.yolox2bboxes_msgs(bboxes, scores, cls, cls_names, msg.header, img_rgb)
 
                 self.pub.publish(bboxes_msg)
 
                 #if (self.imshow_isshow):
                 #    cv2.imshow("YOLOX",result_img_rgb)
                 #    cv2.waitKey(1)
+
             except Exception as e:
-                logger.error(e)
-                pass
+                if (self.imshow_isshow):
+                    cv2.imshow("YOLOX",img_rgb)
+                    cv2.waitKey(1)
+        except Exception as e:
+            logger.error(e)
+            pass
     def imageDepthCallback(self, data):
         global bounding_boxes
         try:
             cv_image = self.bridge.imgmsg_to_cv2(data, data.encoding)
             # pick one pixel among all the pixels with the closest range:
             #indices = np.array(np.where(cv_image == cv_image[cv_image > 0].min()))[:,0]
-
+            #print(bounding_boxes)
             if bounding_boxes is not None:
-                print(bounding_boxes)
                 for box in bounding_boxes:
-                    #logger.info("probability,%4.2f,%s,x=%4.2f,y=%4.2f",box.probability,box.class_id,(box.xmin+box.xmax)/2,(box.ymin+box.ymax)/2)
-                    line ='probability:%4.2f,track_id:%s'%(box.probability,box.class_id)
+                    #logger.info("probability,%4.2f,%d,x=%4.2f,y=%4.2f",box.probability,box.class_id,(box.xmin+box.xmax)/2,(box.ymin+box.ymax)/2)
+                    line ='probability,%4.2f,%s'%(box.probability,box.class_id)
                     #pix = (indices[1], indices[0])
                     pix = (int((box.xmin+box.xmax)/2),int((box.ymin+box.ymax)/2))
                     self.pix = pix

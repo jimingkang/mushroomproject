@@ -11,6 +11,9 @@ import requests
 from flask import Flask, render_template, request, jsonify
 from flask_mqtt import Mqtt
 # from flask_socketio import SocketIO
+#import video_dir
+# import car_dir
+# import motor
 import redis
 import serial
 import datetime
@@ -22,34 +25,29 @@ from flask_cors import CORS, cross_origin
 import RPi.GPIO as GPIO
 
 import time
-from yolox_ros_py.HitbotInterface import HitbotInterface
+from HitbotInterface import HitbotInterface
 import redis
 from paho.mqtt import client as mqtt_client
 
-import numpy as np
-import cv2
-from numpy import empty
-from loguru import logger
 from yolox_ros_py.camera_ipcam import Predictor
-
+from yolox_ros_py.yolox_ros_py_utils.utils import yolox_py
 from numpy import empty
 import torch
 import torch.backends.cudnn as cudnn
-from yolox_ros_py.yolox.data.data_augment import ValTransform
-from yolox_ros_py.yolox.data.datasets import COCO_CLASSES
-from yolox_ros_py.yolox.exp import get_exp
-from yolox_ros_py.yolox.utils import fuse_model, get_model_info, postprocess, setup_logger, vis
-
+from yolox.data.data_augment import ValTransform
+from yolox.data.datasets import COCO_CLASSES
+from yolox.exp import get_exp
+from yolox.utils import fuse_model, get_model_info, postprocess, setup_logger, vis
+from .yolox_ros_py_utils.utils import yolox_py
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Header
-from cv_bridge import CvBridge,CvBridgeError
+from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from rclpy.qos import qos_profile_sensor_data
 from bboxes_ex_msgs.msg import BoundingBoxes
 from bboxes_ex_msgs.msg import BoundingBox
-from yolox_ros_py.yolox_ros_py_utils.utils import yolox_py
-from sensor_msgs.msg import CameraInfo
+
 broker=''
 redis_server=''
 try:
@@ -77,11 +75,10 @@ print(r.get("global_camera_xy"))
 if os.environ.get('CAMERA'):
     Camera = import_module('camera_' + os.environ['CAMERA']).Camera
 else:
-    from .camera_ipcam import Camera
+    from camera_ipcam import Camera
 
-import pyrealsense2 as rs2
-if (not hasattr(rs2, 'intrinsics')):
-    import pyrealsense2.pyrealsense2 as rs2
+# Raspberry Pi camera module (requires picamera package)
+#from camera_pi import Camera
 
 i = 0
 
@@ -235,7 +232,7 @@ def zup():
     return render_template('index.html');
 @app.route('/zdown')
 def zdown():
-    #video_dir.move_increase_x(10)
+    video_dir.move_increase_x(10)
     return render_template('index.html');
 
 
@@ -243,7 +240,7 @@ def zdown():
 
 
 def autopick():
-    publish_result = mqtt_client.publish(topic, "/flask/scan")
+    publish_result = mqtt_client.publish(topic, "flask/scan")
     return render_template('index.html');
 
 
@@ -379,48 +376,152 @@ def handle_mqtt_message(client, userdata, message):
                 time.sleep(1)
         r.set("mode","camera_ready")
 
+def make_parser():
+    parser = argparse.ArgumentParser("YOLOX Demo!")
+    parser.add_argument(
+        "--demo", default="webcam", help="demo type, eg. image, video and webcam"
+    )
+    parser.add_argument("-expn", "--experiment-name", type=str, default=None)
+    parser.add_argument("-n", "--name", type=str, default=None, help="model name")
+
+    parser.add_argument(
+        "--path", default="./assets/dog.jpg", help="path to images or video"
+    )
+    parser.add_argument("--camid", type=int, default=0, help="webcam demo camera id")
+    parser.add_argument(
+        "--save_result",
+        action="store_true",
+        help="whether to save the inference result of image/video",
+    )
+    # exp file
+    parser.add_argument(
+        "-f",
+        "--exp_file",
+        default='./exps/example/yolox_voc/yolox_voc_s.py ',
+        type=str,
+        help="please input your experiment description file",
+    )
+    parser.add_argument("-c", "--ckpt", default=None, type=str, help="ckpt for eval")
+    parser.add_argument(
+        "--device",
+        default="cpu",
+        type=str,
+        help="device to run our model, can either be cpu or gpu",
+    )
+    parser.add_argument("--conf", default=0.3, type=float, help="test conf")
+    parser.add_argument("--nms", default=0.3, type=float, help="test nms threshold")
+    parser.add_argument("--tsize", default=None, type=int, help="test img size")
+    parser.add_argument(
+        "--fp16",
+        dest="fp16",
+        default=False,
+        action="store_true",
+        help="Adopting mix precision evaluating.",
+    )
+    parser.add_argument(
+        "--legacy",
+        dest="legacy",
+        default=False,
+        action="store_true",
+        help="To be compatible with older versions",
+    )
+    parser.add_argument(
+        "--fuse",
+        dest="fuse",
+        default=False,
+        action="store_true",
+        help="Fuse conv and bn for testing.",
+    )
+    parser.add_argument(
+        "--trt",
+        dest="trt",
+        default=True,
+        action="store_true",
+        help="Using TensorRT model for testing.",
+    )
+    return parser
+def get_image_list(path):
+    image_names = []
+    for maindir, subdir, file_name_list in os.walk(path):
+        for filename in file_name_list:
+            apath = os.path.join(maindir, filename)
+            ext = os.path.splitext(apath)[1]
+            if ext in IMAGE_EXT:
+                image_names.append(apath)
+    return image_names
+
+def main(exp, args):
+    if not args.experiment_name:
+        args.experiment_name = exp.exp_name
+
+    file_name = os.path.join(exp.output_dir, args.experiment_name)
+    os.makedirs(file_name, exist_ok=True)
+    args.device = "gpu"
+    logger.info("Args: {}".format(args))
+    exp.test_conf = args.conf
+    exp.nmsthre = args.nms
+    if args.tsize is not None:
+        exp.test_size = (args.tsize, args.tsize)
+
+    model = exp.get_model()
+    logger.info("Model Summary: {}".format(get_model_info(model, exp.test_size)))
+
+    if args.device == "gpu":
+        model.cuda()
+        if args.fp16:
+            model.half()  # to FP16
+    model.eval()
 
 
-bounding_boxes=None
+    if args.trt:
+        assert not args.fuse, "TensorRT model is not support model fusing!"
+        trt_file = os.path.join(file_name, "model_trt.pth")
+        assert os.path.exists(
+            trt_file
+        ), "TensorRT model is not found!\n Run python3 tools/trt.py first!"
+        model.head.decode_in_inference = False
+        decoder = model.head.decode_outputs
+        logger.info("Using TensorRT to inference")
+    else:
+        trt_file = None
+        decoder = None
+
+    predictor = Predictor(
+        model, exp, COCO_CLASSES, trt_file, decoder,
+        'gpu', False, False,
+    )
+    return predictor
+
+
 class yolox_ros(yolox_py):
     def __init__(self) -> None:
-        raw_image_topic = '/camera/camera/color/image_rect_raw'
-        depth_image_topic = '/camera/camera/depth/image_rect_raw'
-        depth_info_topic = '/camera/camera/depth/camera_info'
-
 
         # ROS2 init
         super().__init__('yolox_ros', load_params=False)
 
-        self.setting_yolox_exp()
-
-
+        #self.setting_yolox_exp()
+        #replace setting_yolox_exp using self-defined parser
+        args = make_parser().parse_args()
+        exp = get_exp(args.exp_file, args.name)
+        self.predictor = main(exp, args)
         
         self.bridge = CvBridge()
         
-        self.pub = self.create_publisher(BoundingBoxes,"/yolox/bounding_boxes", 10)
-        self.sub_depth_image = self.create_subscription(Image, depth_image_topic, self.imageDepthCallback, 1)
-        self.sub_info = self.create_subscription(CameraInfo, depth_info_topic, self.imageDepthInfoCallback, 1)
-        self.sub_boxes = self.create_subscription(BoundingBoxes, "/yolox/bounding_boxes", self.boxes_callback, 1)
-
-        self.intrinsics = None
-        self.pix = None
-        self.pix_grade = None
-
+        self.pub = self.create_publisher(BoundingBoxes,"bounding_boxes", 10)
+        
         if (self.sensor_qos_mode):
-            self.sub = self.create_subscription(Image,"/camera/camera/color/image_rect_raw",self.imageflow_callback, qos_profile_sensor_data)
+            self.sub = self.create_subscription(Image,"image_raw",self.imageflow_callback, qos_profile_sensor_data)
         else:
-            self.sub = self.create_subscription(Image,"/camera/camera/color/image_rect_raw",self.imageflow_callback, 10)
+            self.sub = self.create_subscription(Image,"image_raw",self.imageflow_callback, 10)
 
-    
     def setting_yolox_exp(self) -> None:
 
         WEIGHTS_PATH = '../../weights/yolox_nano.pth'  #for no trt
 
 
         self.declare_parameter('imshow_isshow',True)
-        self.declare_parameter('yolox_exp_py', '/home/jimmy/Downloads/mushroomproject/ros2_ws/src/YOLOX-ROS/yolox_ros_py/exps/yolox_nano.py')
-        #self.declare_parameter('yolox_exp_py', 'yolox_vos_s.py')
+        #self.declare_parameter('yolox_exp_py', 'yolo_nano.py')
+        self.declare_parameter('yolox_exp_py', 'yolox_vos_s.py')
         self.declare_parameter('fuse',False)
         self.declare_parameter('trt', True)
         self.declare_parameter('fp16', False)
@@ -462,7 +563,8 @@ class yolox_ros(yolox_py):
         cudnn.benchmark = True
         exp = get_exp(exp_py, None)
 
-        #BASE_PATH = os.getcwd()
+
+        BASE_PATH = os.getcwd()
         #file_name = os.path.join(BASE_PATH, "../YOLOX-main/YOLOX_outputs/yolox_voc_s/")
         file_name = "/home/jimmy/Downloads/mushroomproject/YOLOX-main/YOLOX_outputs/yolox_voc_s/"#ros2_ws/src/YOLOX-ROS/weights/tensorrt/"#os.path.join(BASE_PATH, "/src/YOLOX-ROS/weights/tensorrt/") #
         # os.makedirs(file_name, exist_ok=True)
@@ -516,101 +618,44 @@ class yolox_ros(yolox_py):
             decoder = None
 
 
-        self.predictor = Predictor(model, exp, COCO_CLASSES, trt_file, decoder, device, fp16, legacy)
+        #self.predictor = Predictor(model, exp, COCO_CLASSES, trt_file, decoder, device, fp16, legacy)
 
 
     def imageflow_callback(self,msg:Image) -> None:
+        try:
             img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
             outputs, img_info = self.predictor.inference(img_rgb)
-            #logger.info("outputs: {},".format(outputs))
+            logger.info("outputs: {},".format(outputs))
 
             try:
-                result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
-
-                bboxes_msg = self.yolox2bboxes_msgs(bboxes, scores, cls, cls_names,track_ids, msg.header, img_rgb)
+                result_img_rgb, bboxes, scores, cls, cls_names = self.predictor.visual(outputs[0], img_info)
+                logger.info("bboxes: {},cls_names:{}".format(bboxes,cls_names))
+                bboxes_msg = self.yolox2bboxes_msgs(bboxes, scores, cls, cls_names, msg.header, img_rgb)
 
                 self.pub.publish(bboxes_msg)
 
-                #if (self.imshow_isshow):
-                #    cv2.imshow("YOLOX",result_img_rgb)
-                #    cv2.waitKey(1)
+                if (self.imshow_isshow):
+                    cv2.imshow("YOLOX",result_img_rgb)
+                    cv2.waitKey(1)
+
             except Exception as e:
-                logger.error(e)
-                pass
-    def imageDepthCallback(self, data):
-        global bounding_boxes
-        try:
-            cv_image = self.bridge.imgmsg_to_cv2(data, data.encoding)
-            # pick one pixel among all the pixels with the closest range:
-            #indices = np.array(np.where(cv_image == cv_image[cv_image > 0].min()))[:,0]
-
-            if bounding_boxes is not None:
-                print(bounding_boxes)
-                for box in bounding_boxes:
-                    #logger.info("probability,%4.2f,%s,x=%4.2f,y=%4.2f",box.probability,box.class_id,(box.xmin+box.xmax)/2,(box.ymin+box.ymax)/2)
-                    line ='probability:%4.2f,track_id:%s'%(box.probability,box.class_id)
-                    #pix = (indices[1], indices[0])
-                    pix = (int((box.xmin+box.xmax)/2),int((box.ymin+box.ymax)/2))
-                    self.pix = pix
-                    line += '\tDepth at pixel(%3d, %3d): %7.1f(mm).' % (pix[0], pix[1], cv_image[pix[1], pix[0]])
-                    if self.intrinsics:
-                        depth = cv_image[pix[1], pix[0]]
-                        result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth)
-                        line += '  Coordinate: %8.2f %8.2f %8.2f.' % (result[0], result[1], result[2])
-                    if (not self.pix_grade is None):
-                        line += ' Grade: %2d' % self.pix_grade
-                    line += '\r'
-                    logger.info(line)
-            #r.set("mode","pickup_ready")
-            bounding_boxes=None
-        except CvBridgeError as e:
-            print(e)
-            return
-        except ValueError as e:
-            return
-    
-    def imageDepthInfoCallback(self, cameraInfo):
-        try:
-            if self.intrinsics:
-                return
-            self.intrinsics = rs2.intrinsics()
-            self.intrinsics.width = cameraInfo.width
-            self.intrinsics.height = cameraInfo.height
-            self.intrinsics.ppx = cameraInfo.k[2]
-            self.intrinsics.ppy = cameraInfo.k[5]
-            self.intrinsics.fx = cameraInfo.k[0]
-            self.intrinsics.fy = cameraInfo.k[4]
-            if cameraInfo.distortion_model == 'plumb_bob':
-                self.intrinsics.model = rs2.distortion.brown_conrady
-            elif cameraInfo.distortion_model == 'equidistant':
-                self.intrinsics.model = rs2.distortion.kannala_brandt4
-            self.intrinsics.coeffs = [i for i in cameraInfo.d]
-        except CvBridgeError as e:
-            print(e)
-            return
-    def boxes_callback(self, data):
-        global bounding_boxes
-        #bounding_boxes=None
-        if 1:#r.get("mode")=="camera_ready":
-            bounding_boxes=data.bounding_boxes
-            #r.set("mode","pickup_ready")
-        #for box in bounding_boxes:
-        #    logger.info(" boxes_callback probability,%4.2f,%s,x=%4.2f,y=%4.2f",box.probability,box.class_id,(box.xmin+box.xmax)/2,(box.ymin+box.ymax)/2)
-
-
-def ros_main(args = None):
-            rclpy.init(args=args)
-            ros_class = yolox_ros()
-
-            try:
-                rclpy.spin(ros_class)
-            except KeyboardInterrupt:
-                pass
-            finally:
-                ros_class.destroy_node()
-                rclpy.shutdown()
+                if (self.imshow_isshow):
+                    cv2.imshow("YOLOX",img_rgb)
+                    cv2.waitKey(1)
+        except Exception as e:
+            logger.error(e)
+            pass
 
 if __name__ == '__main__':
-    ros_main()
+    rclpy.init(args=args)
+    ros_class = yolox_ros()
+
+    try:
+        rclpy.spin(ros_class)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        ros_class.destroy_node()
+        rclpy.shutdown()
     app.run(host='0.0.0.0', threaded=True,port='5001')
 
