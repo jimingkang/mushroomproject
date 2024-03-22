@@ -64,8 +64,7 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.3, class_names=None):
         y0 = int(box[1])
         x1 = int(box[2])
         y1 = int(box[3])
-        print('mushroom size')
-        print(x1-x0)
+
         if score > 0.3 and abs(int(x1-x0)/int(y1-y0))<1.1 and abs(int(x1-x0)/int(y1-y0))>0.9:
             #min_distance[0]=math.sqrt((x1-x0)*(x1-x0)+(y1-y0)*(y1-y0))
             #min_distance[1:5]=score,x0,y0,x1,y1,
@@ -139,35 +138,11 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.3, class_names=None):
             #cv2.putText(img, 'xy:{} {} '.format(str((x1+x2)/2), str((y1+y2)/2)), ((x1+x2)/2, (y1+y2)/2), font, 0.4, txt_color, thickness=1)
             #ret=move_subcribe.run(val)#mqtt_get_value_blocking()
             #if count>20  and  ( (int((x1 + x2) / 2)>440 or int((x1 + x2) / 2)<400) or (int((y1 +y2) / 2)>(260+0) or int((y1 + y2) / 2)<(220+0))):
-            if  r.get("mode")=="camera_ready":
-            #if  r.get("detections")is None:
-                count=0
-                coordx =coordx+ "" + str(int((x1 + x2) / 2)) + "," + str(int((y1 + y2) / 2)) + "," + str(track_id) + ";"
-                logger.info("coordx =",coordx )
-        if  coordx != "" and r.get("mode")=="camera_ready":
-            coordx = coordx[0:len(coordx) - 1]
-            print("coordx=",coordx)
-            #xyz_publish.run(coordx)
-            #if(int((x1 + x2) / 2)<480 and int((x1 + x2) / 2)>370) and (int((y1 +y2) / 2)<300 and int((y1 + y2) / 2)>200):
-             #   r.set("mode","pickup_ready")
-              #  pub_ret=pickup_publish.run(topic4,"50") # subscribe topic
-            #else:
-            #    r.set("mode","gripper")
 
 
 
 
-        color = (_COLORS[cls_id] * 255).astype(np.uint8).tolist()
-        #text = '{}:{:.1f}%'.format(class_names[cls_id], score * 100)
-        #txt_color = (0, 0, 0) if np.mean(_COLORS[cls_id]) > 0.5 else (255, 255, 255)
-        #font  = cv2.FONT_HERSHEY_SIMPLEX
 
-        #txt_size = cv2.getTextSize(text, font, 0.4, 1)[0]
-        #cv2.rectangle(img, (x0, y0), (x1, y1), color, 2)
-
-        #txt_bk_color = (_COLORS[cls_id] * 255 * 0.7).astype(np.uint8).tolist()
-        #cv2.rectangle(img,(x0, y0 + 1),(x0 + txt_size[0] + 1, y0 + int(1.5*txt_size[1])),txt_bk_color,-1)
-        #cv2.putText(img, text, (x0, y0 + txt_size[1]), font, 0.4, txt_color, thickness=1)
 
     return img,track_ids
 

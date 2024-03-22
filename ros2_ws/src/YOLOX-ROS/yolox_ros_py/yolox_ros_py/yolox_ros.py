@@ -71,7 +71,12 @@ ret=hi.initial(1,210); #
 print(hi.is_connect())
 print(hi.unlock_position())
 hi.get_scara_param()
+logger.info("hi :{},{},{}".format(hi.x,hi.y,hi.z))
+rett=hi.movel_xyz(hi.x-30,0,0,25,20)
+logger.info("rett:{}".format(rett))
+hi.wait_stop()
 r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
+
 print(r.get("global_camera_xy"))
 # import camera driver
 if os.environ.get('CAMERA'):
@@ -123,6 +128,8 @@ topic6 = '/flask/drop'
 topic7 = '/flask/stop'
 mqtt_client = Mqtt(app)
 y = 0
+
+
 
 
 
@@ -520,16 +527,19 @@ class yolox_ros(yolox_py):
 
 
     def imageflow_callback(self,msg:Image) -> None:
+            global bounding_boxes
             img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
             outputs, img_info = self.predictor.inference(img_rgb)
             #logger.info("outputs: {},".format(outputs))
 
             try:
-                result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
-
-                bboxes_msg = self.yolox2bboxes_msgs(bboxes, scores, cls, cls_names,track_ids, msg.header, img_rgb)
-
-                self.pub.publish(bboxes_msg)
+                logger.info(r.get("mode")=="camera_ready")
+                if r.get("mode")=="camera_ready":
+                    result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
+                    bboxes_msg = self.yolox2bboxes_msgs(bboxes, scores, cls, cls_names,track_ids, msg.header, img_rgb)
+                    self.pub.publish(bboxes_msg) #bboxes_msg
+                else:
+                    result_img_rgb=img_rgb
 
                 #if (self.imshow_isshow):
                 #    cv2.imshow("YOLOX",result_img_rgb)
@@ -545,14 +555,20 @@ class yolox_ros(yolox_py):
             #indices = np.array(np.where(cv_image == cv_image[cv_image > 0].min()))[:,0]
 
             if bounding_boxes is not None:
+                r.set("mode","pickup_ready")
                 print(bounding_boxes)
+                hi.get_scara_param()
+                hi.wait_stop()
+                camera_x=hi.x
+                camera_y=hi.y
+                camera_z=hi.z
                 for box in bounding_boxes:
                     #logger.info("probability,%4.2f,%s,x=%4.2f,y=%4.2f",box.probability,box.class_id,(box.xmin+box.xmax)/2,(box.ymin+box.ymax)/2)
                     line ='probability:%4.2f,track_id:%s'%(box.probability,box.class_id)
                     #pix = (indices[1], indices[0])
                     pix = (int((box.xmin+box.xmax)/2),int((box.ymin+box.ymax)/2))
                     self.pix = pix
-                    line += '\tDepth at pixel(%3d, %3d): %7.1f(mm).' % (pix[0], pix[1], cv_image[pix[1], pix[0]])
+                    #line += '\tDepth at pixel(%3d, %3d): %7.1f(mm).' % (pix[0], pix[1], cv_image[pix[1], pix[0]])
                     if self.intrinsics:
                         depth = cv_image[pix[1], pix[0]]
                         result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth)
@@ -561,8 +577,25 @@ class yolox_ros(yolox_py):
                         line += ' Grade: %2d' % self.pix_grade
                     line += '\r'
                     logger.info(line)
-            #r.set("mode","pickup_ready")
-            bounding_boxes=None
+                    obj=str(int(result[0]))+","+str(int(result[1]))+","+str(int(result[2]))
+                    if not r.hexists("detections",str(box.class_id)):
+                        r.hset("detections", box.class_id, obj)
+                        r.hset("detections_history", box.class_id, obj)                        
+                        rett=hi.movel_xyz(camera_x+int(result[0]),camera_y-int(result[1]),camera_z,25,20)
+                        logger.info("rett:{}".format(rett))
+                        hi.wait_stop()
+                        time.sleep(2)
+                    else:
+                         r.hdel("detections", box.class_id)
+
+
+                    #rett=hi.movel_xyz(30,0,hi.z,65,20)
+                    #logger.info("origin rett:{}".format(rett))
+                    #hi.wait_stop()
+
+
+                r.set("mode","camera_ready")
+                bounding_boxes=None
         except CvBridgeError as e:
             print(e)
             return
@@ -590,7 +623,7 @@ class yolox_ros(yolox_py):
             return
     def boxes_callback(self, data):
         global bounding_boxes
-        #bounding_boxes=None
+        bounding_boxes=None
         if 1:#r.get("mode")=="camera_ready":
             bounding_boxes=data.bounding_boxes
             #r.set("mode","pickup_ready")

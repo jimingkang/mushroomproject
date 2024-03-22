@@ -25,7 +25,6 @@ class yolox_py(Node):
         i = 0
         try:
             for bbox in bboxes:
-                logger.info(i)
                 one_box = BoundingBox()
                 # if < 0
                 if bbox[0] < 0:
