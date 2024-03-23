@@ -11,6 +11,9 @@ find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/BoundingBox.msg"
   "msg/BoundingBoxes.msg"
+  "msg/BoundingBoxCord.msg"
+  "msg/BoundingBoxesCords.msg"
+
   # "msg/ObjectCount.msg"
   DEPENDENCIES builtin_interfaces std_msgs 
 )

@@ -6,9 +6,25 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 
 def generate_launch_description():
- 
-    my_flask_web_node = launch_ros.actions.Node(
-        package="my_flask_web", executable="my_flask_web_node",
+    yolox_ros_share_dir = get_package_share_directory('yolox_ros_py')
+
+    video_device = LaunchConfiguration('video_device', default='/dev/video4')
+    video_device_arg = DeclareLaunchArgument(
+        'video_device',
+        default_value='/dev/video4',
+        description='Video device'
+    )
+
+    webcam = launch_ros.actions.Node(
+        package="v4l2_camera", executable="v4l2_camera_node",
+        parameters=[
+            {"image_size": [640,480]},
+            {"video_device": video_device},
+        ],
+    )
+
+    yolox_ros = launch_ros.actions.Node(
+        package="yolox_ros_py", executable="yolox_ros",
         #parameters=[
         #    {"yolox_exp_py" : yolox_ros_share_dir+'/yolox_nano.py'},
         #    {"device" : 'gpu'},
@@ -23,8 +39,13 @@ def generate_launch_description():
        # ],
     )
 
+    rqt_graph = launch_ros.actions.Node(
+        package="rqt_graph", executable="rqt_graph",
+    )
 
     return launch.LaunchDescription([
-        my_flask_web_node,
-
+        #video_device_arg,
+        #webcam,
+        yolox_ros,
+        # rqt_graph
     ])

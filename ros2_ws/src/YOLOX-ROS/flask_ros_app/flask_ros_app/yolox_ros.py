@@ -2,6 +2,7 @@
 import argparse
 from importlib import import_module
 import os
+import threading
 
 import redis
 from flask import Flask, render_template, Response, jsonify
@@ -22,7 +23,7 @@ from flask_cors import CORS, cross_origin
 import RPi.GPIO as GPIO
 
 import time
-from yolox_ros_py.HitbotInterface import HitbotInterface
+from .HitbotInterface import HitbotInterface
 import redis
 from paho.mqtt import client as mqtt_client
 
@@ -35,10 +36,10 @@ from yolox_ros_py.camera_ipcam import Predictor
 from numpy import empty
 import torch
 import torch.backends.cudnn as cudnn
-from yolox_ros_py.yolox.data.data_augment import ValTransform
-from yolox_ros_py.yolox.data.datasets import COCO_CLASSES
-from yolox_ros_py.yolox.exp import get_exp
-from yolox_ros_py.yolox.utils import fuse_model, get_model_info, postprocess, setup_logger, vis
+from .yolox.data.data_augment import ValTransform
+from .yolox.data.datasets import COCO_CLASSES
+from .yolox.exp import get_exp
+from .yolox.utils import fuse_model, get_model_info, postprocess, setup_logger, vis
 
 import rclpy
 from rclpy.node import Node
@@ -48,31 +49,10 @@ from sensor_msgs.msg import Image
 from rclpy.qos import qos_profile_sensor_data
 from bboxes_ex_msgs.msg import BoundingBoxes
 from bboxes_ex_msgs.msg import BoundingBox
-from yolox_ros_py.yolox_ros_py_utils.utils import yolox_py
+from bboxes_ex_msgs.msg import BoundingBoxesCords
+from .yolox_ros_py_utils.utils import yolox_py
 from sensor_msgs.msg import CameraInfo
-broker=''
-redis_server=''
-try:
-    for line in open("../ip.txt"):
-        if line[0:6] == "broker":
-            broker = line[9:len(line)-1]
-        if line[0:6] == "reddis":
-            redis_server=line[9:len(line)-1]
-except:
-    pass
-print(broker+" "+redis_server)
 
-pool = redis.ConnectionPool(host=redis_server, port=6379,password='jimmy')
-r = redis.Redis(connection_pool=pool)
-
-hi=HitbotInterface(92); #//92 is robotid
-hi.net_port_initial()
-ret=hi.initial(1,210); #
-print(hi.is_connect())
-print(hi.unlock_position())
-hi.get_scara_param()
-r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
-print(r.get("global_camera_xy"))
 # import camera driver
 if os.environ.get('CAMERA'):
     Camera = import_module('camera_' + os.environ['CAMERA']).Camera
@@ -98,6 +78,10 @@ try:
 except:
     pass
 #broker = broker.replace("\n", "").replace("\r\n", "")
+
+
+broker="172.27.34.65"
+redis_server="172.27.34.65"
 print(broker)
 print(redis_server)
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True, password='jimmy')
@@ -124,6 +108,16 @@ topic7 = '/flask/stop'
 mqtt_client = Mqtt(app)
 y = 0
 
+
+hi=HitbotInterface(92); #//92 is robotid
+hi.net_port_initial()
+ret=hi.initial(1,210); #
+print(hi.is_connect())
+print(hi.unlock_position())
+hi.get_scara_param()
+hi.wait_stop()
+r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
+print(r.get("global_camera_xy"))
 
 
 @app.route('/move/<string:direction>')
@@ -381,7 +375,7 @@ def handle_mqtt_message(client, userdata, message):
 
 
 
-bounding_boxes=None
+bounding_boxes_cords=None
 class yolox_ros(yolox_py):
     def __init__(self) -> None:
         raw_image_topic = '/camera/camera/color/image_rect_raw'
@@ -392,230 +386,101 @@ class yolox_ros(yolox_py):
         # ROS2 init
         super().__init__('yolox_ros', load_params=False)
 
-        self.setting_yolox_exp()
+        #self.setting_yolox_exp()
 
 
         
         self.bridge = CvBridge()
         
-        self.pub = self.create_publisher(BoundingBoxes,"/yolox/bounding_boxes", 10)
-        self.sub_depth_image = self.create_subscription(Image, depth_image_topic, self.imageDepthCallback, 1)
-        self.sub_info = self.create_subscription(CameraInfo, depth_info_topic, self.imageDepthInfoCallback, 1)
-        self.sub_boxes = self.create_subscription(BoundingBoxes, "/yolox/bounding_boxes", self.boxes_callback, 1)
+        self.imshow_isshow=False
+        self.sub_boxes = self.create_subscription(BoundingBoxesCords, "/yolox/bounding_boxes_cords", self.boxes_cords_callback, 1)
 
         self.intrinsics = None
         self.pix = None
         self.pix_grade = None
 
-        if (self.sensor_qos_mode):
-            self.sub = self.create_subscription(Image,"/camera/camera/color/image_rect_raw",self.imageflow_callback, qos_profile_sensor_data)
-        else:
-            self.sub = self.create_subscription(Image,"/camera/camera/color/image_rect_raw",self.imageflow_callback, 10)
-
-    
-    def setting_yolox_exp(self) -> None:
-
-        WEIGHTS_PATH = '../../weights/yolox_nano.pth'  #for no trt
-
-
-        self.declare_parameter('imshow_isshow',True)
-        self.declare_parameter('yolox_exp_py', '/home/jimmy/Downloads/mushroomproject/ros2_ws/src/YOLOX-ROS/yolox_ros_py/exps/yolox_nano.py')
-        #self.declare_parameter('yolox_exp_py', 'yolox_vos_s.py')
-        self.declare_parameter('fuse',False)
-        self.declare_parameter('trt', True)
-        self.declare_parameter('fp16', False)
-        self.declare_parameter('legacy', False)
-        self.declare_parameter('device', "gpu")
-        # self.declare_parameter('', 0)
-        self.declare_parameter('ckpt', WEIGHTS_PATH)
-        self.declare_parameter('conf', 0.3)
-
-        # nmsthre -> threshold
-        self.declare_parameter('threshold', 0.55)
-        # --tsize -> resize
-        self.declare_parameter('resize', 640)
-        
-        self.declare_parameter('sensor_qos_mode', False)
-
-        # =============================================================
-        self.imshow_isshow = self.get_parameter('imshow_isshow').value
-
-        exp_py = self.get_parameter('yolox_exp_py').value
-
-        fuse = self.get_parameter('fuse').value
-        trt = True#self.get_parameter('trt').value
-        fp16 = self.get_parameter('fp16').value
-        device = self.get_parameter('device').value
-
-        ckpt = self.get_parameter('ckpt').value
-        conf = self.get_parameter('conf').value
-        legacy = self.get_parameter('legacy').value
-        threshold = self.get_parameter('threshold').value
-        
-        input_shape_w = self.get_parameter('resize').value
-        input_shape_h = input_shape_w
-
-        self.sensor_qos_mode = self.get_parameter('sensor_qos_mode').value
-
-        # ==============================================================
-
-        cudnn.benchmark = True
-        exp = get_exp(exp_py, None)
-
-        #BASE_PATH = os.getcwd()
-        #file_name = os.path.join(BASE_PATH, "../YOLOX-main/YOLOX_outputs/yolox_voc_s/")
-        file_name = "/home/jimmy/Downloads/mushroomproject/YOLOX-main/YOLOX_outputs/yolox_voc_s/"#ros2_ws/src/YOLOX-ROS/weights/tensorrt/"#os.path.join(BASE_PATH, "/src/YOLOX-ROS/weights/tensorrt/") #
-        # os.makedirs(file_name, exist_ok=True)
-
-        exp.test_conf = conf # test conf
-        exp.threshold = threshold # nms threshold
-        exp.test_size = (input_shape_h, input_shape_w) # test size
-
-        model = exp.get_model()
-        logger.info("Model Summary: {}".format(get_model_info(model, exp.test_size)))
-
-        if device == "gpu":
-            model.cuda()
-            #if fp16:
-            #    model.half() 
-        # torch.cuda.set_device()
-        # model.cuda()
-        model.eval()
-
-        # about not trt
-        if not trt:
-            if ckpt is None:
-                ckpt_file = os.path.join(file_name, "best_ckpt.pth")
-            else:
-                ckpt_file = ckpt
-            logger.info("loading checkpoint")
-            ckpt = torch.load(ckpt_file, map_location="cpu")
-            # load the model state dict
-            model.load_state_dict(ckpt["model"])
-            logger.info("loaded checkpoint done.")
-
-        # about fuse
-        if fuse:
-            logger.info("\tFusing model...")
-            model = fuse_model(model)
-
-        # TensorRT
-        logger.info("trt: {},file_name:{}".format(trt,file_name))
-        if trt:
-            assert not fuse, "TensorRT model is not support model fusing!"
-            trt_file = os.path.join(file_name, "model_trt.pth") 
-            logger.info("trt_file:{}".format(trt_file))
-            assert os.path.exists(
-                trt_file
-            ), "TensorRT model is not found!\n Run python3 tools/trt.py first!"
-            model.head.decode_in_inference = False
-            decoder = model.head.decode_outputs
-            logger.info("Using TensorRT to inference")
-        else:
-            trt_file = None
-            decoder = None
-
-
-        self.predictor = Predictor(model, exp, COCO_CLASSES, trt_file, decoder, device, fp16, legacy)
-
-
+        #if (self.sensor_qos_mode):
+        #    self.sub = self.create_subscription(Image,"/yolox/boxes_image",self.imageflow_callback, qos_profile_sensor_data)
+        #else:
+        self.sub = self.create_subscription(Image,"/yolox/boxes_image",self.imageflow_callback, 10)
     def imageflow_callback(self,msg:Image) -> None:
-        try:
+            global bounding_boxes
             img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
-            outputs, img_info = self.predictor.inference(img_rgb)
+            #outputs, img_info = self.predictor.inference(img_rgb)
             #logger.info("outputs: {},".format(outputs))
 
             try:
-                result_img_rgb, bboxes, scores, cls, cls_names = self.predictor.visual(outputs[0], img_info)
 
-                bboxes_msg = self.yolox2bboxes_msgs(bboxes, scores, cls, cls_names, msg.header, img_rgb)
-
-                self.pub.publish(bboxes_msg)
-
-                #if (self.imshow_isshow):
-                #    cv2.imshow("YOLOX",result_img_rgb)
-                #    cv2.waitKey(1)
-
-            except Exception as e:
                 if (self.imshow_isshow):
                     cv2.imshow("YOLOX",img_rgb)
                     cv2.waitKey(1)
-        except Exception as e:
-            logger.error(e)
-            pass
-    def imageDepthCallback(self, data):
-        global bounding_boxes
-        try:
-            cv_image = self.bridge.imgmsg_to_cv2(data, data.encoding)
-            # pick one pixel among all the pixels with the closest range:
-            #indices = np.array(np.where(cv_image == cv_image[cv_image > 0].min()))[:,0]
-            #print(bounding_boxes)
-            if bounding_boxes is not None:
-                for box in bounding_boxes:
-                    #logger.info("probability,%4.2f,%d,x=%4.2f,y=%4.2f",box.probability,box.class_id,(box.xmin+box.xmax)/2,(box.ymin+box.ymax)/2)
-                    line ='probability,%4.2f,%s'%(box.probability,box.class_id)
-                    #pix = (indices[1], indices[0])
-                    pix = (int((box.xmin+box.xmax)/2),int((box.ymin+box.ymax)/2))
-                    self.pix = pix
-                    line += '\tDepth at pixel(%3d, %3d): %7.1f(mm).' % (pix[0], pix[1], cv_image[pix[1], pix[0]])
-                    if self.intrinsics:
-                        depth = cv_image[pix[1], pix[0]]
-                        result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth)
-                        line += '  Coordinate: %8.2f %8.2f %8.2f.' % (result[0], result[1], result[2])
-                    if (not self.pix_grade is None):
-                        line += ' Grade: %2d' % self.pix_grade
-                    line += '\r'
-                    logger.info(line)
-            #r.set("mode","pickup_ready")
-            bounding_boxes=None
-        except CvBridgeError as e:
-            print(e)
-            return
-        except ValueError as e:
-            return
-    
-    def imageDepthInfoCallback(self, cameraInfo):
-        try:
-            if self.intrinsics:
-                return
-            self.intrinsics = rs2.intrinsics()
-            self.intrinsics.width = cameraInfo.width
-            self.intrinsics.height = cameraInfo.height
-            self.intrinsics.ppx = cameraInfo.k[2]
-            self.intrinsics.ppy = cameraInfo.k[5]
-            self.intrinsics.fx = cameraInfo.k[0]
-            self.intrinsics.fy = cameraInfo.k[4]
-            if cameraInfo.distortion_model == 'plumb_bob':
-                self.intrinsics.model = rs2.distortion.brown_conrady
-            elif cameraInfo.distortion_model == 'equidistant':
-                self.intrinsics.model = rs2.distortion.kannala_brandt4
-            self.intrinsics.coeffs = [i for i in cameraInfo.d]
-        except CvBridgeError as e:
-            print(e)
-            return
-    def boxes_callback(self, data):
-        global bounding_boxes
-        #bounding_boxes=None
-        if 1:#r.get("mode")=="camera_ready":
-            bounding_boxes=data.bounding_boxes
-            #r.set("mode","pickup_ready")
-        #for box in bounding_boxes:
-        #    logger.info(" boxes_callback probability,%4.2f,%s,x=%4.2f,y=%4.2f",box.probability,box.class_id,(box.xmin+box.xmax)/2,(box.ymin+box.ymax)/2)
-
-
-def ros_main(args = None):
-            rclpy.init(args=args)
-            ros_class = yolox_ros()
-
-            try:
-                rclpy.spin(ros_class)
-            except KeyboardInterrupt:
+            except Exception as e:
+                logger.error(e)
                 pass
-            finally:
-                ros_class.destroy_node()
-                rclpy.shutdown()
+    def boxes_cords_callback(self, data):
+        global bounding_boxes_cords
+        bounding_boxes_cords=data.bounding_boxes
+        logger.info(bounding_boxes_cords)
+        hi.get_scara_param()
+        hi.wait_stop()
+        #if 1:#r.get("mode")=="camera_ready":
+        #    bounding_boxes_cords=data.bounding_boxes
+            #r.set("mode","pickup_ready")
+
+        r.set("mode","pickup_ready")
+        
+
+
+        all=r.hgetall("detections")
+        items=all.items()
+        for k,v in items:
+            logger.info(k)
+            logger.info(v)
+            xy=v.split(",")
+            rett=hi.movel_xyz(xy[0],xy[1],hi.z,25,20)
+            logger.info("rett:{}".format(rett))
+            hi.wait_stop()
+            r.hdel("detections",k)
+            hi.get_scara_param()
+            hi.wait_stop()
+            r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
+            r.set("mode","camera_ready")
+            break
+        #for box in bounding_boxes_cords:
+        #    if  r.hexists("detections",str(box.class_id)):
+        #        logger.info("  probability,%4.2f,%s,%d,%d",box.probability,box.id,box.x,box.y)
+
+
+
+ 
+
+    
+
+    
+def ros_main(args = None):
+    rclpy.init(args=args)
+    ros_class = yolox_ros()
+
+    try:
+        rclpy.spin(ros_class)
+    except KeyboardInterrupt:
+            pass
+    finally:
+            ros_class.destroy_node()
+            rclpy.shutdown()
+
+    #rclpy.init(args=args)
+    #yolox_ros_node = yolox_ros()
+    #executor = rclpy.executors.MultiThreadedExecutor()
+    #executor.add_node(yolox_ros_node)
+    #executor_thread=threading.Thread(target=executor.spin, daemon=True)
+    #executor_thread.start()
+    #app.run(host='0.0.0.0', threaded=True,port='5001')
+    #executor_thread.join()
+    #rclpy.shutdown()
+
 
 if __name__ == '__main__':
     ros_main()
-    app.run(host='0.0.0.0', threaded=True,port='5001')
+
 

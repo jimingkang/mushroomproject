@@ -19,37 +19,43 @@ class yolox_py(Node):
         #if load_params:
         #    self.parameter_ros2()
 
-    def yolox2bboxes_msgs(self, bboxes, scores, cls, cls_names, img_header: Header, image: np.ndarray) -> BoundingBoxes:
+    def yolox2bboxes_msgs(self, bboxes, scores, cls, cls_names,track_ids, img_header: Header, image: np.ndarray) -> BoundingBoxes:
         bboxes_msg = BoundingBoxes()
         bboxes_msg.header = img_header
         i = 0
-        for bbox in bboxes:
-            one_box = BoundingBox()
-            # if < 0
-            if bbox[0] < 0:
-                bbox[0] = 0
-            if bbox[1] < 0:
-                bbox[1] = 0
-            if bbox[2] < 0:
-                bbox[2] = 0
-            if bbox[3] < 0:
-                bbox[3] = 0
-            one_box.xmin = int(bbox[0])
-            one_box.ymin = int(bbox[1])
-            one_box.xmax = int(bbox[2])
-            one_box.ymax = int(bbox[3])
+        try:
+            for bbox in bboxes:
+                one_box = BoundingBox()
+                # if < 0
+                if bbox[0] < 0:
+                    bbox[0] = 0
+                if bbox[1] < 0:
+                    bbox[1] = 0
+                if bbox[2] < 0:
+                    bbox[2] = 0
+                if bbox[3] < 0:
+                    bbox[3] = 0
+                one_box.xmin = int(bbox[0])
+                one_box.ymin = int(bbox[1])
+                one_box.xmax = int(bbox[2])
+                one_box.ymax = int(bbox[3])
 
-            if "bboxes_ex_msgs" in sys.modules:
-                one_box.img_height = image.shape[0]
-                one_box.img_width = image.shape[1]
-            else:
-                pass
-            
-            one_box.probability = float(scores[i])
-            one_box.class_id = str(cls_names[int(cls[i])])
-            bboxes_msg.bounding_boxes.append(one_box)
-            i = i+1
-
+                if "bboxes_ex_msgs" in sys.modules:
+                    one_box.img_height = image.shape[0]
+                    one_box.img_width = image.shape[1]
+                else:
+                    pass
+                
+                one_box.probability = float(scores[i])
+                one_box.class_id = track_ids[i]
+                #one_box.class_id = str(cls_names[int(cls[i])])
+                #one_box.id = int(track_ids[i])
+                bboxes_msg.bounding_boxes.append(one_box)
+                logger.info(one_box.id)
+                i = i+1
+        except Exception as e:
+            logger.error(e)
+            pass
         return bboxes_msg
 
     def parameter_ros2(self):

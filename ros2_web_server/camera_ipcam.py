@@ -7,7 +7,7 @@ from PIL import Image
 import select
 import cv2
 
-
+import move_subcribe
 #import v4l2capture
 from base_camera import BaseCamera
 #from ultralytics import YOLO

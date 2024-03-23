@@ -9,7 +9,7 @@ import cv2
 
 #import move_subcribe
 #import v4l2capture
-from yolox_ros_py.base_camera import BaseCamera
+from .base_camera import BaseCamera
 #from ultralytics import YOLO
 #from yolov8 import YOLOv8
 
@@ -22,10 +22,10 @@ import os
 import time
 from loguru import logger
 import torch
-from yolox_ros_py.yolox.data.data_augment import ValTransform
-from yolox_ros_py.yolox.data.datasets import COCO_CLASSES
-from yolox_ros_py.yolox.exp import get_exp
-from yolox_ros_py.yolox.utils import fuse_model, get_model_info, postprocess, vis
+from .yolox.data.data_augment import ValTransform
+from .yolox.data.datasets import COCO_CLASSES
+from .yolox.exp import get_exp
+from .yolox.utils import fuse_model, get_model_info, postprocess, vis
 
 
 
@@ -248,7 +248,7 @@ class Predictor(object):
         return outputs, img_info
 
     def visual(self, output, img_info, cls_conf=0.35):
-        logger.info("new test in .camera_ipcam visual")
+        #logger.info("new test in .camera_ipcam visual")
         ratio = img_info["ratio"]
         img = img_info["raw_img"]
         #if output is None:

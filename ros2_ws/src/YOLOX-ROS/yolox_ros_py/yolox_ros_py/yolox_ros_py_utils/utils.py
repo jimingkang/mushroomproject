@@ -48,10 +48,9 @@ class yolox_py(Node):
                 
                 one_box.probability = float(scores[i])
                 #one_box.class_id = str(cls_names[int(cls[i])])
-                logger.info(str(track_ids[i]))
                 one_box.class_id = str(track_ids[i])
-
                 bboxes_msg.bounding_boxes.append(one_box)
+                logger.info("in util track_id:{}".format(str(track_ids[i])))
                 i = i+1
         except Exception as e:
             logger.error(e)
