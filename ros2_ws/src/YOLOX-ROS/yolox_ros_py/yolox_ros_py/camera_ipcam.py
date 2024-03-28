@@ -264,7 +264,7 @@ class Predictor(object):
         scores = output[:, 4] * output[:, 5]
         if 1:#r.get("mode")=="camera_ready":
             vis_res, track_ids = vis(img, bboxes, scores, cls,count, cls_conf, self.cls_names)
-            logger.info(track_ids)
+
             return vis_res,bboxes, scores, cls, self.cls_names,track_ids
         else:
             return img

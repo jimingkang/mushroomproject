@@ -22,6 +22,7 @@ class yolox_py(Node):
     def yolox2bboxes_msgs(self, bboxes, scores, cls, cls_names,track_ids, img_header: Header, image: np.ndarray) -> BoundingBoxes:
         bboxes_msg = BoundingBoxes()
         bboxes_msg.header = img_header
+        #logger.info(" yolox2bboxes_msgs para bboxes{}".format(bboxes))
         i = 0
         try:
             for bbox in bboxes:
@@ -49,8 +50,9 @@ class yolox_py(Node):
                 one_box.probability = float(scores[i])
                 #one_box.class_id = str(cls_names[int(cls[i])])
                 one_box.class_id = str(track_ids[i])
+                logger.info("in util one_box:{}".format(one_box))
                 bboxes_msg.bounding_boxes.append(one_box)
-                logger.info("in util track_id:{}".format(str(track_ids[i])))
+                #logger.info("in util bboxes_msg.bounding_boxes:{}".format(bboxes_msg.bounding_boxes))
                 i = i+1
         except Exception as e:
             logger.error(e)

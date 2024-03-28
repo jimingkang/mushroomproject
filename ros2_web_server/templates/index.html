@@ -57,11 +57,16 @@
     <script type="text/javascript">
         $(
             function () {
-                fetchData();
-                setInterval(fetchData, 5000);
+               // fetchData();
+               // setInterval(fetchData, 5000);
+
+  		//fetchImage();
+             //   setInterval(fetchImage, 100);
+
             }
         );
         function fetchData(){
+
             $.ajax({
                 url:"/update_mushroom_map",
                 type:"GET",
@@ -71,8 +76,15 @@
                 }
             })
         }
+ 	function fetchImage(){
+var muhsroom = document.getElementById("mushroom_img");
+console.log(mushroom);
+muhsroom.src="/static/mushroom.jpg";
+             }
+
     </script>
     <img src="{{ url_for('video_feed') }}">
+
   </body>
 </html>
 
