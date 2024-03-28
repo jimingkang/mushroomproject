@@ -39,6 +39,38 @@ export class WoodframeComponent implements OnInit {
   categoryList: any [] = [];
   productsList: any [] = [this.productObj];
 
+
+  public width = 156;//495;
+ public height = 240;//445;
+
+
+  private cx!: CanvasRenderingContext2D;
+  canvas: any;
+
+public ngAfterViewInit() {
+  const canvas = document.querySelector('#my-canvas')
+if (!(canvas instanceof HTMLCanvasElement)) return;
+    const canvasEl: HTMLCanvasElement = canvas;
+    this.cx = canvasEl.getContext('2d')!;
+    let image = new Image();
+    let pose = new Image();
+
+    canvasEl.width = this.width;
+    canvasEl.height = this.height;
+
+    this.cx.lineWidth = 3;
+    this.cx.lineCap = 'round';
+    this.cx.strokeStyle = '#000';
+     
+  pose.src = "../../assets/pose.svg";
+  image.src = "../../assets/map.png";
+    image.onload = ()=> {
+        this.cx.drawImage(image, 0, 0, this.width, this.height);
+        this.cx.drawImage(pose,1.244/0.05,this.height-(50+0.107/0.05),10,10);
+    }
+
+
+}
   constructor(private productSrv: ProductService) {
     
   }
@@ -46,7 +78,7 @@ export class WoodframeComponent implements OnInit {
   // this.getProducts();
   //  this.getALlCategory();
   //this.productsList.
-
+  
   }
  
   getProducts() {

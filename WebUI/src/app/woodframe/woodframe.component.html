@@ -12,11 +12,13 @@
                 </div>
             </div>
             <div class="card-body">
+               
                 <div class="row">
+                     <!--
                     <div class="col-3 pt-2" *ngFor="let product of productsList">
                         <div class="card">
-                            <img class="card-img-top" style="height: 12.125rem !important" src="./assets/warehouse.jpg"
-                                alt="Card image">
+                           
+                                <canvas #canvas id="my-canvas" width="400px" height="200px"></canvas>
                             <div class="card-body">
                                 <h4 class="card-title">{{product.productShortName}}</h4>
                                 <p class="card-text">{{product.categoryName}}</p>
@@ -25,12 +27,26 @@
                             </div>
                         </div>
                     </div>
+                -->
+                    <div class="col-10 pt-2" *ngFor="let product of productsList">
+                        <div class="card">
+                           
+                              <iframe src="http://172.27.34.70/" height="700px" frameborder="0"
+                              scrolling="no"></iframe>
+                            <div class="card-body">
+                                <h4 class="card-title">{{product.productShortName}}</h4>
+                                <p class="card-text">{{product.categoryName}}</p>
+                                <a class="btn btn-primary" (click)="onEdit(product)">ARM Detail</a>
 
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-12" *ngIf="isSidePanelVisible">
+       
         <div class="card">
             <div class="card-header bg-primary">
                 <div class="row">
@@ -42,6 +58,7 @@
                     </div>
                 </div>
             </div>
+            
             <div class="card-body">
                 <div class="row pt-2">
                     <!--

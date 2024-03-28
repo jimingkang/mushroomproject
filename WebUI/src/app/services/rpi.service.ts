@@ -32,7 +32,7 @@ export class RpiService {
 
 
 export const RpiHttp = {
-  API_END_POINT:'http://172.26.52.46:5001',
+  API_END_POINT:'http://172.27.34.65:5002',
   METHODS: {
       XFarward: '/move/custom?x=10',
       XBackward: '/move/custom?x=-10',
