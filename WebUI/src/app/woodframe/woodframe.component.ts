@@ -10,6 +10,7 @@ import { FormsModule } from '@angular/forms';
 import "@babylonjs/core/Physics/physicsEngineComponent";
 import { VideoComponent } from '../video/video.component';
 import { SlidepanelComponent } from '../slidepanel/slidepanel.component';
+import { RpiService } from '../services/rpi.service';
 
 
 
@@ -38,7 +39,7 @@ export class WoodframeComponent implements OnInit {
   };
   categoryList: any [] = [];
   productsList: any [] = [this.productObj];
-
+  scan=0;
 
   public width = 156;//495;
  public height = 240;//445;
@@ -71,7 +72,7 @@ if (!(canvas instanceof HTMLCanvasElement)) return;
 
 
 }
-  constructor(private productSrv: ProductService) {
+  constructor(private productSrv: ProductService,private rpiSrc: RpiService) {
     
   }
   ngOnInit(): void {
@@ -92,27 +93,31 @@ if (!(canvas instanceof HTMLCanvasElement)) return;
    //   this.categoryList = res.data;
    // })
   }
-  onUpdate() {
-    this.productSrv.saveProduct(this.productObj).subscribe((res:any)=>{
+  onStopScan() {
+    this.rpiSrc.stop().subscribe((res:any)=>{
       debugger;
-      if(res.result) {
-        alert("Product Created");
-        this.getProducts();
+      if(res) {
+        this.scan=0;
+       
       } else {
         alert(res.message)
       }
-    })
+    });
+
   }
-  onSave() {
-    this.productSrv.saveProduct(this.productObj).subscribe((res:any)=>{
-      debugger;
-      if(res.result) {
-        alert("Product Updated");
-        this.getProducts();
-      } else {
-        alert(res.message)
-      }
-    })
+  onStartScan() {
+   this.rpiSrc.start().subscribe((res:any)=>{
+    debugger;
+    if(res) {
+      console.log(res.result)
+      this.scan=1;
+
+   
+    } else {
+      alert(res.message)
+    }
+  });
+  
   }
   onDelete(item: any) {
     const isDelete = confirm('Are you Sure want to delte');
@@ -133,6 +138,10 @@ if (!(canvas instanceof HTMLCanvasElement)) return;
   onEdit(item: any) {
     this.productObj = item;
     this.openSidePanel();
+ 
+  }
+  startScan(){
+    this.rpiSrc.start();
   }
 
 

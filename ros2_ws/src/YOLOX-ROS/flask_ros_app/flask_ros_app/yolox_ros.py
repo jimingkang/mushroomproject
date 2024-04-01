@@ -152,7 +152,9 @@ class yolox_ros(yolox_py):
         self.sub = self.create_subscription(Image,"/yolox/boxes_image",self.imageflow_callback, 10)
     def move_callback(self,msg:Image) -> None:
         xyz=msg.data
+        xyz.replace("'","")
         xyz=xyz.split(";")
+        xyz.replace("'","")
         try:
             hi.get_scara_param()
             hi.wait_stop()
