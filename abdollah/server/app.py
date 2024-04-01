@@ -37,16 +37,16 @@ camera_x = camera_y = 0
 ds = []
 pipeline_started = False
 
-hi=HitbotInterface(92); #//92 is robotid? yes
-hi.net_port_initial()
-ret=hi.initial(1,210); #// I add you on wechat
-print(hi.is_connect())
-print(hi.unlock_position())
-ret = hi.movej_angle(0,0,0,_degree_offset,_movement_speed,0)
-hi.wait_stop()
-hi.get_scara_param()
-print("# Ret:", ret)
-print("# Current:", hi.x,hi.y,hi.z)
+# hi=HitbotInterface(92); #//92 is robotid? yes
+# hi.net_port_initial()
+# ret=hi.initial(1,210); #// I add you on wechat
+# print(hi.is_connect())
+# print(hi.unlock_position())
+# ret = hi.movej_angle(0,0,0,_degree_offset,_movement_speed,0)
+# hi.wait_stop()
+# hi.get_scara_param()
+# print("# Ret:", ret)
+# print("# Current:", hi.x,hi.y,hi.z)
 
 app = Flask(__name__,static_folder="assets")
 

@@ -154,8 +154,9 @@ class yolox_ros(yolox_py):
         xyz=msg.data
         xyz.replace("'","")
         xyz=xyz.split(";")
-        xyz.replace("'","")
+        logger.info("/move/x xyz:{}".format(xyz))
         try:
+
             hi.get_scara_param()
             hi.wait_stop()
             rett=hi.movel_xyz(hi.x+float(xyz[0]),hi.y+float(xyz[1]),hi.z+float(xyz[2]),25,20)
@@ -185,6 +186,8 @@ class yolox_ros(yolox_py):
         global bounding_boxes_cords
         bounding_boxes_cords=data.bounding_boxes
         logger.info(data.bounding_boxes)
+        if r.get("start_scan")=="0":
+            return;
         hi.get_scara_param()
         hi.wait_stop()
         #if 1:#r.get("mode")=="camera_ready":

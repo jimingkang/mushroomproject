@@ -1,3 +1,4 @@
+from venv import logger
 import rclpy
 import signal
 from rclpy.node import Node
@@ -10,7 +11,7 @@ from flask import Flask, render_template, Response, jsonify
 from threading import Event
 from flask import Flask, render_template, request, jsonify
 from flask_mqtt import Mqtt
-
+from flask_cors import CORS, cross_origin
 from cv_bridge import CvBridge,CvBridgeError
 import cv2
 frame=None
@@ -57,23 +58,17 @@ def sigint_handler(signal, frame):
 rclpy.init(args=None)
 ros2_node = MovePublisher()
 app = Flask(__name__)
+cors = CORS(app)
+app.config['CORS_HEADERS'] = 'Content-Type'
+
+pool = redis.ConnectionPool(host="172.27.34.65", port=6379,decode_responses=True,password='jimmy')
+r = redis.Redis(connection_pool=pool)
 threading.Thread(target=ros2_thread, args=[ros2_node]).start()
 prev_sigint_handler = signal.signal(signal.SIGINT, sigint_handler)
 
 @app.route('/')
 def index():
     return render_template('index.html')
-
-
-@app.route('/msg')
-def msg():
-    ros2_node.publish_message()
-    return render_template('index.html')
-
-@app.route('/xbackward')
-def xbackward():
-    ros2_node.publish_message()
-    return render_template('index.html');
 
 
 @app.route('/move/<string:direction>')  #move/custom?y=-100      #move/custom?x=0&y=0&z=-10&r=0&roughly=0
@@ -83,12 +78,14 @@ def move(direction,amount=0,custom_x=0,custom_y=0):
         return "home"
     elif direction == "custom":
         x = float(request.args.get('x', 0))
+        logger.info(x)
         y = float(request.args.get('y', 0))
         z = float(request.args.get('z', 0))
         r = float(request.args.get('r', 20))
         roughly = float(request.args.get('roughly', 0))
         lr = int(request.args.get('lr', 1))
-        ret=f"x={x};y={y};z={z};roughly={roughly}"
+        ret=f"{x};{y};{z};{roughly}"
+        logger.info(ret)
         msg = String()
         msg.data =ret
         ros2_node.publish_message(msg)
@@ -117,13 +114,7 @@ def move(direction,amount=0,custom_x=0,custom_y=0):
 
 
 
-@app.route('/xforward')
-def xfarward():
-    msg = String()
-    msg.data = 'x:' % self.i
-    ros2_node.publish_message()
-    ros2_node.publish_message()
-    return render_template('index.html');
+
 
 @app.route('/catch')
 def catch():
@@ -148,13 +139,22 @@ def zdown():
 
 
 
-
-
-
 @app.route('/zerosetting')
 def zero():
     return render_template('index.html');
 
+@app.route('/start_scan')
+def start():
+    r.set("start_scan","1");
+    r.set("mode","camera_ready") 
+    return jsonify({"start_scan":"1"});
+@app.route('/stop_scan')
+def stop():
+    r.set("start_scan","0") 
+    r.hgetall("detections");
+    r.delete("queue");
+    r.set("mode","pickup_ready")   
+    return jsonify({"start_scan":"0"});
 
 @app.route('/home')
 def home():
