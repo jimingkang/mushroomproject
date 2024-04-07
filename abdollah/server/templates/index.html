@@ -1,58 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/bootstrap.min.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/all.min.css') }}">
-    <title>Web Application</title>
-    <style>
-        #sidebar {
-            height: 100vh; /* 100% viewport height */
-        }
-        .nav-link.btn {
-            margin: 5px 0; /* Add vertical margin between buttons */
-        }
-    </style>
-</head>
-<body>
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-secondary">
-                <div class="position-sticky">
-                    <ul class="nav flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link active btn btn-light" href="#">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link btn btn-light" href="raw_camera_feed">Raw Camera Feed</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link btn btn-light" href="annotated_camera_feed">Annotated Camera Feed</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link btn btn-light" href="automatic_scan">Automatic Scan</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link btn btn-light" href="depth_feed">Depth feed</a>
-                        </li>
-                    </ul>
-                </div>
-            </nav>
 
-            <!-- Content -->
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-                <h1 class="mt-2">Demo</h1>
-                <p>This is the main page. Select an option from the sidebar.</p>
-            </main>
-        </div>
-    </div>
+{% extends "main.html" %}
 
-    <!-- Bootstrap JS and jQuery (Make sure to include them) -->
-    <script src="{{ url_for('static', filename='assets/js/jquery-3.6.0.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='assets/js/popper.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='assets/js/bootstrap.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='assets/js/a076d05399.js') }}"></script>
-</body>
-</html>
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<h1 class="mt-2">Demo</h1>
+<p>This is the main page. Select an option from the sidebar.</p>
+{% endblock %}

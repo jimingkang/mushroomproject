@@ -116,3 +116,5 @@ ros2_ws/src/YOLOX_ROS/weights
 ros2_ws/src/realsense_ros/meshes
 YOLOX-main/YOLOX_outputs/yolox_voc_s/yolox_x_mushroom.engine
 YOLOX-main/YOLOX_outputs/yolox_voc_s/yolox_x_mushroom.pth
+*.pt
+*/*.pt
