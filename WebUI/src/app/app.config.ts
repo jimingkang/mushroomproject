@@ -29,6 +29,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes),provideHttpClient(),
     importProvidersFrom([BrowserAnimationsModule]),
+    
     importProvidersFrom([
       provideFirebaseApp(() => initializeApp(firebaseConfig)),
       provideAuth(() => getAuth()),

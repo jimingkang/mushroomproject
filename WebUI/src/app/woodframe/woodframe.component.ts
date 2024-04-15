@@ -2,7 +2,7 @@
 
 
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, Input, OnInit, signal } from '@angular/core';
 import {  RouterOutlet } from '@angular/router';
 import { ProductService } from '../services/product.service';
 import { FormsModule } from '@angular/forms';
@@ -12,17 +12,30 @@ import { VideoComponent } from '../video/video.component';
 import { SlidepanelComponent } from '../slidepanel/slidepanel.component';
 import { RpiService } from '../services/rpi.service';
 
-
-
+import { MatToolbarModule } from '@angular/material/toolbar';
+import { MatTabsModule } from '@angular/material/tabs';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { CardViewComponent } from '../tab-content/card-view/card-view.component';
+import { SidebarModule } from 'primeng/sidebar';
+import { ThemePalette } from '@angular/material/core';
+import { DxTabPanelModule } from 'devextreme-angular';
 @Component({
   selector: 'app-woodframe',
   standalone: true,
-  imports: [SlidepanelComponent,CommonModule,FormsModule,VideoComponent,RouterOutlet],
+  imports: [DxTabPanelModule,SidebarModule,SlidepanelComponent,MatSlideToggleModule,CommonModule,FormsModule,VideoComponent,RouterOutlet, MatToolbarModule,MatTabsModule, CardViewComponent,],
   templateUrl: './woodframe.component.html',
   styleUrl: './woodframe.component.scss'
 })
 
 export class WoodframeComponent implements OnInit {
+  
+  
+onValueChanged($event: Event) {
+throw new Error('Method not implemented.');
+}
+
+  selectedTabIndex = signal(0);
+  prefetchTabs = signal(false);
   isSlidePanelOpen = false;
   isSidePanelVisible: boolean= false;
   productObj: IProduct = {
@@ -47,6 +60,10 @@ export class WoodframeComponent implements OnInit {
 
   private cx!: CanvasRenderingContext2D;
   canvas: any;
+activeLink: any;
+links: any;
+background: ThemePalette;
+tabNames: any;
 
 public ngAfterViewInit() {
   const canvas = document.querySelector('#my-canvas')
@@ -135,8 +152,19 @@ if (!(canvas instanceof HTMLCanvasElement)) return;
   }
 
 
-  onEdit(item: any) {
-    this.productObj = item;
+  onEdit(posion: any) {
+  //  this.productObj = item;
+
+
+
+  this.rpiSrc.movePosion(posion).subscribe((res:any)=>{
+
+    if(res) {
+      console.log(res)
+    } else {
+      alert(res.message)
+    }
+  });
     this.openSidePanel();
  
   }
