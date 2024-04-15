@@ -50,6 +50,7 @@ class yolox_py(Node):
                 one_box.class_id = track_ids[i]
                 #one_box.class_id = str(cls_names[int(cls[i])])
                 #one_box.id = int(track_ids[i])
+                logger.info("test index out")
                 bboxes_msg.bounding_boxes.append(one_box)
                 logger.info(one_box.id)
                 i = i+1

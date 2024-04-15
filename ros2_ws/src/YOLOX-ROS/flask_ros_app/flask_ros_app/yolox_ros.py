@@ -134,14 +134,11 @@ class yolox_ros(yolox_py):
         super().__init__('yolox_ros', load_params=False)
 
         #self.setting_yolox_exp()
-
-
-        
         self.bridge = CvBridge()
         
         self.imshow_isshow=False
         self.sub_boxes = self.create_subscription(BoundingBoxesCords, "/yolox/bounding_boxes_cords", self.boxes_cords_callback, 1)
-        self.sub_boxes = self.create_subscription(String, "/move/x", self.move_callback, 1)
+        
         self.intrinsics = None
         self.pix = None
         self.pix_grade = None
@@ -150,24 +147,7 @@ class yolox_ros(yolox_py):
         #    self.sub = self.create_subscription(Image,"/yolox/boxes_image",self.imageflow_callback, qos_profile_sensor_data)
         #else:
         self.sub = self.create_subscription(Image,"/yolox/boxes_image",self.imageflow_callback, 10)
-    def move_callback(self,msg:Image) -> None:
-        xyz=msg.data
-        xyz.replace("'","")
-        xyz=xyz.split(";")
-        logger.info("/move/x xyz:{}".format(xyz))
-        try:
-
-            hi.get_scara_param()
-            hi.wait_stop()
-            rett=hi.movel_xyz(hi.x+float(xyz[0]),hi.y+float(xyz[1]),hi.z+float(xyz[2]),25,20)
-            logger.info("/move/x rett:{}".format(rett))
-            hi.wait_stop()
-            hi.get_scara_param()
-            hi.wait_stop()
-            r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
-        except Exception as e:
-            logger.error(e)
-            pass
+    
     def imageflow_callback(self,msg:Image) -> None:
             global bounding_boxes
             img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
@@ -203,17 +183,14 @@ class yolox_ros(yolox_py):
             xy=v.split(",")
             #logger.info(xy)
             if len(xy)>0:
-                rett=hi.movel_xyz(int(xy[0]),int(xy[1]),hi.z,25,20)
-                #logger.info("rett:{}".format(rett))
+                rett=hi.movel_xyz(int(xy[0]),int(xy[1]),hi.z,30,20)
+                logger.info("rett:{}".format(rett))
                 hi.wait_stop()
                 r.hdel("detections",ele)
                 hi.get_scara_param()
                 hi.wait_stop()
                 r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
                 r.set("mode","camera_ready")
-        #for box in bounding_boxes_cords:
-        #    if  r.hexists("detections",str(box.class_id)):
-        #        logger.info("  probability,%4.2f,%s,%d,%d",box.probability,box.id,box.x,box.y)
 
 
 class web_ros(Node):

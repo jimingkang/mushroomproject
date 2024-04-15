@@ -284,88 +284,7 @@ def video_feed():
 
 
 
-@mqtt_client.on_connect()
-def handle_connect(client, userdata, flags, rc):
-    if rc == 0:
-        #print('App_ipcam topic3 =/flask/serial Connected successfully')
-        mqtt_client.subscribe(topic3)  # subscribe topic
-    else:
-        print('Bad connection. Code:', rc)
 
-
-@mqtt_client.on_message()
-def handle_mqtt_message(client, userdata, message):
-    # print(message.topic)
-    data = dict(topic=message.topic, payload=message.payload.decode())
-    #print(' message on topic: {topic} with payload: {payload}'.format(**data))
-    xyz = data['payload']
-    if message.topic == topic3:
-        r.set("mode","pickup_ready")
-        print("get xy payload=" + xyz)
-        xyz = data['payload']
-        real_xyz = xyz.split(",")
-
-        # detections=r.hgetall("detections")
-        # for item in r.hkeys("detections"):
-        #    real_xyz=r.hget("detections",item).split(",")
-        # real_xyz=detections[0].split(",")
-        real_x = int(float(real_xyz[0]) * 1000)
-        real_y = int(float(real_xyz[1]) * 1000)
-        real_z = int(float(real_xyz[2]) * 1000)
-        #real_y = real_y - 190
-        #real_x = real_x + 10
-        x = real_x
-        y =-real_y
-        #z=-real_z
-        if (abs(x) > 10 or abs(y) > 10):
-            track_id=real_xyz[2]
-            hi.get_scara_param()
-            cam_x=hi.x
-            cam_y=hi.y
-            r.set("global_camera_xy",str(cam_x)+","+str(cam_y))
-            #new_camera_x=x+cam_x
-            #new_camera_y=y+cam_y
-            #print("new_camera_xy:",new_camera_x,new_camera_y)
-            #distance = int(math.sqrt(new_camera_x * new_camera_x + new_camera_y * new_camera_y))
-            #print(distance)
-            #print("distance:", distance)
-            #detected_index=r.zrangebyscore("detections_index",min=distance-50,max=distance +50)
-            #detected=r.zrangebyscore("detections_index",min=track_id,max=track_id)
-            #print("len(detected):" ,len(detected))
-            all=r.hgetall("detections")
-            print("all:" ,all)
-
-            #if len(detected_index)<1:
-            if len(all)>0:
-                new_camera_x=0;
-                new_camera_y=0;
-                track_id=0;
-                items=all.items()
-                for k,v in items:
-                    print(k,v)
-                    detection_xyz=v.split(",");
-                    new_camera_x=float(detection_xyz[0]);
-                    new_camera_y=float(detection_xyz[1]);
-                    track_id=detection_xyz[2];
-                    break
-
-                #obj=str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id)
-                #r.zadd("detections_index",{obj:distance} )
-                #r.hset("detections", str(distance), str(new_camera_x) + "," + str(new_camera_y) +"," + str(track_id))
-                print("move to new_camera:",new_camera_x,new_camera_y)
-                rett=hi.movel_xyz(new_camera_x,new_camera_y,hi.z,25,20)
-                hi.wait_stop()
-                if rett>0:
-                    r.hdel("detections",track_id)
-                hi.get_scara_param()
-                r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
-                print(rett)
-                #rett=hi.movel_xyz(50,0,hi.z,25,20)
-                #hi.wait_stop()
-                #rett=hi.movel_xyz(new_camera_x,new_camera_y,hi.z,25,20)
-                #hi.wait_stop()
-                time.sleep(1)
-        r.set("mode","camera_ready")
 
 
 
@@ -392,7 +311,6 @@ class yolox_ros(yolox_py):
         self.pub_boxes_img = self.create_publisher(Image,"/yolox/boxes_image", 10)
         self.sub_depth_image = self.create_subscription(Image, depth_image_topic, self.imageDepthCallback, 1)
         self.sub_info = self.create_subscription(CameraInfo, depth_info_topic, self.imageDepthInfoCallback, 1)
-        #self.sub_boxes = self.create_subscription(BoundingBoxes, "/yolox/bounding_boxes", self.boxes_callback, 1)
 
         self.intrinsics = None
         self.pix = None
@@ -572,7 +490,9 @@ class yolox_ros(yolox_py):
                     line += '\r'
 
                     #logger.info("detections id:{},if exist {}".format(box.class_id,r.hexists("detections",str(box.class_id))))
-                    obj=str(int(float(camera_xy[0]))+int(float(result[0])))+","+str(int(float(camera_xy[1]))-int(float(result[1])))+","+str(int(float(result[2])))
+                    x=-(int(float(result[1])))
+                    y=-(int(float(result[0])))
+                    obj=str(int(float(camera_xy[0]))+x)+","+str(int(float(camera_xy[1]))+y)+","+str(int(float(result[2])))
                     logger.info(line)
                     if not r.hexists("detections",str(box.class_id)):
                         r.hset("detections", box.class_id, obj)
