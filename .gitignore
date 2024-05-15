@@ -118,4 +118,9 @@ YOLOX-main/YOLOX_outputs/yolox_voc_s/yolox_x_mushroom.engine
 YOLOX-main/YOLOX_outputs/yolox_voc_s/yolox_x_mushroom.pth
 *.pt
 */*.pt
-abdollah/
+abdollah/*.pt
+abdollah/*.engine
+abdollah/*.onnx
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
