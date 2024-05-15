@@ -118,3 +118,4 @@ YOLOX-main/YOLOX_outputs/yolox_voc_s/yolox_x_mushroom.engine
 YOLOX-main/YOLOX_outputs/yolox_voc_s/yolox_x_mushroom.pth
 *.pt
 */*.pt
+abdollah/
