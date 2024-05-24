@@ -1,0 +1,30 @@
+{
+    "cmake.configureOnOpen": false,
+    "python.autoComplete.extraPaths": [
+        "/home/jimmy/Downloads/mushroomproject/ros2_ws/build/yolox_ros_py",
+        "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/yolox_ros_py/lib/python3.8/site-packages",
+        "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/realsense2_camera_msgs/lib/python3.8/site-packages",
+        "/home/jimmy/Downloads/mushroomproject/ros2_ws/build/flask_ros_app",
+        "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/flask_ros_app/lib/python3.8/site-packages",
+        "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/diagnostic_common_diagnostics/lib/python3.8/site-packages",
+        "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/diagnostic_updater/lib/python3.8/site-packages",
+        "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/diagnostic_aggregator/lib/python3.8/site-packages",
+        "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/cv_bridge_orbslam3/lib/python3.8/site-packages",
+        "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/bboxes_ex_msgs/lib/python3.8/site-packages",
+        "/opt/ros/humble/lib/python3.8/site-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/jimmy/Downloads/mushroomproject/ros2_ws/build/yolox_ros_py",
+        "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/yolox_ros_py/lib/python3.8/site-packages",
+        "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/realsense2_camera_msgs/lib/python3.8/site-packages",
+        "/home/jimmy/Downloads/mushroomproject/ros2_ws/build/flask_ros_app",
+        "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/flask_ros_app/lib/python3.8/site-packages",
+        "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/diagnostic_common_diagnostics/lib/python3.8/site-packages",
+        "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/diagnostic_updater/lib/python3.8/site-packages",
+        "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/diagnostic_aggregator/lib/python3.8/site-packages",
+        "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/cv_bridge_orbslam3/lib/python3.8/site-packages",
+        "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/bboxes_ex_msgs/lib/python3.8/site-packages",
+        "/opt/ros/humble/lib/python3.8/site-packages"
+    ],
+    "C_Cpp.errorSquiggles": "enabled"
+}

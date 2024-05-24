@@ -1,0 +1,38 @@
+{
+    "configurations": [
+        {
+            "browse": {
+                "databaseFilename": "${default}",
+                "limitSymbolsToIncludedHeaders": false
+            },
+            "includePath": [
+                "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/self_test/include/**",
+                "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/realsense2_camera/include/**",
+                "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/realsense2_camera_msgs/include/**",
+                "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/diagnostic_updater/include/**",
+                "/home/jimmy/Downloads/mushroomproject/ros2_ws/src/orbslam3_ros2/src/monocular/",
+                "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/diagnostic_aggregator/include/**",
+                "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/cv_bridge_orbslam3/include/**",
+                "/home/jimmy/Downloads/mushroomproject/ros2_ws/install/bboxes_ex_msgs/include/**",
+                "/opt/ros/humble/include/**",
+                "/home/jimmy/Downloads/mushroomproject/ros2_ws/src/YOLO_ORB_SLAM3/include/**",
+                "/home/jimmy/Downloads/mushroomproject/ros2_ws/src/cv_bridge_orbslam3/include/**",
+                "/home/jimmy/Downloads/mushroomproject/ros2_ws/src/diagnostics/diagnostic_aggregator/include/**",
+                "/home/jimmy/Downloads/mushroomproject/ros2_ws/src/diagnostics/diagnostic_updater/include/**",
+                "/home/jimmy/Downloads/mushroomproject/ros2_ws/src/diagnostics/self_test/include/**",
+                "/home/jimmy/Downloads/mushroomproject/ros2_ws/src/librealsense/include/**",
+                "/home/jimmy/Downloads/mushroomproject/ros2_ws/src/orbslam3_ros2/include/**",
+                "/home/jimmy/Downloads/mushroomproject/ros2_ws/src/realsense-ros/realsense2_camera/include/**",
+                "/usr/include/**",
+                "${workspaceFolder}/src/YOLO_ORB_SLAM3",
+                "/home/jimmy/Downloads/mushroomproject/ros2_ws/src/orbslam3_ros2/src/monocular/"
+            ],
+            "name": "ROS",
+            "intelliSenseMode": "gcc-arm64",
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "gnu11",
+            "cppStandard": "c++14"
+        }
+    ],
+    "version": 4
+}
