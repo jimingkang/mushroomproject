@@ -16,6 +16,14 @@
   <depend>message_filters</depend>
   <depend>Pangolin</depend>
 
+
+  <!-- Dependencies of pointcloud -->
+  <depend>image_transport</depend>
+  <depend>std_msgs</depend>
+  <depend>tf</depend>
+
+
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>

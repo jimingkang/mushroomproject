@@ -5,19 +5,6 @@ project(orbslam3)
 set(ENV{PYTHONPATH} "/opt/ros/humble/lib/python3.8/site-packages/")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules)
-#set(LIBS 
-	#	${OpenCV_LIBS} 
-	#${EIGEN3_LIBS}
-	#${Pangolin_LIBRARIES}
-	#${PROJECT_SOURCE_DIR}/../../../Thirdparty/DBoW2/lib/libDBoW2.so
-	#${PROJECT_SOURCE_DIR}/../../../Thirdparty/g2o/lib/libg2o.so
-	#	${PROJECT_SOURCE_DIR}/../../../lib/libORB_SLAM2.so
-	#/usr/local/lib/libopencv_core.so.3.4
-	#/usr/local/lib/libopencv_imgproc.so.3.4
-#	/usr/lib/aarch64-linux-gnu/libopencv_core.so.4.2
-#	/usr/lib/aarch64-linux-gnu/libopencv_imgproc.so.4.2
-#	-lboost_system
-#)
 
 # Default to C++14
 if(NOT CMAKE_CXX_STANDARD)
@@ -38,6 +25,11 @@ find_package(message_filters REQUIRED)
 find_package(Sophus REQUIRED)
 find_package(Pangolin REQUIRED)
 find_package(ORB_SLAM3 REQUIRED)
+
+# adding for point cloud viewer and mapper
+find_package(Eigen3 3.1.0 REQUIRED)
+find_package(PCL 1.7 REQUIRED )
+
 
 include_directories(
   include
