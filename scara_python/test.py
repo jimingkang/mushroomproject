@@ -6,11 +6,11 @@ from HitbotInterface import HitbotInterface
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 
-import redis
+#import redis
 
-redis_server='192.168.0.100'
-pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
-r = redis.Redis(connection_pool=pool)
+#redis_server='192.168.0.100'
+#pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
+#r = redis.Redis(connection_pool=pool)
 
 def print_hi(name):
     # Use a breakpoint in the code line below to debug your script.
@@ -22,7 +22,7 @@ def print_hi(name):
     print(hi.unlock_position())
     hi.get_scara_param()
     print(hi.x,hi.y)
-    ret=hi.movel_xyz(hi.x+30,hi.y,hi.z-50,25,20)
+    ret=hi.movel_xyz(hi.x,hi.y,hi.z-50,25,20)
     hi.wait_stop()
     #ret=hi.movej_angle(10,0,0,0,20,0)
     #hi.wait_stop()

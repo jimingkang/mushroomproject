@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-	'flask_ros_web= flask_ros_app.yolox_ros:ros_main'
+	'flask_ros_app= flask_ros_app.yolox_ros:ros_main'
         ],
     },
 )

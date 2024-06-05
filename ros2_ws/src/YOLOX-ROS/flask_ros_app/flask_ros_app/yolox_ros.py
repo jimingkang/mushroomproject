@@ -183,7 +183,7 @@ class yolox_ros(yolox_py):
             xy=v.split(",")
             #logger.info(xy)
             if len(xy)>0:
-                rett=hi.movel_xyz(int(xy[0]),int(xy[1]),hi.z,30,20)
+                rett=hi.movel_xyz(int(xy[0]),int(xy[1]),hi.z,15,10)
                 logger.info("rett:{}".format(rett))
                 hi.wait_stop()
                 r.hdel("detections",ele)
