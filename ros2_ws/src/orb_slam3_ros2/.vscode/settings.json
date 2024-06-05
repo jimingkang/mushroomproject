@@ -1,0 +1,18 @@
+{
+    "python.autoComplete.extraPaths": [
+        "/media/jimmy/01D9E5979B0C5780/mushroomproject/ros2_ws/build/yolox_ros_py",
+        "/media/jimmy/01D9E5979B0C5780/mushroomproject/ros2_ws/install/yolox_ros_py/lib/python3.8/site-packages",
+        "/media/jimmy/01D9E5979B0C5780/mushroomproject/ros2_ws/install/realsense2_camera_msgs/lib/python3.8/site-packages",
+        "/media/jimmy/01D9E5979B0C5780/mushroomproject/ros2_ws/install/cv_bridge_orbslam3/lib/python3.8/site-packages",
+        "/media/jimmy/01D9E5979B0C5780/mushroomproject/ros2_ws/install/bboxes_ex_msgs/lib/python3.8/site-packages",
+        "/opt/ros/humble/lib/python3.8/site-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/media/jimmy/01D9E5979B0C5780/mushroomproject/ros2_ws/build/yolox_ros_py",
+        "/media/jimmy/01D9E5979B0C5780/mushroomproject/ros2_ws/install/yolox_ros_py/lib/python3.8/site-packages",
+        "/media/jimmy/01D9E5979B0C5780/mushroomproject/ros2_ws/install/realsense2_camera_msgs/lib/python3.8/site-packages",
+        "/media/jimmy/01D9E5979B0C5780/mushroomproject/ros2_ws/install/cv_bridge_orbslam3/lib/python3.8/site-packages",
+        "/media/jimmy/01D9E5979B0C5780/mushroomproject/ros2_ws/install/bboxes_ex_msgs/lib/python3.8/site-packages",
+        "/opt/ros/humble/lib/python3.8/site-packages"
+    ]
+}

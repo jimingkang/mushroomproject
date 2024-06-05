@@ -6,8 +6,8 @@
 # To help the search ORB_SLAM3_ROOT_DIR environment variable as the path to ORB_SLAM3 root folder
 #  e.g. `set( ORB_SLAM3_ROOT_DIR=~/ORB_SLAM3) `
 #set(ORB_SLAM3_ROOT_DIR "~/Downloads/mushroomproject/ros2_ws/src/ORB_SLAM3")
-set(ORB_SLAM3_ROOT_DIR "/home/jimmy/Downloads/ORB_SLAM3")
-
+#set(ORB_SLAM3_ROOT_DIR "/home/jimmy/Downloads/ORB_SLAM3")
+set(ORB_SLAM3_ROOT_DIR "/media/jimmy/01D9E5979B0C5780/ORB_SLAM3_detailed_comments")
 # message(${ORB_SLAM3_ROOT_DIR})
 # message(${ORB_SLAM3_ROOT_DIR}/include)
 # message(${ORB_SLAM3_ROOT_DIR}/Thirdparty/DBoW2/DBoW2)

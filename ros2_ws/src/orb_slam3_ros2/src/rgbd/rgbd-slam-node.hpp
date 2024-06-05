@@ -42,8 +42,10 @@ private:
 
     std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::Image> > rgb_sub;
     std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::Image> > depth_sub;
-
-    std::shared_ptr<message_filters::Synchronizer<approximate_sync_policy> > syncApproximate;
+      std::shared_ptr<message_filters::Synchronizer<approximate_sync_policy> > syncApproximate;
+     // message_filters::Subscriber<sensor_msgs::msg::Image> rgb_sub;
+    //  message_filters::Subscriber<sensor_msgs::msg::Image> depth_sub;
+     //message_filters::Synchronizer<approximate_sync_policy> syncApproximate;//
 };
 
 #endif
