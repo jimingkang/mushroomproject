@@ -2,6 +2,10 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/Robotics-3D-Web-Demo" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/ros2_ws/build/librealsense2/third-party/json" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/ros2_ws/build/librealsense2/third-party/libcurl" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/ros2_ws/src/geometry2" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/ros2_ws/src/librealsense" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/ros2_ws/src/perception_pcl" vcs="Git" />
   </component>
 </project>

@@ -104,7 +104,7 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(builtin_interfaces REQUIRED)
-find_package(cv_bridge REQUIRED)
+find_package(cv_bridge_orbslam3 REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
@@ -167,9 +167,9 @@ else()
   message(FATAL_ERROR "Unsupported ROS Distribution: " "$ENV{ROS_DISTRO}")
 endif()
 
-# The header 'cv_bridge/cv_bridge.h' was added in version 3.3.0. For older
-# cv_bridge versions, we have to use the header 'cv_bridge/cv_bridge.h'.
-if(${cv_bridge_VERSION} VERSION_GREATER_EQUAL "3.3.0")
+# The header 'cv_bridge_orbslam3/cv_bridge_orbslam3.h' was added in version 3.3.0. For older
+# cv_bridge_orbslam3 versions, we have to use the header 'cv_bridge_orbslam3/cv_bridge_orbslam3.h'.
+if(${cv_bridge_orbslam3_VERSION} VERSION_GREATER_EQUAL "3.3.0")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCV_BRDIGE_HAS_HPP")
 endif()
 
@@ -225,7 +225,7 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 set(dependencies
-  cv_bridge
+  cv_bridge_orbslam3
   image_transport
   rclcpp
   rclcpp_components

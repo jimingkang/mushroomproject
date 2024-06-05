@@ -10,7 +10,7 @@
             "type": "cppdbg",
             "miDebuggerServerAddress": "localhost:3000",
             "cwd": "/",
-            "program": "/home/jimmy/Downloads/mushroomproject/ros2_ws/build/orbslam3/mono"
+            "program": "/home/jimmy/Downloads/mushroomproject/ros2_ws/build/orbslam3/rgbd"
         },
         {
             "name": "ROS: Launch",

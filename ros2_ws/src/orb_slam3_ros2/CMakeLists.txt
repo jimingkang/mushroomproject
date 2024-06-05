@@ -15,11 +15,12 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 #jimmy add 
-find_package(OpenCV 4.2 QUIET)
+find_package(OpenCV 4 QUIET)
 #set(cv_bridge_DIR /usr/local/share/cv_bridge/cmake)
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(cv_bridge_orbslam3 REQUIRED)
 find_package(message_filters REQUIRED)
 find_package(Sophus REQUIRED)
@@ -31,10 +32,15 @@ find_package(Eigen3 3.1.0 REQUIRED)
 find_package(PCL 1.7 REQUIRED )
 
 
+find_package(tf2 REQUIRED)
+find_package(tf2_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(pcl_ros REQUIRED)
 include_directories(
   include
   ${ORB_SLAM3_ROOT_DIR}/include
   ${ORB_SLAM3_ROOT_DIR}/include/CameraModels
+  /opt/ros/humble/include/sensor_msgs
 )
 
 link_directories(
@@ -51,7 +57,7 @@ add_executable(rgbd
   src/rgbd/rgbd.cpp
   src/rgbd/rgbd-slam-node.cpp
 )
-ament_target_dependencies(rgbd rclcpp sensor_msgs cv_bridge_orbslam3 message_filters ORB_SLAM3 Pangolin OpenCV)
+ament_target_dependencies(rgbd rclcpp sensor_msgs geometry_msgs cv_bridge_orbslam3 message_filters ORB_SLAM3 Pangolin OpenCV)
 
 #add_executable(stereo
 #  src/stereo/stereo.cpp
