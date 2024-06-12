@@ -29,35 +29,37 @@ find_package(ORB_SLAM3 REQUIRED)
 
 # adding for point cloud viewer and mapper
 find_package(Eigen3 3.1.0 REQUIRED)
-find_package(PCL 1.7 REQUIRED )
+find_package(PCL 1.10 REQUIRED )
+find_package(VTK 7.1 REQUIRED )
 
 
+find_package(nav_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(pcl_ros REQUIRED)
+find_package(pcl_conversions REQUIRED)
 include_directories(
   include
   ${ORB_SLAM3_ROOT_DIR}/include
   ${ORB_SLAM3_ROOT_DIR}/include/CameraModels
-  /opt/ros/humble/include/sensor_msgs
-)
-
+  /opt/ros/humble/include/image_transport
+  )
 link_directories(
   include
 )
 
-add_executable(mono
-  src/monocular/mono.cpp
-  src/monocular/monocular-slam-node.cpp
-)
-ament_target_dependencies(mono rclcpp sensor_msgs cv_bridge_orbslam3 ORB_SLAM3 Pangolin OpenCV)
+#add_executable(mono
+#  src/monocular/mono.cpp
+#  src/monocular/monocular-slam-node.cpp
+#)
+#ament_target_dependencies(mono rclcpp sensor_msgs cv_bridge_orbslam3 ORB_SLAM3 Pangolin OpenCV)
 
 add_executable(rgbd
   src/rgbd/rgbd.cpp
   src/rgbd/rgbd-slam-node.cpp
 )
-ament_target_dependencies(rgbd rclcpp sensor_msgs geometry_msgs cv_bridge_orbslam3 message_filters ORB_SLAM3 Pangolin OpenCV)
+ament_target_dependencies(rgbd nav_msgs  pcl_conversions rclcpp sensor_msgs geometry_msgs cv_bridge_orbslam3 message_filters ORB_SLAM3 Pangolin OpenCV)
 
 #add_executable(stereo
 #  src/stereo/stereo.cpp
@@ -72,7 +74,7 @@ ament_target_dependencies(rgbd rclcpp sensor_msgs geometry_msgs cv_bridge_orbsla
 #)
 #ament_target_dependencies(stereo-inertial rclcpp sensor_msgs cv_bridge_orbslam3 ORB_SLAM3 Pangolin OpenCV)
 
-install(TARGETS mono rgbd 
+install(TARGETS  rgbd 
 	#stereo 
 	#	stereo-inertial
   DESTINATION lib/${PROJECT_NAME})

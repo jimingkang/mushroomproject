@@ -50,6 +50,9 @@ from bboxes_ex_msgs.msg import BoundingBoxes,BoundingBoxesCords
 from bboxes_ex_msgs.msg import BoundingBox,BoundingBoxCord
 from .yolox_ros_py_utils.utils import yolox_py
 from sensor_msgs.msg import CameraInfo
+from std_msgs.msg import String
+import orbslam3
+
 broker=''
 redis_server=''
 try:
@@ -84,7 +87,20 @@ redis_server="172.27.34.65"
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True, password='jimmy')
 r = redis.Redis(connection_pool=pool)
 
+#--vocab_file=third_party/ORB_SLAM3/Vocabulary/ORBvoc.txt \
+#    --settings_file=third_party/ORB_SLAM3/Examples/RGB-D/TUM1.yaml \
+parser = argparse.ArgumentParser()
+parser.add_argument("--vocab_file", required=True)
+parser.add_argument("--settings_file", required=True)
+parser.add_argument("--dataset_path", required=True)
+args = parser.parse_args()
 
+#img_files = sorted(glob(os.path.join(args.dataset_path, 'rgb/*.png')))
+vocab_file="/media/jimmy/01D9E5979B0C5780/ORB-SLAM3-python/third_party/ORB_SLAM3/Vocabulary/ORBvoc.txt"
+settings_file="/media/jimmy/01D9E5979B0C5780/ORB-SLAM3-python/third_party/ORB_SLAM3/Examples/RGB-D/TUM1.yaml"
+slam = orbslam3.system(vocab_file, settings_file, orbslam3.Sensor.RGBD)
+slam.set_use_viewer(True)
+slam.initialize()
 
 
 app = Flask(__name__)
@@ -227,9 +243,6 @@ def zdown():
     return render_template('index.html');
 
 
-
-
-
 def autopick():
     publish_result = mqtt_client.publish(topic, "/flask/scan")
     return render_template('index.html');
@@ -290,12 +303,13 @@ def video_feed():
 
 #bounding_boxes=None
 bboxes_msg=None
+result_img_rgb=None
 class yolox_ros(yolox_py):
     def __init__(self) -> None:
         #raw_image_topic = '/camera/camera/color/image_rect_raw'
         depth_image_topic = '/camera/camera/depth/image_rect_raw'
         depth_info_topic = '/camera/camera/depth/camera_info'
-
+        move_x="/move/x"
 
         # ROS2 init
         super().__init__('yolox_ros', load_params=False)
@@ -311,7 +325,7 @@ class yolox_ros(yolox_py):
         self.pub_boxes_img = self.create_publisher(Image,"/yolox/boxes_image", 10)
         self.sub_depth_image = self.create_subscription(Image, depth_image_topic, self.imageDepthCallback, 1)
         self.sub_info = self.create_subscription(CameraInfo, depth_info_topic, self.imageDepthInfoCallback, 1)
-
+        _info = self.create_subscription(String, move_x, self.MoveXYZCallback, 1)
         self.intrinsics = None
         self.pix = None
         self.pix_grade = None
@@ -367,6 +381,10 @@ class yolox_ros(yolox_py):
         self.sensor_qos_mode = self.get_parameter('sensor_qos_mode').value
 
         # ==============================================================
+
+        # add for orbslam3
+        self.declare_parameter('--vocab_file', vocab_file)
+
 
         cudnn.benchmark = True
         exp = get_exp(exp_py, None)
@@ -429,7 +447,7 @@ class yolox_ros(yolox_py):
 
 
     def imageflow_callback(self,msg:Image) -> None:
-            global bboxes_msg
+            global bboxes_msg,result_img_rgb
             img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
             outputs, img_info = self.predictor.inference(img_rgb)
             #logger.info("outputs: {},".format(outputs))
@@ -508,6 +526,34 @@ class yolox_ros(yolox_py):
                 #logger.info(boxes_cords)
                 self.pub_bounding_boxes_cords.publish(boxes_cords)
                 bboxes_msg=None
+                pose =slam.process_image_rgbd(result_img_rgb,cv_image,data.header.stamp)
+                logger(pose)
+        except CvBridgeError as e:
+            print(e)
+            return
+        except ValueError as e:
+            return
+        
+    def MoveXYZCallback(self, data):
+        global bboxes_msg
+        logger.info("/move/x {}".format(data.data))
+        xyz=data.data.split(";")
+        x=xyz[0]
+        y=xyz[1]
+        z=xyz[2]
+        try:
+
+            global_camera_xy=r.get("global_camera_xy")
+            camera_xy=global_camera_xy.split(",")
+            logger.info("camera_xy:{}, {}".format(camera_xy[0],camera_xy[1]))
+            if r.get("mode")=="camera_ready":
+                #r.set("mode","pickup_ready")                            
+                    obj=str(int(float(camera_xy[0]))+x)+","+str(int(float(camera_xy[1]))+y)+","+str(int(float(z)))
+                    logger.info(line)
+                    if 1:
+                        r.hset("detections", "-1", obj)
+                        r.lpush("queue","-1")
+                        r.hset("detections_history", "-1", obj) 
         except CvBridgeError as e:
             print(e)
             return

@@ -26,7 +26,7 @@ int main(int argc, char **argv)
 
     auto node = std::make_shared<RgbdSlamNode>(&SLAM);
     std::cout << "============================ " << std::endl;
-
+//SLAM.save();
     rclcpp::spin(node);
     rclcpp::shutdown();
 
