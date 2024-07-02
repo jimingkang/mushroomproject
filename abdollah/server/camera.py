@@ -20,7 +20,8 @@ class Camera:
     def stream_raw(self):
         # Generator function to stream camera feed
         try:
-            self.pipeline.start(self.config)
+            profile = self.pipeline.start(self.config)
+            print
         except:
             pass
         while True:

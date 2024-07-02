@@ -51,7 +51,7 @@ from bboxes_ex_msgs.msg import BoundingBox,BoundingBoxCord
 from .yolox_ros_py_utils.utils import yolox_py
 from sensor_msgs.msg import CameraInfo
 from std_msgs.msg import String
-import orbslam3
+#import orbslam3
 
 broker=''
 redis_server=''
@@ -89,18 +89,18 @@ r = redis.Redis(connection_pool=pool)
 
 #--vocab_file=third_party/ORB_SLAM3/Vocabulary/ORBvoc.txt \
 #    --settings_file=third_party/ORB_SLAM3/Examples/RGB-D/TUM1.yaml \
-parser = argparse.ArgumentParser()
-parser.add_argument("--vocab_file", required=True)
-parser.add_argument("--settings_file", required=True)
-parser.add_argument("--dataset_path", required=True)
-args = parser.parse_args()
+#parser = argparse.ArgumentParser()
+#parser.add_argument("--vocab_file", required=True)
+#parser.add_argument("--settings_file", required=True)
+#parser.add_argument("--dataset_path", required=True)
+#args = parser.parse_args()
 
 #img_files = sorted(glob(os.path.join(args.dataset_path, 'rgb/*.png')))
-vocab_file="/media/jimmy/01D9E5979B0C5780/ORB-SLAM3-python/third_party/ORB_SLAM3/Vocabulary/ORBvoc.txt"
-settings_file="/media/jimmy/01D9E5979B0C5780/ORB-SLAM3-python/third_party/ORB_SLAM3/Examples/RGB-D/TUM1.yaml"
-slam = orbslam3.system(vocab_file, settings_file, orbslam3.Sensor.RGBD)
-slam.set_use_viewer(True)
-slam.initialize()
+#vocab_file="/media/jimmy/01D9E5979B0C5780/ORB-SLAM3-python/third_party/ORB_SLAM3/Vocabulary/ORBvoc.txt"
+#settings_file="/media/jimmy/01D9E5979B0C5780/ORB-SLAM3-python/third_party/ORB_SLAM3/Examples/RGB-D/TUM1.yaml"
+#slam = orbslam3.system(vocab_file, settings_file, orbslam3.Sensor.RGBD)
+#slam.set_use_viewer(True)
+#slam.initialize()
 
 
 app = Flask(__name__)
@@ -383,7 +383,7 @@ class yolox_ros(yolox_py):
         # ==============================================================
 
         # add for orbslam3
-        self.declare_parameter('--vocab_file', vocab_file)
+        #self.declare_parameter('--vocab_file', vocab_file)
 
 
         cudnn.benchmark = True
@@ -526,8 +526,8 @@ class yolox_ros(yolox_py):
                 #logger.info(boxes_cords)
                 self.pub_bounding_boxes_cords.publish(boxes_cords)
                 bboxes_msg=None
-                pose =slam.process_image_rgbd(result_img_rgb,cv_image,data.header.stamp)
-                logger(pose)
+                #pose =slam.process_image_rgbd(result_img_rgb,cv_image,data.header.stamp)
+                #logger(pose)
         except CvBridgeError as e:
             print(e)
             return

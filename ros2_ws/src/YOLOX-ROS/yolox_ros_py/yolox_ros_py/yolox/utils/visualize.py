@@ -130,7 +130,7 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.3, class_names=None):
             text = 'id:{}  {:.1f}%,{},{}'.format(track_id % len(colors), score * 100,int((x1+x2)/2),int((y1+y2)/2))
             txt_color = (0, 0, 0) if np.mean(colors[track_id % len(colors)]) > 0.5 else (255, 255, 255)
             font = cv2.FONT_HERSHEY_SIMPLEX
-            txt_size = cv2.getTextSize(text, font, 0.4, 1)[0]
+            txt_size = cv2.getTextSize(text, font, 0.4, 3)[0]
             txt_bk_color = (_COLORS[cls_id] * 255 * 0.7).astype(np.uint8).tolist()
             #cv2.rectangle(img, (x1, y1 + 1), (x1 + txt_size[0] + 1, y1 + int(1.5 * txt_size[1])), txt_bk_color, -1)
             cv2.putText(img, text, (x1, y1 - txt_size[1]), font, 0.4, txt_color, thickness=1)
