@@ -125,9 +125,9 @@ print(r.get("global_camera_xy"))
 bounding_boxes_cords=None
 class yolox_ros(yolox_py):
     def __init__(self) -> None:
-        raw_image_topic = '/camera/camera/color/image_rect_raw'
-        depth_image_topic = '/camera/camera/depth/image_rect_raw'
-        depth_info_topic = '/camera/camera/depth/camera_info'
+        raw_image_topic = '/camera/color/image_rect_raw'
+        depth_image_topic = '/camera/depth/image_rect_raw'
+        depth_info_topic = '/camera/depth/camera_info'
 
 
         # ROS2 init

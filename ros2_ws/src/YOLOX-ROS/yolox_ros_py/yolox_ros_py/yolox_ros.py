@@ -331,9 +331,9 @@ class yolox_ros(yolox_py):
         self.pix_grade = None
 
         if (self.sensor_qos_mode):
-            self.sub = self.create_subscription(Image,"/camera/camera/color/image_rect_raw",self.imageflow_callback, qos_profile_sensor_data)
+            self.sub = self.create_subscription(Image,"/camera/color/image_rect_raw",self.imageflow_callback, qos_profile_sensor_data)
         else:
-            self.sub = self.create_subscription(Image,"/camera/camera/color/image_rect_raw",self.imageflow_callback, 10)
+            self.sub = self.create_subscription(Image,"/camera/color/image_rect_raw",self.imageflow_callback, 10)
 
     
     def setting_yolox_exp(self) -> None:
