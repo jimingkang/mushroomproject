@@ -53,6 +53,11 @@ from sensor_msgs.msg import CameraInfo
 from std_msgs.msg import String
 #import orbslam3
 
+
+
+import argparse
+import TDNet as TN
+
 broker=''
 redis_server=''
 try:
@@ -299,16 +304,46 @@ def video_feed():
 
 
 
+def parse_opt():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--source', default="/home/jimmy/Downloads/tdnet-yolov5/data/Leeds.mp4", type=str, help='file/dir')
+    parser.add_argument('--yolo', default=5, type=int, help='Choose YOLO version [4, 5, 7]. (Default is 5)')
+    parser.add_argument('--root', default='yolox', type=str, help='Choose detector\'s root folder (e.g. C:/YOLOv5). (Default is the current path)') #YOLOv5
+    parser.add_argument('--save', default='results', type=str, help='Choose address folder for saving results')
+    parser.add_argument('--start', default=0, type=int, help='Start frame')
+    parser.add_argument('--end', default=-1, type=int, help='End frame')
+    parser.add_argument('--weights', default='yolov5l.pt', type=str, help='Address of trained weights. (Default is [yolov5l.pt])')
+    parser.add_argument('--cfg', default=None, type=str, help='Address of YOLOv4 network architecture. (Default is [./cfg/yolov4.cgf])')
+    parser.add_argument('--data', default=None, type=str, help='Address of YOLOv4 trained model data. (Default is [./cfg/coco.data]')
+    #parser.add_argument('--device', default='0', type=str, help='cpu or cuda')
+    opt = parser.parse_args()     
+    return opt
 
 
 #bounding_boxes=None
 bboxes_msg=None
 result_img_rgb=None
+_vehicle = dict()
+_pedest = dict()
+Videos = dict()
+Cache = {
+            'Num of Vehicle'    : list(),
+            'Num of Pedest'     : list(),
+            'AVG Vehicle Speed' : list(),
+            'Current Vehicles'  : list(),
+            'Current Pedests'   : list(),
+            'Color Pool'        : TN.Utils.ColorGenerator(size = 3000),
+            #'Available ID'      : {i : True  for i in range(1, self.cfg['System']['ID range for Vehicle'], 1)},
+            #'Trajectory on BEV' : np.zeros((self.BevSize[1], self.BevSize[0], 3), dtype=np.uint8),
+            #'Trajectory on Per' : np.zeros((self.CameraSize[1], self.CameraSize[0], 3), dtype=np.uint8),
+        } 
 class yolox_ros(yolox_py):
     def __init__(self) -> None:
-        #raw_image_topic = '/camera/color/image_rect_raw'
-        depth_image_topic = '/camera/depth/image_rect_raw'
-        depth_info_topic = '/camera/depth/camera_info'
+        opt=parse_opt()
+        self.load=TN.Load(opt.source, opt)
+        #raw_image_topic = '/camera/camera/color/image_rect_raw'
+        depth_image_topic = '/camera/camera/depth/image_rect_raw'
+        depth_info_topic = '/camera/camera/depth/camera_info'
         move_x="/move/x"
 
         # ROS2 init
@@ -331,9 +366,9 @@ class yolox_ros(yolox_py):
         self.pix_grade = None
 
         if (self.sensor_qos_mode):
-            self.sub = self.create_subscription(Image,"/camera/color/image_rect_raw",self.imageflow_callback, qos_profile_sensor_data)
+            self.sub = self.create_subscription(Image,"/camera/camera/color/image_rect_raw",self.imageflow_callback, qos_profile_sensor_data)
         else:
-            self.sub = self.create_subscription(Image,"/camera/color/image_rect_raw",self.imageflow_callback, 10)
+            self.sub = self.create_subscription(Image,"/camera/camera/color/image_rect_raw",self.imageflow_callback, 10)
 
     
     def setting_yolox_exp(self) -> None:
@@ -472,7 +507,7 @@ class yolox_ros(yolox_py):
                 logger.error(e)
                 pass
     def imageDepthCallback(self, data):
-        global bboxes_msg
+        global bboxes_msg,_pedest,result_img_rgb
 
         try:
             cv_image = self.bridge.imgmsg_to_cv2(data, data.encoding)
@@ -484,16 +519,53 @@ class yolox_ros(yolox_py):
 
             if bboxes_msg is not None and len(bboxes_msg.bounding_boxes)>0 and r.get("mode")=="camera_ready":
 
+
                 
                 #r.set("mode","pickup_ready")
 
 
                 boxes_cords=BoundingBoxesCords()
-
+                Cache['Current Vehicles'] = []
+                Cache['Current Pedests']  = []
                 for box in bboxes_msg.bounding_boxes:
                     box_cord=BoundingBoxCord()
+                    
+                    c = 'Muhsroom'
+                    xmin, ymin, xmax, ymax = int(box[0]), int(box[1]), int(box[2]), int(box[3])
+                    x, y, w, h = TN.Utils.cord2xywh(xmin, ymin, xmax, ymax)
+                    rxmin, rymin, rxmax, rymax = TN.Calibration.applyROI((xmin, ymin, xmax, ymax), self.cfg['Calibration']['Region of Interest'])
+                    rx, ry, rw, rh = TN.Utils.cord2xywh(rxmin, rymin, rxmax, rymax)
+                    if c == 'Muhsroom' :
+                        Cache['Current Pedests'].append(id)
+                        standPoint_pedest = self.e.projection_on_bird((rx, rymax))
+                    if id not in _pedest:
+                        _pedest[id] = {
+                            'present'      : True,
+                            'locationBox'  : list(),
+                            'location'     : list(),
+                            'locationBEV'  : list(),
+                            'position'     : list(),
+                            'positionBEV'  : list(),
+                            'counter'      : 0,
+                            'absence'      : 0,
+                            'KalmanOBJ'    : TN.Trakers.KalmanTracker(np.array(standPoint_pedest).reshape((2,1)), R=100, P=10., Q=0.01),
+                            'PredictCount' : 0,
+                            'Parked'       : False,
+                            'speed'        : [10.],
+                        }
+                        _pedest[id]['counter'] += 1
+                        _pedest[id]['present'] = True
+                        _pedest[id]['location'].append((x, y, w, h))
+                        _pedest[id]['locationBox'].append((xmin, ymin, xmax, ymax))
+                        _pedest[id]['locationBEV'].append(standPoint_pedest)
+                        _pedest[id]['position'].append((rx, ry, rw, rh))
+                        if len(_pedest[id]['location']) > self.cfg['System']['Buffers']['Pedest']['location']: _pedest[id]['location'].pop(0)
+                        if len(_pedest[id]['locationBox']) > self.cfg['System']['Buffers']['Pedest']['locationBox']:_pedest[id]['locationBox'].pop(0)
+                        if len(_pedest[id]['locationBEV']) > self.cfg['System']['Buffers']['Pedest']['locationBEV']:_pedest[id]['locationBEV'].pop(0)
+                        if len(_pedest[id]['position']) > self.cfg['System']['Buffers']['Pedest']['position']:_pedest[id]['position'].pop(0)
 
-                    logger.info("probability,{},pixal x={},y={}".format(box.probability,box.class_id,(box.xmin+box.xmax)/2,(box.ymin+box.ymax)/2))
+
+                    logger.info("probability,{},x={},y={}".format(box.probability,box.class_id,(box.xmin+box.xmax)/2,(box.ymin+box.ymax)/2))
                     line ='probability:%4.2f,track_id:%s'%(box.probability,box.class_id)
                     #pix = (indices[1], indices[0])
                     pix = (int((box.xmin+box.xmax)/2),int((box.ymin+box.ymax)/2))
@@ -502,19 +574,15 @@ class yolox_ros(yolox_py):
                     if self.intrinsics:
                         depth = cv_image[pix[1], pix[0]]
                         result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth)
-                        line += '  local Coordinate: %8.2f %8.2f %8.2f.' % (result[0], result[1], result[2])
+                        line += '  Coordinate: %8.2f %8.2f %8.2f.' % (result[0], result[1], result[2])
                     if (not self.pix_grade is None):
                         line += ' Grade: %2d' % self.pix_grade
                     line += '\r'
 
                     #logger.info("detections id:{},if exist {}".format(box.class_id,r.hexists("detections",str(box.class_id))))
-                    #x=(int(float(result[0])))            #Arm#-------> Y    #camera   <--- #Y
-                    #y=-(int(float(result[1])))               #|              #|
-                    #y-=170                                  #\|/      X      #\|/         X               
-                     
-                    x=(int(float(result[0])))            #Arm#-------> Y    #camera   --- >#Y
-                    y=-(int(float(result[1])))               #|              #/|\
-                    y-=270                                 #\|/      X       #|         X                   
+                    x=(int(float(result[0])))            #Arm#-------> Y    #camera   <--- #Y
+                    y=-(int(float(result[1])))               #|              #|
+                                                             #\|/      X      #\|/         X                               
                     obj=str(int(float(camera_xy[0]))+x)+","+str(int(float(camera_xy[1]))+y)+","+str(int(float(result[2])))
                     logger.info(line)
                     if not r.hexists("detections",str(box.class_id)):
@@ -527,11 +595,41 @@ class yolox_ros(yolox_py):
                         boxes_cords.bounding_boxes.append(box_cord)
                     #else:
                     #     r.hdel("detections", box.class_id)
-                logger.info(boxes_cords)
+                #logger.info(boxes_cords)
                 self.pub_bounding_boxes_cords.publish(boxes_cords)
                 bboxes_msg=None
                 #pose =slam.process_image_rgbd(result_img_rgb,cv_image,data.header.stamp)
                 #logger(pose)
+
+                
+                ''' History '''
+                TN.Core.manageHistory(_vehicle, _pedest, Cache['Available ID'], self.cfg['System']['Maximum Vehicle Number'], self.cfg['System']['Maximum Pedest Number'])
+
+                ''' Maching Overlaped '''
+                TN.Core.overlapMaching_onPres(_vehicle,  self.cfg['System']['Overlap Search BEV (px)'])
+
+                ''' Diffratiation Core '''
+                TN.Core.update_state(frame, Stream.fps, _vehicle, _pedest, Cache, self.e, self.Data,
+                                self.cfg['System']['Buffers'], 
+                                self.cfg['General']['Speed Unit'], 
+                                self.cfg['System'],
+                                self.cfg['Calibration'])
+
+                ''' Maching 2 Overlaped '''
+                TN.Core.overlapMaching_onBird(_vehicle,  self.cfg['System']['Overlap Search (IOU)'])
+                if self.cfg['Visualizer']['1/0']:
+                    if self.cfg['Visualizer']['2D Detection']['1/0']:
+                        imgBox = TN.Visualizer.draw_detectionBoxes2D(_vehicle, _pedest, result_img_rgb, Cache['Current Vehicles'], Cache['Current Pedests'], self.cfg['General']['Speed Limitation'], Transparency = 0.55)
+                        if self.cfg['Visualizer']['2D Detection']['Video']: Videos['2D'].write(imgBox)
+                        if self.cfg['Visualizer']['2D Detection']['Show']: cv2.imshow('2D Detection', cv2.resize(imgBox, (imgBox.shape[1] // self.cfg['System']['Show Window Size'][1], imgBox.shape[0] // self.cfg['System']['Show Window Size'][0])))
+                        #if frame % self.cfg['Visualizer']['2D Detection']['Rithm'] == 0:
+                        #    if self.cfg['Visualizer']['2D Detection']['Save']: cv2.imwrite(self.OutFigure + f'/{frame} 2D.png', imgBox)
+                    if self.cfg['Visualizer']['3D Detection']['1/0']:
+                        imgBox3D = TN.Visualizer.draw_detectionBoxes3D(_vehicle, _pedest, result_img_rgb, Cache['Current Vehicles'], Cache['Current Pedests'], self.cfg['General'], self.e, self.cfg['Calibration'], self.cfg['System']['Real Object Size'], Transparency = 0.55)
+                        if self.cfg['Visualizer']['3D Detection']['Video']: Videos['3D'].write(imgBox3D)
+                        if self.cfg['Visualizer']['3D Detection']['Show']: cv2.imshow('3D Detection', cv2.resize(imgBox3D, (imgBox3D.shape[1] // self.cfg['System']['Show Window Size'][1], imgBox3D.shape[0] // self.cfg['System']['Show Window Size'][0])))
+                        #if frame % self.cfg['Visualizer']['3D Detection']['Rithm'] == 0: 
+                        #    if self.cfg['Visualizer']['3D Detection']['Save']: cv2.imwrite(self.OutFigure + f'/{frame} 3D.png', imgBox3D)
         except CvBridgeError as e:
             print(e)
             return
@@ -545,7 +643,6 @@ class yolox_ros(yolox_py):
         x=xyz[0]
         y=xyz[1]
         z=xyz[2]
-        logger.info(" local cord  to camera:{}, {}".format(x,y))
         try:
 
             global_camera_xy=r.get("global_camera_xy")

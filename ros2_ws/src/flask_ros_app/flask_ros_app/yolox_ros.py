@@ -53,11 +53,7 @@ from bboxes_ex_msgs.msg import BoundingBoxesCords
 from .yolox_ros_py_utils.utils import yolox_py
 from sensor_msgs.msg import CameraInfo
 
-# import camera driver
-#if os.environ.get('CAMERA'):
-#    Camera = import_module('camera_' + os.environ['CAMERA']).Camera
-##else:
-#    from .camera_ipcam import Camera
+
 
 import pyrealsense2 as rs2
 if (not hasattr(rs2, 'intrinsics')):
@@ -116,11 +112,13 @@ print(hi.is_connect())
 print(hi.unlock_position())
 hi.get_scara_param()
 hi.wait_stop()
+ret=hi.movel_xyz(hi.x,hi.y+10,-50,75,20)
+print("init set,return:{}".format(ret))
+hi.wait_stop()
+hi.get_scara_param()
+hi.wait_stop()
 r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
 print(r.get("global_camera_xy"))
-
-
-
 
 bounding_boxes_cords=None
 class yolox_ros(yolox_py):
@@ -138,6 +136,8 @@ class yolox_ros(yolox_py):
         
         self.imshow_isshow=False
         self.sub_boxes = self.create_subscription(BoundingBoxesCords, "/yolox/bounding_boxes_cords", self.boxes_cords_callback, 1)
+        self.gripper_publisher = self.create_publisher(String, '/yolox/gripper', 1)
+        self.gripper_open_pub = self.create_publisher(String, '/yolox/gripper_open', 1)
         
         self.intrinsics = None
         self.pix = None
@@ -173,24 +173,39 @@ class yolox_ros(yolox_py):
         #if 1:#r.get("mode")=="camera_ready":
         #    bounding_boxes_cords=data.bounding_boxes
             #r.set("mode","pickup_ready")
-
         r.set("mode","pickup_ready")
-        
+        logger.info(r.llen("queue"))    
         if r.llen("queue")>0:
             ele=r.lpop("queue")
-            #logger.info(ele)
             v=r.hget("detections",ele)
-            xy=v.split(",")
-            #logger.info(xy)
-            if len(xy)>0:
-                rett=hi.movel_xyz(int(xy[0]),int(xy[1]),hi.z,50,10)
+            xy=[]
+            if v is not None:
+                xy=v.split(",")
+                logger.info(xy)
+            if v is not None and len(xy)>0:
+                rett=hi.movel_xyz(int(xy[0]),int(xy[1]),-190,75,20)
                 logger.info("rett:{}".format(rett))
                 hi.wait_stop()
-                r.hdel("detections",ele)
-                hi.get_scara_param()
+                if rett==1:
+                    r.hdel("detections",ele)
+                    msg = String()
+                    msg.data = '%d,%d,%d' %(int(xy[0]),int(xy[1]),hi.z) 
+                    self.gripper_publisher.publish(msg)
+                logger.info(r.get("mode")=="catch_over")
+                #while  r.get("mode")!="catch_over":
+                #    time.sleep(1)
+                #time.sleep(1)
+                logger.info("current location :{},{},{},".format(xy[0],xy[1],hi.z))
+                rett=hi.movel_xyz(int(xy[0]),int(xy[1]),hi.z,75,20)
                 hi.wait_stop()
-                r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
-                r.set("mode","camera_ready")
+                msg = String()
+                msg.data = 'gripper open' 
+                self.gripper_open_pub.publish(msg)
+        
+            hi.get_scara_param()
+            hi.wait_stop()
+            r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
+            r.set("mode","camera_ready")
 
 
 class web_ros(Node):
