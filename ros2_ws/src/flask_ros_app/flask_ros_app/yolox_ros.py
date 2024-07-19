@@ -136,7 +136,7 @@ class yolox_ros(yolox_py):
         
         self.imshow_isshow=False
         self.sub_boxes = self.create_subscription(BoundingBoxesCords, "/yolox/bounding_boxes_cords", self.boxes_cords_callback, 1)
-        self.gripper_publisher = self.create_publisher(String, '/yolox/gripper', 1)
+        self.gripper_publisher = self.create_publisher(String, '/yolox/gripper_hold', 1)
         self.gripper_open_pub = self.create_publisher(String, '/yolox/gripper_open', 1)
         
         self.intrinsics = None

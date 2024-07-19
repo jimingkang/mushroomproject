@@ -512,9 +512,13 @@ class yolox_ros(yolox_py):
                     #y=-(int(float(result[1])))               #|              #|
                     #y-=170                                  #\|/      X      #\|/         X               
                      
-                    x=(int(float(result[0])))            #Arm#-------> Y    #camera   --- >#Y
-                    y=-(int(float(result[1])))               #|              #/|\
-                    y-=270                                 #\|/      X       #|         X                   
+                    #x=(int(float(result[0])))            #Arm#-------> Y    #camera   --- >#Y
+                    #y=-(int(float(result[1])))               #|              #/|\
+                    #y-=270                                 #\|/      X       #|         X   
+                    # 
+                    x=(int(float(result[1])))           #Arm#-------> Y    #camera   --- >#Y
+                    y=(int(float(result[0])))               #|              #   \
+                    y-=150                                 #\|/      X       #  \|/        X                   
                     obj=str(int(float(camera_xy[0]))+x)+","+str(int(float(camera_xy[1]))+y)+","+str(int(float(result[2])))
                     logger.info(line)
                     if not r.hexists("detections",str(box.class_id)):
