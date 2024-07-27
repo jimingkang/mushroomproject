@@ -307,8 +307,8 @@ result_img_rgb=None
 class yolox_ros(yolox_py):
     def __init__(self) -> None:
         #raw_image_topic = '/camera/color/image_rect_raw'
-        depth_image_topic = '/camera/depth/image_rect_raw'
-        depth_info_topic = '/camera/depth/camera_info'
+        depth_image_topic = '/camera/camera/depth/image_rect_raw'
+        depth_info_topic = '/camera/camera/depth/camera_info'
         move_x="/move/x"
 
         # ROS2 init
@@ -331,9 +331,9 @@ class yolox_ros(yolox_py):
         self.pix_grade = None
 
         if (self.sensor_qos_mode):
-            self.sub = self.create_subscription(Image,"/camera/color/image_rect_raw",self.imageflow_callback, qos_profile_sensor_data)
+            self.sub = self.create_subscription(Image,"/camera/camera/color/image_rect_raw",self.imageflow_callback, qos_profile_sensor_data)
         else:
-            self.sub = self.create_subscription(Image,"/camera/color/image_rect_raw",self.imageflow_callback, 10)
+            self.sub = self.create_subscription(Image,"/camera/camera/color/image_rect_raw",self.imageflow_callback, 10)
 
     
     def setting_yolox_exp(self) -> None:

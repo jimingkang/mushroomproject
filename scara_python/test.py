@@ -22,12 +22,12 @@ def print_hi(name):
     print(hi.unlock_position())
     hi.get_scara_param()
     print(hi.x,hi.y)
-    ret=hi.movel_xyz(hi.x-10,hi.y-10,0,75,20)
+    ret=hi.movel_xyz(hi.x-10,hi.y+310,0,75,20)
     hi.wait_stop()
     #ret=hi.movej_angle(10,0,0,0,20,0)
     #hi.wait_stop()
     print(ret)
-    i=3
+    i=4
     while i<4:
         i=i+1
         hi.get_scara_param()
