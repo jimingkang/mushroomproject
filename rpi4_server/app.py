@@ -41,17 +41,19 @@ class MovePublisher(Node):
         #self.latest_message = msg.data
         #frame = msg.data
     def gripper_hold_callback(self, msg):
-    	pwm.set_pwm(0, 0, servo_max)
-    	pwm.set_pwm(0, 1, servo_max)
-    	pwm.set_pwm(0, 2, servo_max)
-    	pwm.set_pwm(0, 4, servo_max)
-    	time.sleep(1)
+        print(f' hold cb received: {msg.data}')
+        pwm.set_pwm(0, 0, servo_max)
+        pwm.set_pwm(0, 1, servo_max)
+        pwm.set_pwm(0, 2, servo_max)
+        pwm.set_pwm(0, 4, servo_max)
+        time.sleep(1)
     def gripper_open_callback(self, msg):
-    	pwm.set_pwm(0, 0, servo_min)
-    	pwm.set_pwm(0, 1, servo_min)
-    	pwm.set_pwm(0, 2, servo_min)
-    	pwm.set_pwm(0, 4, servo_min)
-    	time.sleep(1)
+        print(f'open cb received: {msg.data}')
+        pwm.set_pwm(0, 0, servo_min)
+        pwm.set_pwm(0, 1, servo_min)
+        pwm.set_pwm(0, 2, servo_min)
+        pwm.set_pwm(0, 4, servo_min)
+        time.sleep(1)
 
 
 
