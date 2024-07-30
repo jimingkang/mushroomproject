@@ -32,6 +32,7 @@ from numpy import empty
 from loguru import logger
 from yolox_ros_py.camera_ipcam import Predictor
 
+import pyrealsense2 as pyrs
 from numpy import empty
 import torch
 import torch.backends.cudnn as cudnn
@@ -44,7 +45,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Header
 from cv_bridge import CvBridge,CvBridgeError
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image,PointCloud2
 from rclpy.qos import qos_profile_sensor_data
 from bboxes_ex_msgs.msg import BoundingBoxes,BoundingBoxesCords
 from bboxes_ex_msgs.msg import BoundingBox,BoundingBoxCord
@@ -80,8 +81,8 @@ i = 0
 
 
 
-broker="172.27.34.65"
-redis_server="172.27.34.65"
+#broker="172.27.34.65"
+redis_server="172.27.34.70"
 
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True, password='jimmy')
@@ -105,23 +106,11 @@ r = redis.Redis(connection_pool=pool)
 
 app = Flask(__name__)
 app.config['DEBUG'] = False
-app.config['MQTT_BROKER_URL'] = broker
-app.config['MQTT_BROKER_PORT'] = 1883
-app.config['MQTT_USERNAME'] = ''  # Set this item when you need to verify username and password
-app.config['MQTT_PASSWORD'] = ''  # Set this item when you need to verify username and password
-app.config['MQTT_KEEPALIVE'] = 5  # Set KeepAlive time in seconds
-app.config['MQTT_TLS_ENABLED'] = False  # If your server supports TLS, set it True
+
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 
-topic = '/flask/scan'
-topic2 = '/flask/xyz'
-topic3 = '/flask/serial'
-topic4 = '/flask/pickup'
-topic5 = '/flask/home'
-topic6 = '/flask/drop'
-topic7 = '/flask/stop'
-mqtt_client = Mqtt(app)
+
 y = 0
 
 
@@ -304,11 +293,13 @@ def video_feed():
 #bounding_boxes=None
 bboxes_msg=None
 result_img_rgb=None
+img_rgb=None
+i=0
 class yolox_ros(yolox_py):
     def __init__(self) -> None:
-        #raw_image_topic = '/camera/color/image_rect_raw'
-        depth_image_topic = '/camera/camera/depth/image_rect_raw'
-        depth_info_topic = '/camera/camera/depth/camera_info'
+        raw_image_topic = '/camera/color/image_rect_raw'
+        depth_image_topic = '/camera/depth/image_rect_raw'
+        depth_info_topic = '/camera/depth/camera_info'
         move_x="/move/x"
 
         # ROS2 init
@@ -317,12 +308,12 @@ class yolox_ros(yolox_py):
         self.setting_yolox_exp()
 
 
-        
         self.bridge = CvBridge()
         
         #self.pub = self.create_publisher(BoundingBoxes,"/yolox/bounding_boxes", 10)
         self.pub_bounding_boxes_cords = self.create_publisher(BoundingBoxesCords,"/yolox/bounding_boxes_cords", 1)
         self.pub_boxes_img = self.create_publisher(Image,"/yolox/boxes_image", 10)
+        self.pub_pointclouds = self.create_publisher(PointCloud2,'/yolox/pointclouds', 10)
         self.sub_depth_image = self.create_subscription(Image, depth_image_topic, self.imageDepthCallback, 1)
         self.sub_info = self.create_subscription(CameraInfo, depth_info_topic, self.imageDepthInfoCallback, 1)
         _info = self.create_subscription(String, move_x, self.MoveXYZCallback, 1)
@@ -331,9 +322,9 @@ class yolox_ros(yolox_py):
         self.pix_grade = None
 
         if (self.sensor_qos_mode):
-            self.sub = self.create_subscription(Image,"/camera/camera/color/image_rect_raw",self.imageflow_callback, qos_profile_sensor_data)
+            self.sub = self.create_subscription(Image,raw_image_topic,self.imageflow_callback, qos_profile_sensor_data)
         else:
-            self.sub = self.create_subscription(Image,"/camera/camera/color/image_rect_raw",self.imageflow_callback, 10)
+            self.sub = self.create_subscription(Image,raw_image_topic,self.imageflow_callback, 10)
 
     
     def setting_yolox_exp(self) -> None:
@@ -447,7 +438,7 @@ class yolox_ros(yolox_py):
 
 
     def imageflow_callback(self,msg:Image) -> None:
-            global bboxes_msg,result_img_rgb
+            global bboxes_msg,result_img_rgb,img_rgb
             img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
             outputs, img_info = self.predictor.inference(img_rgb)
             #logger.info("outputs: {},".format(outputs))
@@ -471,18 +462,69 @@ class yolox_ros(yolox_py):
             except Exception as e:
                 logger.error(e)
                 pass
+    def depth2PointCloud(self,depth, rgb,box):
+        intrinsics = self.intrinsics
+        depth = np.asanyarray(depth)  # * depth_scale # 1000 mm => 0.001 meters
+        rgb = np.asanyarray(rgb)
+        #rows,cols  = depth.shape
+        rows=480#self.intrinsics.width 
+        cols=848#self.intrinsics.height
+        logger.info("depth:{}".format(depth.shape))
+
+        c, r = np.meshgrid(np.arange(cols), np.arange(rows), sparse=True)
+        r = r.astype(float)
+        c = c.astype(float)
+
+        z = depth[box.xmin:box.xmax,box.ymin:box.ymax] 
+        logger.info("box.xmin:{},box.xmax:{},box.ymin:{},box.ymax:{}".format(box.xmin,box.xmax,box.ymin,box.ymax))
+        #valid = (z > 0) #& (depth < clip_distance_max) #remove from the depth image all values above a given value (meters).
+        #valid = np.ravel(valid)
+        #z = depth 
+        logger.info("z:{}".format(z))
+        x =  z * (c - intrinsics.ppx) / intrinsics.fx
+        y =  z * (r - intrinsics.ppy) / intrinsics.fy
+        logger.info("x,y:{},{}".format(x,y))
+        z = np.ravel(z)#[valid]
+        x = np.ravel(x)#[valid]
+        y = np.ravel(y)#[valid]
+        
+        r = np.ravel(rgb[box.xmin:box.xmax-box.xmin,box.ymin:box.ymax-box.ymin,0])#[valid]
+        g = np.ravel(rgb[box.xmin:box.xmax-box.xmin,box.ymin:box.ymax-box.ymin,1])#[valid]
+        b = np.ravel(rgb[box.xmin:box.xmax-box.xmin,box.ymin:box.ymax-box.ymin,2])#[valid]
+        
+        pointsxyzrgb = np.dstack((x, y, z, r, g, b))
+        pointsxyzrgb = pointsxyzrgb.reshape(-1,6)
+        logger.info("points_xyz_rgb:{}".format(pointsxyzrgb.shape))
+        return pointsxyzrgb
+    def create_point_cloud_file2(self,vertices, filename):
+        ply_header = '''ply
+    format ascii 1.0
+    element vertex %(vert_num)d
+    property float x
+    property float y
+    property float z
+    property uchar red
+    property uchar green
+    property uchar blue
+    end_header
+    '''
+        with open(filename, 'w') as f:
+            f.write(ply_header %dict(vert_num=len(vertices)))
+            np.savetxt(f,vertices,'%f %f %f %d %d %d')
+
     def imageDepthCallback(self, data):
-        global bboxes_msg
+        global bboxes_msg,result_img_rgb
 
         try:
             cv_image = self.bridge.imgmsg_to_cv2(data, data.encoding)
+  
             # pick one pixel among all the pixels with the closest range:
             #indices = np.array(np.where(cv_image == cv_image[cv_image > 0].min()))[:,0]
             global_camera_xy=r.get("global_camera_xy")
             camera_xy=global_camera_xy.split(",")
             logger.info("camera_xy:{}, {}".format(camera_xy[0],camera_xy[1]))
 
-            if bboxes_msg is not None and len(bboxes_msg.bounding_boxes)>0 and r.get("mode")=="camera_ready":
+            if bboxes_msg is not None and len(bboxes_msg.bounding_boxes)>0 and r.get("mode")=="camera_ready" and  self.intrinsics:
 
                 
                 #r.set("mode","pickup_ready")
@@ -491,8 +533,13 @@ class yolox_ros(yolox_py):
                 boxes_cords=BoundingBoxesCords()
 
                 for box in bboxes_msg.bounding_boxes:
-                    box_cord=BoundingBoxCord()
+                    if(result_img_rgb is not None):
+                        points_xyz_rgb = self.depth2PointCloud(cv_image, result_img_rgb,box)
+                        self.create_point_cloud_file2(points_xyz_rgb,"room{}.ply".format(i))
+                        i=i+1
 
+
+                    box_cord=BoundingBoxCord()
                     logger.info("probability,{},pixal x={},y={}".format(box.probability,box.class_id,(box.xmin+box.xmax)/2,(box.ymin+box.ymax)/2))
                     line ='probability:%4.2f,track_id:%s'%(box.probability,box.class_id)
                     #pix = (indices[1], indices[0])
@@ -531,6 +578,14 @@ class yolox_ros(yolox_py):
                         boxes_cords.bounding_boxes.append(box_cord)
                     #else:
                     #     r.hdel("detections", box.class_id)
+                pcl_msg = PointCloud2()
+                pcl_msg.data = np.ndarray.tobytes(points_xyz_rgb)
+                pcl_msg.header=Header()
+                pcl_msg.header.stamp = self.get_clock().now().to_msg()#seconds #rospy.Time(t_us/10000000.0)
+                pcl_msg.header.frame_id = "/map"
+                self.pub_pointclouds.publish(pcl_msg)
+                logger.info("pcl_msg:{}".format(pcl_msg))
+
                 logger.info(boxes_cords)
                 self.pub_bounding_boxes_cords.publish(boxes_cords)
                 bboxes_msg=None
