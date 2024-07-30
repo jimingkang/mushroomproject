@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Potree 3D Viewer</title>
+<script src="https://cdn.jsdelivr.net/npm/potree@0.1.0/build/potree/potree.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/potree@0.1.0/build/potree/potree.min.css" rel="stylesheet">
+  
+  </head>
+  <body>
+    <div style="width: 100%; height: 100%" id="potree_render_area"></div>
+
+    <script>
+      // Create a new Potree Viewer object
+      const viewer = new Potree.Viewer(document.getElementById('potree_render_area'));
+
+      // Load the point cloud data
+      const url = 'pointcloud.potree';
+      Potree.loadPointCloud(url, 'test', e => {
+        const pointcloud = e.pointcloud;
+        viewer.scene.addPointCloud(pointcloud);
+        viewer.fitToScreen();
+      });
+    </script>
+  </body>
+</html>
