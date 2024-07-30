@@ -175,7 +175,7 @@ class yolox_ros(yolox_py):
             #r.set("mode","pickup_ready")
         r.set("mode","pickup_ready")
         logger.info(r.llen("queue"))    
-        if r.llen("queue")>0:
+        while r.llen("queue")>0:
             ele=r.lpop("queue")
             v=r.hget("detections",ele)
             xy=[]
@@ -188,9 +188,9 @@ class yolox_ros(yolox_py):
                 hi.wait_stop()
                 if rett==1:
                     r.hdel("detections",ele)
-                    msg = String()
-                    msg.data = '%d,%d,%d' %(int(xy[0]),int(xy[1]),hi.z) 
-                    self.gripper_publisher.publish(msg)
+                    gripper_msg = String()
+                    gripper_msg.data = '%d,%d,%d' %(int(xy[0]),int(xy[1]),hi.z) 
+                    self.gripper_publisher.publish(gripper_msg)
                 logger.info(r.get("mode")=="catch_over")
                 #while  r.get("mode")!="catch_over":
                 #    time.sleep(1)
@@ -198,9 +198,9 @@ class yolox_ros(yolox_py):
                 logger.info("current location :{},{},{},".format(xy[0],xy[1],hi.z))
                 rett=hi.movel_xyz(int(xy[0]),int(xy[1]),hi.z,75,20)
                 hi.wait_stop()
-                msg = String()
-                msg.data = 'gripper open' 
-                self.gripper_open_pub.publish(msg)
+                gripper_msg2 = String()
+                gripper_msg2.data = 'gripper open' 
+                self.gripper_open_pub.publish(gripper_msg2)
         
             hi.get_scara_param()
             hi.wait_stop()
