@@ -13,8 +13,6 @@ import numpy as np
 import redis
 
 #import fcntl
-import xyz_publish
-import pickup_publish
 from tracker import Tracker
 __all__ = ["vis"]
 
