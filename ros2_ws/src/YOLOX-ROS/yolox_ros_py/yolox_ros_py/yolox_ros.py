@@ -474,27 +474,30 @@ class yolox_ros(yolox_py):
         c, r = np.meshgrid(np.arange(cols), np.arange(rows), sparse=True)
         r = r.astype(float)
         c = c.astype(float)
+        logger.info("r:{},c:{}".format(r,c))
 
-        z = depth[box.xmin:box.xmax,box.ymin:box.ymax] 
+
         logger.info("box.xmin:{},box.xmax:{},box.ymin:{},box.ymax:{}".format(box.xmin,box.xmax,box.ymin,box.ymax))
-        #valid = (z > 0) #& (depth < clip_distance_max) #remove from the depth image all values above a given value (meters).
-        #valid = np.ravel(valid)
-        #z = depth 
+        valid = (depth > 0) #& (depth < clip_distance_max) #remove from the depth image all values above a given value (meters).
+        valid = np.ravel(valid)
+        z = depth[box.ymin:box.ymax,box.xmin:box.xmax]
+        #z = depth[box.xmin:box.xmax,box.ymin:box.ymax] 
         logger.info("z:{}".format(z))
-        x =  z * (c - intrinsics.ppx) / intrinsics.fx
-        y =  z * (r - intrinsics.ppy) / intrinsics.fy
+        x =  z * (c[:,box.xmin:box.xmax] - intrinsics.ppx) / intrinsics.fx
+        y =  z * (r[box.ymin:box.ymax,:] - intrinsics.ppy) / intrinsics.fy
         logger.info("x,y:{},{}".format(x,y))
-        z = np.ravel(z)#[valid]
-        x = np.ravel(x)#[valid]
-        y = np.ravel(y)#[valid]
+        z = np.ravel(z)[valid]
+        x = np.ravel(x)[valid]
+        y = np.ravel(y)[valid]
         
-        r = np.ravel(rgb[box.xmin:box.xmax-box.xmin,box.ymin:box.ymax-box.ymin,0])#[valid]
-        g = np.ravel(rgb[box.xmin:box.xmax-box.xmin,box.ymin:box.ymax-box.ymin,1])#[valid]
-        b = np.ravel(rgb[box.xmin:box.xmax-box.xmin,box.ymin:box.ymax-box.ymin,2])#[valid]
+        r = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,0])[valid]
+        g = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,1])[valid]
+        b = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,2])[valid]
         
         pointsxyzrgb = np.dstack((x, y, z, r, g, b))
         pointsxyzrgb = pointsxyzrgb.reshape(-1,6)
-        logger.info("points_xyz_rgb:{}".format(pointsxyzrgb.shape))
+        #pointsxyzrgb=pointsxyzrgb[pointsxyzrgb]
+        #logger.info("points_xyz_rgb:{}".format(pointsxyzrgb.shape))
         return pointsxyzrgb
     def create_point_cloud_file2(self,vertices, filename):
         ply_header = '''ply
@@ -513,7 +516,7 @@ class yolox_ros(yolox_py):
             np.savetxt(f,vertices,'%f %f %f %d %d %d')
 
     def imageDepthCallback(self, data):
-        global bboxes_msg,result_img_rgb
+        global bboxes_msg,result_img_rgb,i
 
         try:
             cv_image = self.bridge.imgmsg_to_cv2(data, data.encoding)
