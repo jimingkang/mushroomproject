@@ -17,7 +17,7 @@ frame=None
 
 import time
 import Adafruit_PCA9685
-pwm = Adafruit_PCA9685.PCA9685()
+pwm = Adafruit_PCA9685.PCA9685(address=0x40, busnum=1)
 
 # Configure min and max servo pulse lengths
 servo_min = 250  # Min pulse length out of 4096
@@ -27,9 +27,9 @@ class MovePublisher(Node):
     def __init__(self):
         super().__init__('test_publisher')
         self.publisher = self.create_publisher(String, '/move/x', 1)
-        self.subscription = self.create_subscription(Image,'/yolox/boxes_image',self.chatter_callback,10)
-        self.gripper_open_subs= self.create_subscription(Image,'/yolox/gripper_open',self.gripper_open_callback,10)
-        self.gripper_hold_subs = self.create_subscription(Image,'/yolox/gripper_hold',self.gripper_hold_callback,10)
+        #self.subscription = self.create_subscription(Image,'/yolox/boxes_image',self.chatter_callback,10)
+        self.gripper_open_subs= self.create_subscription(String,'/yolox/gripper_open',self.gripper_open_callback,10)
+        self.gripper_hold_subs = self.create_subscription(String,'/yolox/gripper_hold',self.gripper_hold_callback,10)
 
         self.latest_message = None
         self.bridge = CvBridge()
@@ -37,7 +37,7 @@ class MovePublisher(Node):
     def chatter_callback(self, msg):
         global frame
         #print(f'chatter cb received: {msg.data}')
-        frame = self.bridge.imgmsg_to_cv2(msg,"bgr8")
+        #frame = self.bridge.imgmsg_to_cv2(msg,"bgr8")
         #self.latest_message = msg.data
         #frame = msg.data
     def gripper_hold_callback(self, msg):
@@ -189,22 +189,6 @@ def home():
 
 
 
-
-
-def gen():
-    """Video streaming generator function."""
-    yield b'--frame\r\n'
-    while True:
-        global frame
-        (flag, encodedImage) = cv2.imencode(".jpg", frame)
-        yield b'Content-Type: image/jpeg\r\n\r\n' + bytearray(encodedImage)  + b'\r\n--frame\r\n'
-
-
-@app.route('/video_feed')
-def video_feed():
-    """Video streaming route. Put this in the src attribute of an img tag."""
-    return Response(gen(),
-                    mimetype='multipart/x-mixed-replace; boundary=--frame')
 
 @app.route('/latest_message')
 def get_current_time():
