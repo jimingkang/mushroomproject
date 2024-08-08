@@ -26,6 +26,10 @@ import time
 import redis
 from paho.mqtt import client as mqtt_client
 
+#import ros_numpy
+#from ros_numpy import numpy_msg
+import ros2_numpy as rnp
+
 import numpy as np
 import cv2
 from numpy import empty
@@ -45,7 +49,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Header
 from cv_bridge import CvBridge,CvBridgeError
-from sensor_msgs.msg import Image,PointCloud2
+from sensor_msgs.msg import Image,PointCloud2,PointField
 from rclpy.qos import qos_profile_sensor_data
 from bboxes_ex_msgs.msg import BoundingBoxes,BoundingBoxesCords
 from bboxes_ex_msgs.msg import BoundingBox,BoundingBoxCord
@@ -53,6 +57,17 @@ from .yolox_ros_py_utils.utils import yolox_py
 from sensor_msgs.msg import CameraInfo
 from std_msgs.msg import String
 #import orbslam3
+
+
+type_mappings = [(PointField.INT8, np.dtype('int8')), (PointField.UINT8, np.dtype('uint8')), (PointField.INT16, np.dtype('int16')),
+                  (PointField.UINT16, np.dtype('uint16')), (PointField.INT32, np.dtype('int32')), (PointField.UINT32, np.dtype('uint32')),
+                  (PointField.FLOAT32, np.dtype('float32')), (PointField.FLOAT64, np.dtype('float64'))]
+pftype_to_nptype = dict(type_mappings)
+nptype_to_pftype = dict((nptype, pftype) for pftype, nptype in type_mappings)
+ 
+ # sizes (in bytes) of PointField types
+pftype_sizes = {PointField.INT8: 1, PointField.UINT8: 1, PointField.INT16: 2, PointField.UINT16: 2,
+                 PointField.INT32: 4, PointField.UINT32: 4, PointField.FLOAT32: 4, PointField.FLOAT64: 8}
 
 broker=''
 redis_server=''
@@ -82,7 +97,7 @@ i = 0
 
 
 #broker="172.27.34.65"
-redis_server="172.27.34.70"
+redis_server="172.27.34.65"
 
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True, password='jimmy')
@@ -294,6 +309,7 @@ def video_feed():
 bboxes_msg=None
 result_img_rgb=None
 img_rgb=None
+points_xyz_rgb=np.asarray([[]])
 i=0
 class yolox_ros(yolox_py):
     def __init__(self) -> None:
@@ -463,6 +479,8 @@ class yolox_ros(yolox_py):
                 logger.error(e)
                 pass
     def depth2PointCloud(self,depth, rgb,box):
+        global i
+        logger.info("before convertion depth:{}".format(depth.shape))
         intrinsics = self.intrinsics
         depth = np.asanyarray(depth)  # * depth_scale # 1000 mm => 0.001 meters
         rgb = np.asanyarray(rgb)
@@ -470,35 +488,41 @@ class yolox_ros(yolox_py):
         rows=480#self.intrinsics.width 
         cols=848#self.intrinsics.height
         logger.info("depth:{}".format(depth.shape))
+        pointsxyzrgb_total=np.asarray([[0,0,0,0,0,0]])
+        for box in bboxes_msg.bounding_boxes:
+            c, r = np.meshgrid(np.arange(cols), np.arange(rows), sparse=True)
+            r = r.astype(float)
+            c = c.astype(float)
+            logger.info("r:{},c:{}".format(r.shape,c.shape))
+            logger.info("box.xmin:{},box.xmax:{},box.ymin:{},box.ymax:{}".format(box.xmin,box.xmax,box.ymin,box.ymax))
+            valid = (depth[box.ymin:box.ymax,box.xmin:box.xmax] > 0) #& (depth < clip_distance_max) #remove from the depth image all values above a given value (meters).
+            valid = np.ravel(valid)
+            z = depth[box.ymin:box.ymax,box.xmin:box.xmax]
+            #z = depth[box.xmin:box.xmax,box.ymin:box.ymax] 
+            logger.info("z:{}".format(z.shape))
+            x =  z * (c[:,box.xmin:box.xmax] - intrinsics.ppx) / intrinsics.fx
+            y =  z * (r[box.ymin:box.ymax,:] - intrinsics.ppy) / intrinsics.fy
+            #logger.info("x,y:{},{}".format(x,y))
+            z = np.ravel(z)[valid]
+            x = np.ravel(x)[valid]
+            y = np.ravel(y)[valid]
+            
+            r = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,0])[valid]
+            g = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,1])[valid]
+            b = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,2])[valid]
+            
+            pointsxyzrgb = np.dstack((x, y, z, r, g, b))
+            #logger.info("pointsxyzrgb type:{}".format(pointsxyzrgb.dtype))
+            
 
-        c, r = np.meshgrid(np.arange(cols), np.arange(rows), sparse=True)
-        r = r.astype(float)
-        c = c.astype(float)
-        logger.info("r:{},c:{}".format(r,c))
-
-
-        logger.info("box.xmin:{},box.xmax:{},box.ymin:{},box.ymax:{}".format(box.xmin,box.xmax,box.ymin,box.ymax))
-        valid = (depth > 0) #& (depth < clip_distance_max) #remove from the depth image all values above a given value (meters).
-        valid = np.ravel(valid)
-        z = depth[box.ymin:box.ymax,box.xmin:box.xmax]
-        #z = depth[box.xmin:box.xmax,box.ymin:box.ymax] 
-        logger.info("z:{}".format(z))
-        x =  z * (c[:,box.xmin:box.xmax] - intrinsics.ppx) / intrinsics.fx
-        y =  z * (r[box.ymin:box.ymax,:] - intrinsics.ppy) / intrinsics.fy
-        logger.info("x,y:{},{}".format(x,y))
-        z = np.ravel(z)[valid]
-        x = np.ravel(x)[valid]
-        y = np.ravel(y)[valid]
-        
-        r = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,0])[valid]
-        g = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,1])[valid]
-        b = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,2])[valid]
-        
-        pointsxyzrgb = np.dstack((x, y, z, r, g, b))
-        pointsxyzrgb = pointsxyzrgb.reshape(-1,6)
-        #pointsxyzrgb=pointsxyzrgb[pointsxyzrgb]
-        #logger.info("points_xyz_rgb:{}".format(pointsxyzrgb.shape))
-        return pointsxyzrgb
+            pointsxyzrgb = pointsxyzrgb.reshape(-1,6)
+           
+            pointsxyzrgb_total=np.concatenate((pointsxyzrgb_total,pointsxyzrgb))
+            #logger.info("pointsxyzrgb_total :{}".format(pointsxyzrgb_total))
+            #logger.info("pointsxyzrgb_total:{},shape{}".format(pointsxyzrgb_total,pointsxyzrgb_total.shape))
+        #self.create_point_cloud_file2(pointsxyzrgb_total,"new_room_total{}.ply".format(i))
+        i=i+1
+        return pointsxyzrgb_total
     def create_point_cloud_file2(self,vertices, filename):
         ply_header = '''ply
     format ascii 1.0
@@ -514,9 +538,49 @@ class yolox_ros(yolox_py):
         with open(filename, 'w') as f:
             f.write(ply_header %dict(vert_num=len(vertices)))
             np.savetxt(f,vertices,'%f %f %f %d %d %d')
+    def dtype_to_fields(self,dtype):
+        '''Convert a numpy record datatype into a list of PointFields.
+        '''
+        fields = []
+        for field_name in dtype.names:
+            np_field_type, field_offset = dtype.fields[field_name]
+            pf = PointField()
+            pf.name = field_name
+            if np_field_type.subdtype:
+                item_dtype, shape = np_field_type.subdtype
+                pf.count = np.prod(shape)
+                np_field_type = item_dtype
+            else:
+                pf.count = 1
+    
+            pf.datatype = nptype_to_pftype[np_field_type]
+            pf.offset = field_offset
+            fields.append(pf)
+        return fields
 
+    def array_to_pointcloud2(self,cloud_arr, stamp=None, frame_id=None):
+        '''Converts a numpy record array to a sensor_msgs.msg.PointCloud2.
+        '''
+        # make it 2d (even if height will be 1)
+        cloud_arr = np.atleast_2d(cloud_arr)
+    
+        cloud_msg = PointCloud2()
+    
+        if stamp is not None:
+            cloud_msg.header.stamp = stamp
+        if frame_id is not None:
+            cloud_msg.header.frame_id = frame_id
+        cloud_msg.height = cloud_arr.shape[0]
+        cloud_msg.width = cloud_arr.shape[1]
+        cloud_msg.fields = self.dtype_to_fields(cloud_arr.dtype)
+        cloud_msg.is_bigendian = False # assumption
+        cloud_msg.point_step = cloud_arr.dtype.itemsize
+        cloud_msg.row_step = cloud_msg.point_step*cloud_arr.shape[1]
+        cloud_msg.is_dense = all([np.isfinite(cloud_arr[fname]).all() for fname in cloud_arr.dtype.names])
+        cloud_msg.data = cloud_arr.tostring()
+        return cloud_msg
     def imageDepthCallback(self, data):
-        global bboxes_msg,result_img_rgb,i
+        global bboxes_msg,result_img_rgb,i,points_xyz_rgb
 
         try:
             cv_image = self.bridge.imgmsg_to_cv2(data, data.encoding)
@@ -525,21 +589,18 @@ class yolox_ros(yolox_py):
             #indices = np.array(np.where(cv_image == cv_image[cv_image > 0].min()))[:,0]
             global_camera_xy=r.get("global_camera_xy")
             camera_xy=global_camera_xy.split(",")
+            mode=r.get("mode")=="camera_ready"
             logger.info("camera_xy:{}, {}".format(camera_xy[0],camera_xy[1]))
 
-            if bboxes_msg is not None and len(bboxes_msg.bounding_boxes)>0 and r.get("mode")=="camera_ready" and  self.intrinsics:
-
-                
+            if bboxes_msg is not None and len(bboxes_msg.bounding_boxes)>0 and r.get("mode")=="camera_ready" and  self.intrinsics is not None:
+                if(result_img_rgb is not None):
+                    points_xyz_rgb=self.depth2PointCloud(cv_image, result_img_rgb,bboxes_msg.bounding_boxes)
+                    #logger.info("glabal xyx{}".format(points_xyz_rgb))
                 #r.set("mode","pickup_ready")
-
-
                 boxes_cords=BoundingBoxesCords()
 
+
                 for box in bboxes_msg.bounding_boxes:
-                    if(result_img_rgb is not None):
-                        points_xyz_rgb = self.depth2PointCloud(cv_image, result_img_rgb,box)
-                        self.create_point_cloud_file2(points_xyz_rgb,"room{}.ply".format(i))
-                        i=i+1
 
 
                     box_cord=BoundingBoxCord()
@@ -549,10 +610,12 @@ class yolox_ros(yolox_py):
                     pix = (int((box.xmin+box.xmax)/2),int((box.ymin+box.ymax)/2))
                     self.pix = pix
                     #line += '\tDepth at pixel(%3d, %3d): %7.1f(mm).' % (pix[0], pix[1], cv_image[pix[1], pix[0]])
-                    if self.intrinsics:
+                    if self.intrinsics and pix[0] <848 and pix[1]<480:
                         depth = cv_image[pix[1], pix[0]]
                         result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth)
                         line += '  local Coordinate: %8.2f %8.2f %8.2f.' % (result[0], result[1], result[2])
+                    else:
+                        continue
                     if (not self.pix_grade is None):
                         line += ' Grade: %2d' % self.pix_grade
                     line += '\r'
@@ -568,9 +631,9 @@ class yolox_ros(yolox_py):
                     # 
                     x=(int(float(result[1])))           #Arm#-------> Y    #camera   --- >#Y
                     y=(int(float(result[0])))               #|              #   \
-                    y-=150                                 #\|/      X       #  \|/        X                   
+                    y-=130                                 #\|/      X       #  \|/        X                   
                     obj=str(int(float(camera_xy[0]))+x)+","+str(int(float(camera_xy[1]))+y)+","+str(int(float(result[2])))
-                    logger.info(line)
+                    #logger.info(line)
                     if not r.hexists("detections",str(box.class_id)):
                         r.hset("detections", box.class_id, obj)
                         r.lpush("queue",box.class_id)
@@ -581,13 +644,46 @@ class yolox_ros(yolox_py):
                         boxes_cords.bounding_boxes.append(box_cord)
                     #else:
                     #     r.hdel("detections", box.class_id)
+
                 pcl_msg = PointCloud2()
-                pcl_msg.data = np.ndarray.tobytes(points_xyz_rgb)
+                
+
                 pcl_msg.header=Header()
                 pcl_msg.header.stamp = self.get_clock().now().to_msg()#seconds #rospy.Time(t_us/10000000.0)
                 pcl_msg.header.frame_id = "/map"
-                self.pub_pointclouds.publish(pcl_msg)
-                logger.info("pcl_msg:{}".format(pcl_msg))
+                #fields =[PointField('x', 0, PointField.FLOAT32, 1),PointField('y', 4, PointField.FLOAT32, 1),PointField('z', 8, PointField.FLOAT32, 1),
+                #        PointField('r', 12, PointField.FLOAT32,1),PointField('g', 16, PointField.FLOAT32,1),PointField('b', 20, PointField.FLOAT32,1),
+                #        ]
+
+                #pcl_msg.fields = fields
+                #pcl_msg.height = 848
+                #pcl_msg.width = 480
+                # Float occupies 4 bytes. Each point then carries 16 bytes.
+                #pcl_msg.point_step = len(fields) * 4 
+                #total_num_of_points = pcl_msg.height * pcl_msg.width
+                #pcl_msg.row_step = pcl_msg.point_step * total_num_of_points
+                #pcl_msg.is_dense = True
+                #pcl_msg.data = np.ndarray.tobytes(points_xyz_rgb)
+                #pcl_msg2=self.array_to_pointcloud2(points_xyz_rgb,None,"/map")
+                #cloud_msg = ros_numpy.msgify(PointCloud2, points_xyz_rgb)
+                points_xyz_rgb=np.transpose(points_xyz_rgb)
+                gray=(0.21*points_xyz_rgb[3])+(0.72 *points_xyz_rgb[4]) + (0.07*points_xyz_rgb[5])
+                new_points_xyz_rgb=list(zip(points_xyz_rgb[0],points_xyz_rgb[1],points_xyz_rgb[2],gray))
+                logger.info("new_points_xyz_rgb".format(new_points_xyz_rgb))
+                new_points_xyz_rgb_list=np.array(new_points_xyz_rgb,  dtype=[
+                                                                            ('x', np.float32),
+                                                                            ('y', np.float32),
+                                                                            ('z', np.float32),
+                                                                           ('i', np.uint8),
+                                                                           # ('g', np.uint8),
+                                                                           # ('b', np.uint8)]
+                                                                            ])
+                cloud_msg=rnp.msgify(PointCloud2, new_points_xyz_rgb_list)
+                cloud_msg.header=Header()
+                cloud_msg.header.stamp = self.get_clock().now().to_msg()#seconds #rospy.Time(t_us/10000000.0)
+                cloud_msg.header.frame_id = "/camera_link"
+                self.pub_pointclouds.publish(cloud_msg)
+
 
                 logger.info(boxes_cords)
                 self.pub_bounding_boxes_cords.publish(boxes_cords)
