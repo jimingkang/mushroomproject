@@ -77,8 +77,7 @@ if os.environ.get('CAMERA'):
 else:
     from camera_ipcam import Camera
 
-# Raspberry Pi camera module (requires picamera package)
-#from camera_pi import Camera
+
 
 i = 0
 

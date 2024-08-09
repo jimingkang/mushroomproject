@@ -251,8 +251,8 @@ class Predictor(object):
         #logger.info("new test in .camera_ipcam visual")
         ratio = img_info["ratio"]
         img = img_info["raw_img"]
-        #if output is None:
-        #    return img
+        if output is None:
+            return img,None,None,None,None,None
         output = output.cpu()
 
         bboxes = output[:, 0:4]
@@ -267,7 +267,7 @@ class Predictor(object):
 
             return vis_res,bboxes, scores, cls, self.cls_names,track_ids
         else:
-            return img
+            return img,None,None,None,None,None
 
 
 

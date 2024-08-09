@@ -57,29 +57,14 @@ from .yolox_ros_py_utils.utils import yolox_py
 from sensor_msgs.msg import CameraInfo
 from std_msgs.msg import String
 #import orbslam3
+from slam import Mapp,Frame
+# camera intrinsics
+W, H = 848-12, 480+10
+F = 430.79
+K = np.array([[F,0,W//2],[0,F,H//2],[0,0,1]])
+mapp = Mapp(W, H)
+frame=None
 
-
-type_mappings = [(PointField.INT8, np.dtype('int8')), (PointField.UINT8, np.dtype('uint8')), (PointField.INT16, np.dtype('int16')),
-                  (PointField.UINT16, np.dtype('uint16')), (PointField.INT32, np.dtype('int32')), (PointField.UINT32, np.dtype('uint32')),
-                  (PointField.FLOAT32, np.dtype('float32')), (PointField.FLOAT64, np.dtype('float64'))]
-pftype_to_nptype = dict(type_mappings)
-nptype_to_pftype = dict((nptype, pftype) for pftype, nptype in type_mappings)
- 
- # sizes (in bytes) of PointField types
-pftype_sizes = {PointField.INT8: 1, PointField.UINT8: 1, PointField.INT16: 2, PointField.UINT16: 2,
-                 PointField.INT32: 4, PointField.UINT32: 4, PointField.FLOAT32: 4, PointField.FLOAT64: 8}
-
-broker=''
-redis_server=''
-try:
-    for line in open("../ip.txt"):
-        if line[0:6] == "broker":
-            broker = line[9:len(line)-1]
-        if line[0:6] == "reddis":
-            redis_server=line[9:len(line)-1]
-except:
-    pass
-print(broker+" "+redis_server)
 
 
 # import camera driver
@@ -247,9 +232,9 @@ def zdown():
     return render_template('index.html');
 
 
-def autopick():
-    publish_result = mqtt_client.publish(topic, "/flask/scan")
-    return render_template('index.html');
+#def autopick():
+#    publish_result = mqtt_client.publish(topic, "/flask/scan")
+#    return render_template('index.html');
 
 
 @app.route('/zerosetting')
@@ -310,6 +295,8 @@ bboxes_msg=None
 result_img_rgb=None
 img_rgb=None
 points_xyz_rgb=np.asarray([[]])
+pointsxyzrgb_total=np.asarray([[0,0,0,0,0,0]])
+global_points_xyz_rgb_list=np.asarray([()])
 i=0
 class yolox_ros(yolox_py):
     def __init__(self) -> None:
@@ -359,24 +346,19 @@ class yolox_ros(yolox_py):
         # self.declare_parameter('', 0)
         self.declare_parameter('ckpt', WEIGHTS_PATH)
         self.declare_parameter('conf', 0.3)
-
         # nmsthre -> threshold
         self.declare_parameter('threshold', 0.55)
         # --tsize -> resize
         self.declare_parameter('resize', 640)
-        
         self.declare_parameter('sensor_qos_mode', False)
-
         # =============================================================
         self.imshow_isshow = self.get_parameter('imshow_isshow').value
 
         exp_py = self.get_parameter('yolox_exp_py').value
-
         fuse = self.get_parameter('fuse').value
         trt = True#self.get_parameter('trt').value
         fp16 = self.get_parameter('fp16').value
         device = self.get_parameter('device').value
-
         ckpt = self.get_parameter('ckpt').value
         conf = self.get_parameter('conf').value
         legacy = self.get_parameter('legacy').value
@@ -386,12 +368,9 @@ class yolox_ros(yolox_py):
         input_shape_h = input_shape_w
 
         self.sensor_qos_mode = self.get_parameter('sensor_qos_mode').value
-
         # ==============================================================
-
         # add for orbslam3
         #self.declare_parameter('--vocab_file', vocab_file)
-
 
         cudnn.benchmark = True
         exp = get_exp(exp_py, None)
@@ -452,34 +431,220 @@ class yolox_ros(yolox_py):
 
         self.predictor = Predictor(model, exp, COCO_CLASSES, trt_file, decoder, device, fp16, legacy)
 
+    def extract_points(self,frame):
+        logger.info("extract_points")
+
+        orb = cv2.ORB_create()
+        image = cv2.cvtColor(frame.image, cv2.COLOR_BGR2GRAY)
+        # detection corners
+        pts = cv2.goodFeaturesToTrack(image, 3000, qualityLevel=0.01, minDistance=3)
+        #logger.info("pts: {}".format(pts ))
+        # extract features
+        kps = [cv2.KeyPoint(x=pt[0][0], y=pt[0][1], size=20) for pt in pts]
+        logger.info("pts: {}".format(pts ))
+        kps, des = orb.compute(image, kps)
+        #logger.info("kps, des: {},{}".format(kps, des ))
+
+        kps = np.array([(kp.pt[0], kp.pt[1]) for kp in kps])
+        return kps, des
+
+# 当前帧的角点和上一帧的进行配准
+    def match_points(self,frame):
+        #logger.info("match_points")
+        bfmatch = cv2.BFMatcher(cv2.NORM_HAMMING)
+        matches = bfmatch.knnMatch(frame.curr_des, frame.last_des, k=2)
+        match_kps, idx1, idx2 = [], [], []
+
+        for m,n in matches:
+            if m.distance < 0.75*n.distance:
+                idx1.append(m.queryIdx)
+                idx2.append(m.trainIdx)
+
+                p1 = frame.curr_kps[m.queryIdx]
+                p2 = frame.last_kps[m.trainIdx]
+                match_kps.append((p1, p2))
+        assert len(match_kps) >= 8
+
+        frame.curr_kps = frame.curr_kps[idx1]
+        frame.last_kps = frame.last_kps[idx2]
+
+        return match_kps
+    def normalize(self,K, pts):
+        Kinv = np.linalg.inv(K)
+        # turn [[x,y]] -> [[x,y,1]]
+        add_ones = lambda x: np.concatenate([x, np.ones((x.shape[0], 1))], axis=1)
+        norm_pts = np.dot(Kinv, add_ones(pts).T).T[:, 0:2]
+        return norm_pts
+# 八点法对本质矩阵求解
+    def fit_essential_matrix(self,match_kps):
+        global K,frame
+        match_kps = np.array(match_kps)
+
+        # 使用相机内参对角点坐标归一化
+        norm_curr_kps = self.normalize(K, match_kps[:, 0])
+        norm_last_kps = self.normalize(K, match_kps[:, 1])
+
+        # 求解本质矩阵和内点数据
+        model, inliers = ransac((norm_last_kps, norm_curr_kps),
+                                self.EssentialMatrixTransform,
+                                min_samples=8,              # 最少需要 8 个点
+                                residual_threshold=0.005,
+                                max_trials=200)
+
+        frame.curr_kps = frame.curr_kps[inliers]
+        frame.last_kps = frame.last_kps[inliers]
+
+        return model.params
+
+    # 从本质矩阵中分解出相机运动 R、t
+    def extract_Rt(E):
+        W = np.mat([[0,-1,0],[1,0,0],[0,0,1]],dtype=float)
+        U,d,Vt = np.linalg.svd(E)
+
+        if np.linalg.det(U)  < 0: U  *= -1.0
+        if np.linalg.det(Vt) < 0: Vt *= -1.0
+
+        # 相机没有转弯，因此 R 的对角矩阵非常接近 diag([1,1,1])
+        R = (np.dot(np.dot(U, W), Vt))
+        if np.sum(R.diagonal()) < 0:
+            R = np.dot(np.dot(U, W.T), Vt)
+
+        t = U[:, 2]     # 相机一直向前，分量 t[2] > 0
+        if t[2] < 0:
+            t *= -1
+
+        Rt = np.eye(4)
+        Rt[:3, :3] = R
+        Rt[:3, 3] = t
+        return Rt          # Rt 为从相机坐标系的位姿变换到世界坐标系的位姿
+
+    # opencv 的三角测量函数
+    # def triangulate(pts1, pts2, pose1, pose2):
+        # pts1 = normalize(pts1)
+        # pts2 = normalize(pts2)
+
+        # pose1 = np.linalg.inv(pose1)
+        # pose2 = np.linalg.inv(pose2)
+
+        # points4d = cv2.triangulatePoints(pose1[:3], pose2[:3], pts1.T, pts2.T).T
+        # points4d /= points4d[:, 3:]
+        # return points4d
+
+
+    # 自己写的的三角测量函数
+    def triangulate(self,pts1, pts2, pose1, pose2):
+        global K
+        pose1 = np.linalg.inv(pose1)            # 从世界坐标系变换到相机坐标系的位姿, 因此取逆
+        pose2 = np.linalg.inv(pose2)
+
+        pts1 = self.normalize(K, pts1)                 # 使用相机内参对角点坐标归一化
+        pts2 = self.normalize(K, pts2)
+
+        points4d = np.zeros((pts1.shape[0], 4))
+        for i, (kp1, kp2) in enumerate(zip(pts1, pts2)):
+            A = np.zeros((4,4))
+            A[0] = kp1[0] * pose1[2] - pose1[0]
+            A[1] = kp1[1] * pose1[2] - pose1[1]
+            A[2] = kp2[0] * pose2[2] - pose2[0]
+            A[3] = kp2[1] * pose2[2] - pose2[1]
+            _, _, vt = np.linalg.svd(A)         # 对 A 进行奇异值分解
+            points4d[i] = vt[3]
+
+        points4d /= points4d[:, 3:]            # 归一化变换成齐次坐标 [x, y, z, 1]
+        return points4d
+
+    # 画出角点的运动轨迹
+    def draw_points(self,frame):
+        for kp1, kp2 in zip(frame.curr_kps, frame.last_kps):
+            u1, v1 = int(kp1[0]), int(kp1[1])
+            u2, v2 = int(kp2[0]), int(kp2[1])
+            cv2.circle(frame.image, (u1, v1), color=(0,0,255), radius=3)
+            cv2.line(frame.image, (u1, v1), (u2, v2), color=(255,0,0))
+        return None
+
+    # 筛选角点
+    def check_points(self,points4d):
+        # 判断3D点是否在两个摄像头前方
+        good_points = points4d[:, 2] > 0
+        # TODO: parallax、重投投影误差筛选等等 ....
+        return good_points
+
+    def process_frame(self,frame):
+        global mapp
+        # 提取当前帧的角点和描述子特征
+        logger.info("---------------- process_frame----------------")
+        frame.curr_kps, frame.curr_des = self.extract_points(frame)
+        # 将角点位置和描述子通过类的属性传递给下一帧作为上一帧的角点信息
+        Frame.last_kps, Frame.last_des = frame.curr_kps, frame.curr_des
+
+        if frame.idx == 1:
+            # 设置第一帧为初始帧，并以相机坐标系为世界坐标系
+            frame.curr_pose = np.eye(4)
+            points4d = [[0,0,0,1]]      # 原点为 [0, 0, 0] , 1 表示颜色
+        else:
+            # 角点配准, 此时会用 RANSAC 过滤掉一些噪声
+            logger.info("---------------- match_points----------------")
+            match_kps = self.match_points(frame)
+            logger.info("frame: {}, curr_des: {}, last_des: {}, match_kps: {}".format(frame.idx, len(frame.curr_des), len(frame.last_des), len(match_kps)))
+            # 使用八点法拟合出本质矩阵
+            essential_matrix = self.fit_essential_matrix(match_kps)
+            logger.info("---------------- Essential Matrix ----------------")
+            logger.info(essential_matrix)
+            # 利用本质矩阵分解出相机的位姿 Rt
+            Rt = self.extract_Rt(essential_matrix)
+            # 计算出当前帧相对于初始帧的相机位姿
+            frame.curr_pose = np.dot(Rt, frame.last_pose)
+            # 三角测量获得角点的深度信息
+            points4d = self.triangulate(frame.last_kps, frame.curr_kps, frame.last_pose, frame.curr_pose)
+
+            good_pt4d = self.check_points(points4d)
+            points4d = points4d[good_pt4d]
+            # TODO: g2o 后端优化
+            self.draw_points(frame)
+        mapp.add_observation(frame.curr_pose, points4d)     # 将当前的 pose 和点云放入地图中
+        # 将当前帧的 pose 信息存储为下一帧的 last_pose 信息
+        Frame.last_pose = frame.curr_pose
+        return frame
+
 
     def imageflow_callback(self,msg:Image) -> None:
-            global bboxes_msg,result_img_rgb,img_rgb
+            global bboxes_msg,result_img_rgb,img_rgb,mapp,frame
             img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
-            outputs, img_info = self.predictor.inference(img_rgb)
-            #logger.info("outputs: {},".format(outputs))
+            #logger.info("img_rgb{}".format(img_rgb))
+            if img_rgb is not None:
+                outputs, img_info = self.predictor.inference(img_rgb)
+                #logger.info("outputs : {},".format((outputs)))
 
-            try:
-                logger.info(r.get("mode")=="camera_ready")
-                if r.get("mode")=="camera_ready":
-                    result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
-                    bboxes_msg = self.yolox2bboxes_msgs(bboxes, scores, cls, cls_names,track_ids, msg.header, img_rgb)
+                try:
+                    logger.info(r.get("mode")=="camera_ready")
+                    if r.get("mode")=="camera_ready" and (outputs is not None):
+                        #logger.info("output[0]{},img_info{}".format(outputs[0],img_info))
+                        result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
+                        if  bboxes is not None:
+                            bboxes_msg = self.yolox2bboxes_msgs(bboxes, scores, cls, cls_names,track_ids, msg.header, img_rgb)
 
-                    #self.pub.publish(bboxes_msg) #bboxes_msg
-                else:
-                    result_img_rgb=img_rgb
-                img_rgb_result = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
+                    if result_img_rgb is not None:
+                        #logger.info("result_img_rgb{}".format(result_img_rgb))
+                        frame = Frame(result_img_rgb)
+                        #logger.info("Frame{}".format(frame))
+                        frame = self.process_frame(frame)
+                        logger.info("process_frame")
+                        cv2.imshow("slam", frame.image)
+                        if cv2.waitKey(30) & 0xFF == ord('q'): 
+                            exit()
+                        #mapp.display()
 
-                self.pub_boxes_img.publish(img_rgb_result)
+                        img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
+                        self.pub_boxes_img.publish(img_rgb_pub)
 
-                #if (self.imshow_isshow):
-                #    cv2.imshow("YOLOX",result_img_rgb)
-                #    cv2.waitKey(1)
-            except Exception as e:
-                logger.error(e)
-                pass
+                    #if (self.imshow_isshow):
+                    #    cv2.imshow("YOLOX",result_img_rgb)
+                    #    cv2.waitKey(1)
+                except Exception as e:
+                    logger.error(e)
+                    pass
     def depth2PointCloud(self,depth, rgb,box):
-        global i
+        global i,pointsxyzrgb_total
         logger.info("before convertion depth:{}".format(depth.shape))
         intrinsics = self.intrinsics
         depth = np.asanyarray(depth)  # * depth_scale # 1000 mm => 0.001 meters
@@ -488,40 +653,42 @@ class yolox_ros(yolox_py):
         rows=480#self.intrinsics.width 
         cols=848#self.intrinsics.height
         logger.info("depth:{}".format(depth.shape))
-        pointsxyzrgb_total=np.asarray([[0,0,0,0,0,0]])
-        for box in bboxes_msg.bounding_boxes:
-            c, r = np.meshgrid(np.arange(cols), np.arange(rows), sparse=True)
-            r = r.astype(float)
-            c = c.astype(float)
-            logger.info("r:{},c:{}".format(r.shape,c.shape))
-            logger.info("box.xmin:{},box.xmax:{},box.ymin:{},box.ymax:{}".format(box.xmin,box.xmax,box.ymin,box.ymax))
-            valid = (depth[box.ymin:box.ymax,box.xmin:box.xmax] > 0) #& (depth < clip_distance_max) #remove from the depth image all values above a given value (meters).
-            valid = np.ravel(valid)
-            z = depth[box.ymin:box.ymax,box.xmin:box.xmax]
-            #z = depth[box.xmin:box.xmax,box.ymin:box.ymax] 
-            logger.info("z:{}".format(z.shape))
-            x =  z * (c[:,box.xmin:box.xmax] - intrinsics.ppx) / intrinsics.fx
-            y =  z * (r[box.ymin:box.ymax,:] - intrinsics.ppy) / intrinsics.fy
-            #logger.info("x,y:{},{}".format(x,y))
-            z = np.ravel(z)[valid]
-            x = np.ravel(x)[valid]
-            y = np.ravel(y)[valid]
-            
-            r = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,0])[valid]
-            g = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,1])[valid]
-            b = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,2])[valid]
-            
-            pointsxyzrgb = np.dstack((x, y, z, r, g, b))
-            #logger.info("pointsxyzrgb type:{}".format(pointsxyzrgb.dtype))
-            
 
-            pointsxyzrgb = pointsxyzrgb.reshape(-1,6)
-           
-            pointsxyzrgb_total=np.concatenate((pointsxyzrgb_total,pointsxyzrgb))
-            #logger.info("pointsxyzrgb_total :{}".format(pointsxyzrgb_total))
-            #logger.info("pointsxyzrgb_total:{},shape{}".format(pointsxyzrgb_total,pointsxyzrgb_total.shape))
+        for box in bboxes_msg.bounding_boxes:
+            if  not r.hexists("detections",box.class_id):
+                col, row = np.meshgrid(np.arange(cols), np.arange(rows), sparse=True)
+                row = row.astype(float)
+                col = col.astype(float)
+                logger.info("r:{},c:{}".format(row.shape,col.shape))
+                logger.info("box.xmin:{},box.xmax:{},box.ymin:{},box.ymax:{}".format(box.xmin,box.xmax,box.ymin,box.ymax))
+                valid = (depth[box.ymin:box.ymax,box.xmin:box.xmax] > 0) #& (depth < clip_distance_max) #remove from the depth image all values above a given value (meters).
+                valid = np.ravel(valid)
+                z = depth[box.ymin:box.ymax,box.xmin:box.xmax]
+                #z = depth[box.xmin:box.xmax,box.ymin:box.ymax] 
+                logger.info("z:{}".format(z.shape))
+                x =  z * (col[:,box.xmin:box.xmax] - intrinsics.ppx) / intrinsics.fx
+                y =  z * (row[box.ymin:box.ymax,:] - intrinsics.ppy) / intrinsics.fy
+                #logger.info("x,y:{},{}".format(x,y))
+                z = np.ravel(z)[valid]
+                x = np.ravel(x)[valid]
+                y = np.ravel(y)[valid]
+                
+                red = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,0])[valid]
+                green = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,1])[valid]
+                blue = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,2])[valid]
+                
+                pointsxyzrgb = np.dstack((x, y, z, red, green, blue))
+                #logger.info("pointsxyzrgb type:{}".format(pointsxyzrgb.dtype))
+                
+
+                pointsxyzrgb = pointsxyzrgb.reshape(-1,6)
+            
+                pointsxyzrgb_total=np.concatenate((pointsxyzrgb_total,pointsxyzrgb))
+                #logger.info("pointsxyzrgb_total :{}".format(pointsxyzrgb_total))
+                #logger.info("pointsxyzrgb_total:{},shape{}".format(pointsxyzrgb_total,pointsxyzrgb_total.shape))
         #self.create_point_cloud_file2(pointsxyzrgb_total,"new_room_total{}.ply".format(i))
         i=i+1
+        #pointsxyzrgb_total=np.delete(pointsxyzrgb_total,0)
         return pointsxyzrgb_total
     def create_point_cloud_file2(self,vertices, filename):
         ply_header = '''ply
@@ -538,49 +705,9 @@ class yolox_ros(yolox_py):
         with open(filename, 'w') as f:
             f.write(ply_header %dict(vert_num=len(vertices)))
             np.savetxt(f,vertices,'%f %f %f %d %d %d')
-    def dtype_to_fields(self,dtype):
-        '''Convert a numpy record datatype into a list of PointFields.
-        '''
-        fields = []
-        for field_name in dtype.names:
-            np_field_type, field_offset = dtype.fields[field_name]
-            pf = PointField()
-            pf.name = field_name
-            if np_field_type.subdtype:
-                item_dtype, shape = np_field_type.subdtype
-                pf.count = np.prod(shape)
-                np_field_type = item_dtype
-            else:
-                pf.count = 1
-    
-            pf.datatype = nptype_to_pftype[np_field_type]
-            pf.offset = field_offset
-            fields.append(pf)
-        return fields
-
-    def array_to_pointcloud2(self,cloud_arr, stamp=None, frame_id=None):
-        '''Converts a numpy record array to a sensor_msgs.msg.PointCloud2.
-        '''
-        # make it 2d (even if height will be 1)
-        cloud_arr = np.atleast_2d(cloud_arr)
-    
-        cloud_msg = PointCloud2()
-    
-        if stamp is not None:
-            cloud_msg.header.stamp = stamp
-        if frame_id is not None:
-            cloud_msg.header.frame_id = frame_id
-        cloud_msg.height = cloud_arr.shape[0]
-        cloud_msg.width = cloud_arr.shape[1]
-        cloud_msg.fields = self.dtype_to_fields(cloud_arr.dtype)
-        cloud_msg.is_bigendian = False # assumption
-        cloud_msg.point_step = cloud_arr.dtype.itemsize
-        cloud_msg.row_step = cloud_msg.point_step*cloud_arr.shape[1]
-        cloud_msg.is_dense = all([np.isfinite(cloud_arr[fname]).all() for fname in cloud_arr.dtype.names])
-        cloud_msg.data = cloud_arr.tostring()
-        return cloud_msg
+ 
     def imageDepthCallback(self, data):
-        global bboxes_msg,result_img_rgb,i,points_xyz_rgb
+        global bboxes_msg,result_img_rgb,i,points_xyz_rgb,global_points_xyz_rgb_list
 
         try:
             cv_image = self.bridge.imgmsg_to_cv2(data, data.encoding)
@@ -595,14 +722,12 @@ class yolox_ros(yolox_py):
             if bboxes_msg is not None and len(bboxes_msg.bounding_boxes)>0 and r.get("mode")=="camera_ready" and  self.intrinsics is not None:
                 if(result_img_rgb is not None):
                     points_xyz_rgb=self.depth2PointCloud(cv_image, result_img_rgb,bboxes_msg.bounding_boxes)
-                    #logger.info("glabal xyx{}".format(points_xyz_rgb))
+                    #points_xyz_rgb=np.delete(points_xyz_rgb,0,axis=0)
+                    logger.info("glabal xyz {}".format(points_xyz_rgb.shape))
                 #r.set("mode","pickup_ready")
                 boxes_cords=BoundingBoxesCords()
 
-
                 for box in bboxes_msg.bounding_boxes:
-
-
                     box_cord=BoundingBoxCord()
                     logger.info("probability,{},pixal x={},y={}".format(box.probability,box.class_id,(box.xmin+box.xmax)/2,(box.ymin+box.ymax)/2))
                     line ='probability:%4.2f,track_id:%s'%(box.probability,box.class_id)
@@ -645,44 +770,28 @@ class yolox_ros(yolox_py):
                     #else:
                     #     r.hdel("detections", box.class_id)
 
-                pcl_msg = PointCloud2()
-                
 
-                pcl_msg.header=Header()
-                pcl_msg.header.stamp = self.get_clock().now().to_msg()#seconds #rospy.Time(t_us/10000000.0)
-                pcl_msg.header.frame_id = "/map"
-                #fields =[PointField('x', 0, PointField.FLOAT32, 1),PointField('y', 4, PointField.FLOAT32, 1),PointField('z', 8, PointField.FLOAT32, 1),
-                #        PointField('r', 12, PointField.FLOAT32,1),PointField('g', 16, PointField.FLOAT32,1),PointField('b', 20, PointField.FLOAT32,1),
-                #        ]
+                #gray=((points_xyz_rgb[:,3])+(points_xyz_rgb[:,4]) + (points_xyz_rgb[:,5]))/3
+                if points_xyz_rgb.shape[0]>1:
+                    points_xyz_rgb=points_xyz_rgb.T
+                    new_points_xyz_rgb=list(zip(points_xyz_rgb[0],points_xyz_rgb[1],points_xyz_rgb[2],points_xyz_rgb[3]))
+                    new_points_xyz_rgb_list=np.array(new_points_xyz_rgb,  dtype=[
+                                                                                ('x', np.float32),
+                                                                                ('y', np.float32),
+                                                                                ('z', np.float32),
+                                                                            ('i', np.uint8),
+                                                                            # ('g', np.uint8),
+                                                                            # ('b', np.uint8)]
+                                                                                ])
 
-                #pcl_msg.fields = fields
-                #pcl_msg.height = 848
-                #pcl_msg.width = 480
-                # Float occupies 4 bytes. Each point then carries 16 bytes.
-                #pcl_msg.point_step = len(fields) * 4 
-                #total_num_of_points = pcl_msg.height * pcl_msg.width
-                #pcl_msg.row_step = pcl_msg.point_step * total_num_of_points
-                #pcl_msg.is_dense = True
-                #pcl_msg.data = np.ndarray.tobytes(points_xyz_rgb)
-                #pcl_msg2=self.array_to_pointcloud2(points_xyz_rgb,None,"/map")
-                #cloud_msg = ros_numpy.msgify(PointCloud2, points_xyz_rgb)
-                points_xyz_rgb=np.transpose(points_xyz_rgb)
-                gray=(0.21*points_xyz_rgb[3])+(0.72 *points_xyz_rgb[4]) + (0.07*points_xyz_rgb[5])
-                new_points_xyz_rgb=list(zip(points_xyz_rgb[0],points_xyz_rgb[1],points_xyz_rgb[2],gray))
-                logger.info("new_points_xyz_rgb".format(new_points_xyz_rgb))
-                new_points_xyz_rgb_list=np.array(new_points_xyz_rgb,  dtype=[
-                                                                            ('x', np.float32),
-                                                                            ('y', np.float32),
-                                                                            ('z', np.float32),
-                                                                           ('i', np.uint8),
-                                                                           # ('g', np.uint8),
-                                                                           # ('b', np.uint8)]
-                                                                            ])
-                cloud_msg=rnp.msgify(PointCloud2, new_points_xyz_rgb_list)
-                cloud_msg.header=Header()
-                cloud_msg.header.stamp = self.get_clock().now().to_msg()#seconds #rospy.Time(t_us/10000000.0)
-                cloud_msg.header.frame_id = "/camera_link"
-                self.pub_pointclouds.publish(cloud_msg)
+                    logger.info("new_points_xyz_rgb_list{}".format(new_points_xyz_rgb_list))
+                    #global_points_xyz_rgb_list=np.concatenate((global_points_xyz_rgb_list,new_points_xyz_rgb_list))
+                    #logger.info("global_points_xyz_rgb_list{}".format(global_points_xyz_rgb_list))
+                    cloud_msg=rnp.msgify(PointCloud2, new_points_xyz_rgb_list)
+                    cloud_msg.header=Header()
+                    cloud_msg.header.stamp = self.get_clock().now().to_msg()#seconds #rospy.Time(t_us/10000000.0)
+                    cloud_msg.header.frame_id = "/camera_link"
+                    self.pub_pointclouds.publish(cloud_msg)
 
 
                 logger.info(boxes_cords)
@@ -712,7 +821,7 @@ class yolox_ros(yolox_py):
             if r.get("mode")=="camera_ready":
                 #r.set("mode","pickup_ready")                            
                     obj=str(int(float(camera_xy[0]))+x)+","+str(int(float(camera_xy[1]))+y)+","+str(int(float(z)))
-                    logger.info(line)
+                    #logger.info(line)
                     if 1:
                         r.hset("detections", "-1", obj)
                         r.lpush("queue","-1")
