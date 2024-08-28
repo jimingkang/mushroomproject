@@ -23,7 +23,7 @@ def print_hi(name):
     hi.get_scara_param()
     print(hi.x,hi.y)
     #ret=hi.movel_xyz(hi.x-10,hi.y-110,0,75,20)
-    ret=hi.new_movej_xyz_lr(hi.x-10,hi.y-110,0,75,20,0,1)
+    ret=hi.new_movej_xyz_lr(hi.x-30,hi.y-30,-50,75,20,0,1)
     hi.wait_stop()
     #ret=hi.movej_angle(10,0,0,0,20,0)
     #hi.wait_stop()

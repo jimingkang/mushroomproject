@@ -4,10 +4,11 @@ import { RouterOutlet } from '@angular/router';
 import { ProductService } from '../services/product.service';
 import * as ROSLIB from 'roslib';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { MushroomComponent } from '../mushroom/mushroom.component';
 @Component({
   selector: 'app-video',
   standalone: true,
-  imports: [RouterOutlet,CommonModule],
+  imports: [RouterOutlet,CommonModule,MushroomComponent],
   templateUrl: './video.component.html',
   styleUrl: './video.component.scss'
 })

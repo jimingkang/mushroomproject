@@ -49,8 +49,9 @@ class MovePublisher(Node):
         self.pointcloud_subscription = self.create_subscription(PointCloud2,'/yolox/pointclouds',self.pointcloud_callback,10)
         self.latest_message = None
         self.bridge = CvBridge()
+        #o3d.visualization.webrtc_server.enable_webrtc()
         self.vis = o3d.visualization.Visualizer()
-        self.vis.create_window(visible=False)
+        self.vis.create_window(visible=True)
         self.o3d_pcd = o3d.geometry.PointCloud()
 
         self.pitch, self.yaw = math.radians(-10), math.radians(-15)
@@ -130,23 +131,16 @@ class MovePublisher(Node):
         global frame
         pcd_as_numpy_array = np.array(list(pc2.read_points(msg)))
         if(len(pcd_as_numpy_array)>0):
-            print(pcd_as_numpy_array[1])
+            print(pcd_as_numpy_array)
             print(pcd_as_numpy_array.shape)
             self.o3d_pcd =o3d.geometry.PointCloud(o3d.utility.Vector3dVector(pcd_as_numpy_array[:, 0:3]))#o3d.io.read_point_cloud("../ros2_ws/src/orb_slam3_ros2/result.pcd")#
             self.vis.add_geometry(self.o3d_pcd)
             self.vis.poll_events()
             self.vis.update_renderer()
-            self.vis.capture_screen_image("./save.png")
-            o3d.visualization.draw_geometries(self.o3d_pcd,zoom=0.3412, front=[0.4257, -0.2125, -0.8795],lookat=[2.6172, 2.0475, 1.532],up=[-0.0694, -0.9768, 0.2024])
-        #print(f'chatter cb received: {msg.data}')
-        #pc = pc2.read_points(msg, skip_nans=True, field_names=("x", "y", "z"))
-        #pc_list = []
-        #for p in pc:
-        #    pc_list.append( [p[0],p[1],p[2]] )
-        #    print(p)
+            #self.vis.capture_screen_image("./save.png")
 
-        #self.latest_message = msg.data
-        #frame = msg.data
+            o3d.visualization.draw_geometries(self.o3d_pcd,zoom=0.3412, front=[0.4257, -0.2125, -0.8795],lookat=[2.6172, 2.0475, 1.532],up=[-0.0694, -0.9768, 0.2024])
+
         
     def reset(self):
         self.pitch, self.yaw, self.distance = 0, 0, 2

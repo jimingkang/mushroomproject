@@ -76,8 +76,8 @@ except:
 #broker = broker.replace("\n", "").replace("\r\n", "")
 
 
-broker="172.27.34.65"
-redis_server="172.27.34.65"
+broker="172.27.34.62"
+redis_server="172.27.34.62"
 print(broker)
 print(redis_server)
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True, password='jimmy')
@@ -101,7 +101,7 @@ topic4 = '/flask/pickup'
 topic5 = '/flask/home'
 topic6 = '/flask/drop'
 topic7 = '/flask/stop'
-mqtt_client = Mqtt(app)
+#mqtt_client = Mqtt(app)
 y = 0
 
 
@@ -183,7 +183,7 @@ class yolox_ros(yolox_py):
                 xy=v.split(",")
                 logger.info(xy)
             if v is not None and len(xy)>0:
-                rett=hi.movel_xyz(int(xy[0]),int(xy[1]),-190,75,20)
+                rett=hi.movel_xyz(int(xy[0]),int(xy[1]),-195,75,20)
                 logger.info("rett:{}".format(rett))
                 hi.wait_stop()
                 if rett==1:

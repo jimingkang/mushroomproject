@@ -81,8 +81,8 @@ i = 0
 
 
 
-#broker="172.27.34.65"
-redis_server="172.27.34.65"
+broker="172.27.34.62"
+redis_server="172.27.34.62"
 
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True, password='jimmy')
@@ -624,14 +624,13 @@ class yolox_ros(yolox_py):
                             bboxes_msg = self.yolox2bboxes_msgs(bboxes, scores, cls, cls_names,track_ids, msg.header, img_rgb)
 
                     if result_img_rgb is not None:
-                        #logger.info("result_img_rgb{}".format(result_img_rgb))
-                        frame = Frame(result_img_rgb)
-                        #logger.info("Frame{}".format(frame))
-                        frame = self.process_frame(frame)
-                        logger.info("process_frame")
-                        cv2.imshow("slam", frame.image)
-                        if cv2.waitKey(30) & 0xFF == ord('q'): 
-                            exit()
+
+                        #frame = Frame(result_img_rgb)
+                        #frame = self.process_frame(frame)
+                        #logger.info("process_frame")
+                        #cv2.imshow("slam", frame.image)
+                        #if cv2.waitKey(30) & 0xFF == ord('q'): 
+                        #    exit()
                         #mapp.display()
 
                         img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
@@ -653,7 +652,7 @@ class yolox_ros(yolox_py):
         rows=480#self.intrinsics.width 
         cols=848#self.intrinsics.height
         logger.info("depth:{}".format(depth.shape))
-
+        i=i+1
         for box in bboxes_msg.bounding_boxes:
             if  not r.hexists("detections",box.class_id):
                 col, row = np.meshgrid(np.arange(cols), np.arange(rows), sparse=True)
@@ -686,8 +685,8 @@ class yolox_ros(yolox_py):
                 pointsxyzrgb_total=np.concatenate((pointsxyzrgb_total,pointsxyzrgb))
                 #logger.info("pointsxyzrgb_total :{}".format(pointsxyzrgb_total))
                 #logger.info("pointsxyzrgb_total:{},shape{}".format(pointsxyzrgb_total,pointsxyzrgb_total.shape))
-        #self.create_point_cloud_file2(pointsxyzrgb_total,"new_room_total{}.ply".format(i))
-        i=i+1
+        self.create_point_cloud_file2(pointsxyzrgb_total,"new_room_total{}.ply".format(i))
+        i=i-1
         #pointsxyzrgb_total=np.delete(pointsxyzrgb_total,0)
         return pointsxyzrgb_total
     def create_point_cloud_file2(self,vertices, filename):

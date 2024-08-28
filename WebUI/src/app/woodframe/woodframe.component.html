@@ -1,24 +1,19 @@
 
-    <mat-tab-group  (selectedIndexChange)="selectedTabIndex.set($event)" class="remove-border-bottom">
-        
-        <mat-tab label="Warehouse 1" >
-          @defer(when selectedTabIndex() === 1; ) {
-       
-
-           
-            <app-card-view ip="http://10.0.0.133:5000/" />
-       
-       
-          }
-        
-        </mat-tab>
-        <mat-tab label="Warehouse 2">
-          @defer(when selectedTabIndex() === 2;) {
-           
-            <app-card-view ip="http://10.0.0.134:5000/"/>
-          }
-        </mat-tab>
-       
-      </mat-tab-group>
 
 
+        <div class="row pt-3">
+          <div class="col-12" style="padding-left: 0;">
+            <app-tabs [tabsArray]="tabs" (onTabChange)="tabChange($event)"></app-tabs>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-12 dark">
+            <div *ngIf="activatedTabIndex ==0">
+              <app-card-view ip="http://172.27.34.62"/>
+            </div>
+            <div *ngIf="activatedTabIndex ==1">
+              <app-card-view ip="http://10.0.0.134"/>
+            </div>
+          
+          </div>
+        </div>

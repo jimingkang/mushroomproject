@@ -2,7 +2,7 @@
 
 
 import { CommonModule } from '@angular/common';
-import { Component, Input, OnInit, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, signal } from '@angular/core';
 import {  RouterOutlet } from '@angular/router';
 import { ProductService } from '../services/product.service';
 import { FormsModule } from '@angular/forms';
@@ -19,17 +19,24 @@ import { CardViewComponent } from '../tab-content/card-view/card-view.component'
 import { SidebarModule } from 'primeng/sidebar';
 import { ThemePalette } from '@angular/material/core';
 import { DxTabPanelModule } from 'devextreme-angular';
+import { TabComponent } from '../tab-content/tab/tab.component';
 @Component({
   selector: 'app-woodframe',
   standalone: true,
-  imports: [DxTabPanelModule,SidebarModule,SlidepanelComponent,MatSlideToggleModule,CommonModule,FormsModule,VideoComponent,RouterOutlet, MatToolbarModule,MatTabsModule, CardViewComponent,],
+  imports: [TabComponent,DxTabPanelModule,SidebarModule,SlidepanelComponent,MatSlideToggleModule,CommonModule,FormsModule,VideoComponent,RouterOutlet, MatToolbarModule,MatTabsModule, CardViewComponent,],
   templateUrl: './woodframe.component.html',
   styleUrl: './woodframe.component.scss'
 })
 
 export class WoodframeComponent implements OnInit {
   
-  
+  tabs: string [] = ['Ware House 1','Ware House 2'];
+  activatedTabIndex: number = 0;
+
+  tabChange(tabIndex: any) {
+    this.activatedTabIndex = tabIndex;
+  }
+
 onValueChanged($event: Event) {
 throw new Error('Method not implemented.');
 }
