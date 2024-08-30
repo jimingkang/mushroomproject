@@ -41,7 +41,7 @@ export class MushroomComponent implements OnInit, AfterViewInit {
     return this.canvasRef?.nativeElement;
   }
   private loader = new THREE.TextureLoader();
-  private geometry = new THREE.BoxGeometry(1, 1, 1);
+  private geometry = new THREE.BoxGeometry(1, 1, 1);//new THREE.CylinderGeometry( 5, 5, 20, 32 ); //
   private material = new THREE.MeshBasicMaterial({ map: this.loader.load(this.texture) });
 
   private cube: THREE.Mesh = new THREE.Mesh(this.geometry, this.material);
