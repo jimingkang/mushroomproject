@@ -41,7 +41,7 @@ export class MushroomComponent implements OnInit, AfterViewInit {
     return this.canvasRef?.nativeElement;
   }
   private loader = new THREE.TextureLoader();
-  private geometry = new THREE.BoxGeometry(1, 1, 1);
+  private geometry = new THREE.BoxGeometry(1, 1, 1);//new THREE.CylinderGeometry( 5, 5, 20, 32 ); //
   private material = new THREE.MeshBasicMaterial({ map: this.loader.load(this.texture) });
 
   private cube: THREE.Mesh = new THREE.Mesh(this.geometry, this.material);
@@ -57,8 +57,8 @@ export class MushroomComponent implements OnInit, AfterViewInit {
    * @memberof CubeComponent
    */
   private animateCube() {
-    this.cube.rotation.x += this.rotationSpeedX;
-    this.cube.rotation.y += this.rotationSpeedY;
+    //this.cube.rotation.x += this.rotationSpeedX;
+   // this.cube.rotation.y += this.rotationSpeedY;
   }
 
   /**
@@ -71,6 +71,9 @@ export class MushroomComponent implements OnInit, AfterViewInit {
     //* Scene
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x000000)
+    this.scene.add(this.cube);
+    this.cube= new THREE.Mesh(this.geometry, this.material);
+    this.cube.position.y=10
     this.scene.add(this.cube);
     //*Camera
     let aspectRatio = this.getAspectRatio();

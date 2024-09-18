@@ -616,8 +616,8 @@ class yolox_ros(yolox_py):
                 #logger.info("outputs : {},".format((outputs)))
 
                 try:
-                    logger.info(r.get("mode")=="camera_ready")
-                    if r.get("mode")=="camera_ready" and (outputs is not None):
+                    logger.info("mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
+                    if r.get("mode")=="camera_ready" and (outputs is not None):#and r.get("scan")=="start" 
                         #logger.info("output[0]{},img_info{}".format(outputs[0],img_info))
                         result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
                         if  bboxes is not None:
@@ -635,6 +635,7 @@ class yolox_ros(yolox_py):
 
                         img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
                         self.pub_boxes_img.publish(img_rgb_pub)
+                        time.sleep(2)
 
                     #if (self.imshow_isshow):
                     #    cv2.imshow("YOLOX",result_img_rgb)
@@ -716,14 +717,14 @@ class yolox_ros(yolox_py):
             global_camera_xy=r.get("global_camera_xy")
             camera_xy=global_camera_xy.split(",")
             mode=r.get("mode")=="camera_ready"
-            logger.info("camera_xy:{}, {}".format(camera_xy[0],camera_xy[1]))
+            logger.info("in  imageDepthCallback camera_xy:{}, {}".format(camera_xy[0],camera_xy[1]))
 
-            if bboxes_msg is not None and len(bboxes_msg.bounding_boxes)>0 and r.get("mode")=="camera_ready" and  self.intrinsics is not None:
+            if bboxes_msg is not None and len(bboxes_msg.bounding_boxes)>0  and  self.intrinsics is not None:
                 if(result_img_rgb is not None):
                     points_xyz_rgb=self.depth2PointCloud(cv_image, result_img_rgb,bboxes_msg.bounding_boxes)
                     #points_xyz_rgb=np.delete(points_xyz_rgb,0,axis=0)
                     logger.info("glabal xyz {}".format(points_xyz_rgb.shape))
-                #r.set("mode","pickup_ready")
+                r.set("mode","pickup_ready")
                 boxes_cords=BoundingBoxesCords()
 
                 for box in bboxes_msg.bounding_boxes:
@@ -749,13 +750,13 @@ class yolox_ros(yolox_py):
                     #y=-(int(float(result[1])))               #|              #|
                     #y-=170                                  #\|/      X      #\|/         X               
                      
-                    #x=(int(float(result[0])))            #Arm#-------> Y    #camera   --- >#Y
-                    #y=-(int(float(result[1])))               #|              #/|\
-                    #y-=270                                 #\|/      X       #|         X   
+                    x=(int(float(result[0])))            #Arm#-------> Y    #camera   --- >#Y
+                    y=-(int(float(result[1])))               #|              #/|\
+                    y-=270                                 #\|/      X       #|         X   
                     # 
-                    x=(int(float(result[1])))           #Arm#-------> Y    #camera   --- >#Y
-                    y=(int(float(result[0])))               #|              #   \
-                    y-=130                                 #\|/      X       #  \|/        X                   
+                    #x=(int(float(result[1])))           #Arm#-------> Y    #camera   --- >#Y
+                    #y=(int(float(result[0])))               #|              #   \
+                    #y-=90                                 #\|/      X       #  \|/        X                   
                     obj=str(int(float(camera_xy[0]))+x)+","+str(int(float(camera_xy[1]))+y)+","+str(int(float(result[2])))
                     #logger.info(line)
                     if not r.hexists("detections",str(box.class_id)):
@@ -769,9 +770,9 @@ class yolox_ros(yolox_py):
                     #else:
                     #     r.hdel("detections", box.class_id)
 
-
+                r.set("mode","camera_ready")
                 #gray=((points_xyz_rgb[:,3])+(points_xyz_rgb[:,4]) + (points_xyz_rgb[:,5]))/3
-                if points_xyz_rgb.shape[0]>1:
+                if 0:# points_xyz_rgb.shape[0]>1:
                     points_xyz_rgb=points_xyz_rgb.T
                     new_points_xyz_rgb=list(zip(points_xyz_rgb[0],points_xyz_rgb[1],points_xyz_rgb[2],points_xyz_rgb[3]))
                     new_points_xyz_rgb_list=np.array(new_points_xyz_rgb,  dtype=[
@@ -786,18 +787,18 @@ class yolox_ros(yolox_py):
                     logger.info("new_points_xyz_rgb_list{}".format(new_points_xyz_rgb_list))
                     #global_points_xyz_rgb_list=np.concatenate((global_points_xyz_rgb_list,new_points_xyz_rgb_list))
                     #logger.info("global_points_xyz_rgb_list{}".format(global_points_xyz_rgb_list))
+
                     cloud_msg=rnp.msgify(PointCloud2, new_points_xyz_rgb_list)
                     cloud_msg.header=Header()
                     cloud_msg.header.stamp = self.get_clock().now().to_msg()#seconds #rospy.Time(t_us/10000000.0)
                     cloud_msg.header.frame_id = "/camera_link"
-                    self.pub_pointclouds.publish(cloud_msg)
+                    #self.pub_pointclouds.publish(cloud_msg)
 
 
                 logger.info(boxes_cords)
                 self.pub_bounding_boxes_cords.publish(boxes_cords)
                 bboxes_msg=None
-                #pose =slam.process_image_rgbd(result_img_rgb,cv_image,data.header.stamp)
-                #logger(pose)
+
         except CvBridgeError as e:
             print(e)
             return
