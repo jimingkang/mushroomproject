@@ -308,7 +308,7 @@ def handle_mqtt_message(client, userdata, message):
     #print(' message on topic: {topic} with payload: {payload}'.format(**data))
     xyz = data['payload']
     if message.topic == topic3:
-        r.set("mode","pickup_ready")
+        #r.set("mode","pickup_ready")
         print("get xy payload=" + xyz)
         xyz = data['payload']
         real_xyz = xyz.split(",")
