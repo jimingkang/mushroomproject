@@ -57,13 +57,13 @@ class MovePublisher(Node):
     def gripper_hold_callback(self, msg):
         servo_tmp=servo_min
         print(f' hold cb received: {msg.data}') 
-        while chan.voltage<0.4 or servo_tmp<servo_max:
+        while  servo_tmp<servo_max or chan.voltage<0.4:
             servo_tmp=servo_tmp+servo_inc
             pwm.set_pwm(0, 0, servo_tmp)
             pwm.set_pwm(0, 1, servo_tmp)
             pwm.set_pwm(0, 2, servo_tmp)
             pwm.set_pwm(0, 4, servo_tmp)
-            print("{:>5}\t{:>5.3f}".format(chan.value, chan.voltage))
+            print("servo_tmp={},{:>5}\t{:>5.3f}".format(servo_tmp,chan.value, chan.voltage))
             time.sleep(0.05)
     def gripper_open_callback(self, msg):
         print(f'open cb received: {msg.data}')
