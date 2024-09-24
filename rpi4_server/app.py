@@ -23,8 +23,8 @@ from threading import Event
 from flask import Flask, render_template, request, jsonify
 from flask_mqtt import Mqtt
 
-from cv_bridge import CvBridge,CvBridgeError
-import cv2
+#from cv_bridge import CvBridge,CvBridgeError
+#import cv2
 frame=None
 
 import time
@@ -46,7 +46,7 @@ class MovePublisher(Node):
         self.gripper_hold_subs = self.create_subscription(String,'/yolox/gripper_hold',self.gripper_hold_callback,10)
 
         self.latest_message = None
-        self.bridge = CvBridge()
+        #self.bridge = CvBridge()
 
     def chatter_callback(self, msg):
         global frame
