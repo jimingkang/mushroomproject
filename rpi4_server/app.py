@@ -4,6 +4,18 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
 import threading
+import time
+import board
+import busio
+import adafruit_ads1x15.ads1015 as ADS
+from adafruit_ads1x15.analog_in import AnalogIn
+
+# Create the I2C bus
+i2c = busio.I2C(board.SCL, board.SDA)
+# Create the ADC object using the I2C bus
+ads = ADS.ADS1015(i2c)
+# Create single-ended input on channel 0
+chan = AnalogIn(ads, ADS.P0)
 
 import redis
 from flask import Flask, render_template, Response, jsonify
@@ -21,6 +33,8 @@ pwm = Adafruit_PCA9685.PCA9685(address=0x40, busnum=1)
 
 # Configure min and max servo pulse lengths
 servo_min = 250  # Min pulse length out of 4096
+servo_tmp=servo_min
+servo_inc=50
 servo_max = 400  # Max pulse length out of 4096
 
 class MovePublisher(Node):
@@ -42,10 +56,13 @@ class MovePublisher(Node):
         #frame = msg.data
     def gripper_hold_callback(self, msg):
         print(f' hold cb received: {msg.data}')
-        pwm.set_pwm(0, 0, servo_max)
-        pwm.set_pwm(0, 1, servo_max)
-        pwm.set_pwm(0, 2, servo_max)
-        pwm.set_pwm(0, 4, servo_max)
+        print("{:>5}\t{:>5.3f}".format(chan.value, chan.voltage))
+        while chan.voltage<2.4:
+            servo_tmp=servo_tmp+servo_inc
+            pwm.set_pwm(0, 0, servo_tmp)
+            pwm.set_pwm(0, 1, servo_tmp)
+            pwm.set_pwm(0, 2, servo_tmp)
+            pwm.set_pwm(0, 4, servo_tmp)
         time.sleep(1)
     def gripper_open_callback(self, msg):
         print(f'open cb received: {msg.data}')

@@ -21,7 +21,7 @@ from time import sleep
 import math
 from flask_cors import CORS, cross_origin
 import RPi.GPIO as GPIO
-
+import random
 import time
 from HitbotInterface import HitbotInterface
 import redis
@@ -158,54 +158,65 @@ class yolox_ros(yolox_py):
     def imageflow_callback(self,msg:Image) -> None:
             global bounding_boxes
             self.img_rgb =self.bridge.imgmsg_to_cv2(msg,"bgr8")
-            hi.get_scara_param()
+            #hi.get_scara_param()
+            #hi.wait_stop()
             rett=0
-            hi.wait_stop()
+
             #r.set("mode","camera_stop")
             logger.info(" jimmy scan current location :{},{},{},".format(hi.x,hi.y,hi.z))
-            #self.pre_count=self.pre_count+1;
-            #if self.count==self.pre_count:
-            #    r.set("scan","start");
+            self.pre_count=self.pre_count+1;
+            if self.count==self.pre_count:
+                r.set("scan","start");
 
             if r.get("scan")=="start":
+                #rett=hi.movel_xyz(hi.x+40*random.choice((-1, 1))*random.random(),hi.y+40*random.choice((-1, 1))*random.random(),hi.z,55,40)
+                #hi.wait_stop()
+                #self.scan_i=self.scan_i+1;
                 self.pre_count=self.count;
                 self.count=self.count+1;
                 r.set("mode","pic_ready");
-                if self.scan_i<3 and self.scan_j==3:
+                hi.get_scara_param()
+                hi.wait_stop()
+
+                if self.scan_i<2 and self.scan_j==2:
                     self.scan_i=self.scan_i+1;
                     self.scan_j=0;
-                    rett=hi.movel_xyz(hi.x+70,hi.y,hi.z,55,80)
+                    rett=hi.movel_xyz(hi.x+50*self.scan_i,hi.y,hi.z,55,80)
                     hi.wait_stop()
+                    r.set("scan","stop");
                     
 
-                if self.scan_j<3:
+                if self.scan_j<2:
                     self.scan_j=self.scan_j+1;
                     if self.scan_i%2==1:
                         hi.get_scara_param()
                         hi.wait_stop()
-                        rett=hi.movel_xyz(hi.x,hi.y-70,hi.z,55,80)
+                        rett=hi.movel_xyz(hi.x,hi.y-50,hi.z,55,80)
                         hi.wait_stop()
+                        time.sleep(1)
                     else:
                         hi.get_scara_param()
                         hi.wait_stop()
-                        rett=hi.movel_xyz(hi.x,hi.y+70,hi.z,55,80)
+                        rett=hi.movel_xyz(hi.x,hi.y+50,hi.z,55,80)
                         hi.wait_stop()
+                        time.sleep(1)
 
                 r.set("mode","camera_ready");
-                time.sleep(2)
+                time.sleep(1)
+
                 logger.info("scan  x rett={}:i={},j={},".format(rett,self.scan_i,self.scan_j))
-                if self.scan_i==3 or rett>1 :
+                if self.scan_i==2 or rett>1 :  #
                     self.scan_j=0;
                     self.scan_i=0;
                     r.set("scan","stop");
                     r.set("mode","camera_ready");
-                    if 1:#rett>1:
+                    if rett>1:
                         rett=hi.movel_xyz(300,50,hi.z,55,80)
                         hi.wait_stop()   
                         time.sleep(1) 
-            hi.get_scara_param()
-            hi.wait_stop()
-            r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
+                hi.get_scara_param()
+                hi.wait_stop()
+                r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
 
             try:
 
@@ -226,10 +237,12 @@ class yolox_ros(yolox_py):
             #r.set("mode","pickup_ready")
         r.set("mode","pickup_ready")
         logger.info(r.llen("queue"))  
-        logger.info("stop?,{}".format(r.get("scan")=="stop"))  
-        if r.get("scan")=="stop" and r.hlen("detections")>0 : #r.get("scan")=="stop" and
+        logger.info("stop,{}".format(r.get("scan")=="stop")) 
+        hlen=r.hlen("detections") 
+        if r.get("scan")=="stop" and hlen>0 : #r.get("scan")=="stop" and
             #ele=r.lpop("queue") 
             #v=r.hget("detections",ele)
+            print(r.hgetall("detections"))
             for key in r.hkeys("detections"):
                 v=r.hget("detections",key)
                 xy=[]
@@ -237,18 +250,18 @@ class yolox_ros(yolox_py):
                     xy=v.split(",")
                     logger.info(xy)
                 if v is not None and len(xy)>0:
-                    rett=hi.movel_xyz(int(xy[0]),int(xy[1]),-200,55,40)
+                    rett=hi.movel_xyz(int(xy[0]),int(xy[1]),-196,55,80)
                     logger.info("rett:{}".format(rett))
                     hi.wait_stop()
                     back_z=hi.z
                     hi.get_scara_param()
                     hi.wait_stop()
                     logger.info("movedown current location :{},{},{},".format(xy[0],xy[1],hi.z))
-                    if rett==1:
-                        r.hdel("detections",key)
-                        gripper_msg = String()
-                        gripper_msg.data = '%d,%d,%d' %(int(xy[0]),int(xy[1]),hi.z) 
-                        self.gripper_publisher.publish(gripper_msg)
+                    #if rett==1:
+                    r.hdel("detections",key)
+                    gripper_msg = String()
+                    gripper_msg.data = '%d,%d,%d' %(int(xy[0]),int(xy[1]),hi.z) 
+                    self.gripper_publisher.publish(gripper_msg)
                     logger.info(r.get("mode")=="catch_over")
                     #while  r.get("mode")!="catch_over":
                     #    time.sleep(1)
@@ -267,6 +280,11 @@ class yolox_ros(yolox_py):
                 hi.get_scara_param()
                 hi.wait_stop()
                 r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
+        
+        hi.get_scara_param()
+        hi.wait_stop()
+        #if hlen>0:
+        #    rett=hi.movel_xyz(hi.x,hi.y+270,hi.z,55,80)
         r.set("mode","camera_ready")
         r.set("scan","start")
         img_rgb_pub = self.bridge.cv2_to_imgmsg(self.img_rgb,"bgr8")

@@ -617,7 +617,7 @@ class yolox_ros(yolox_py):
 
                 try:
                     logger.info("mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
-                    if r.get("mode")=="camera_ready" and (outputs is not None):#and r.get("scan")=="start" 
+                    if  (outputs is not None) and r.get("scan")=="start" :#r.get("mode")=="camera_ready" and
                         #logger.info("output[0]{},img_info{}".format(outputs[0],img_info))
                         result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
                         if  bboxes is not None:
@@ -635,7 +635,7 @@ class yolox_ros(yolox_py):
 
                         img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
                         self.pub_boxes_img.publish(img_rgb_pub)
-                        time.sleep(2)
+                        #time.sleep(2)
 
                     #if (self.imshow_isshow):
                     #    cv2.imshow("YOLOX",result_img_rgb)
