@@ -55,6 +55,7 @@ class MovePublisher(Node):
         #self.latest_message = msg.data
         #frame = msg.data
     def gripper_hold_callback(self, msg):
+        global servo_tmp
         print(f' hold cb received: {msg.data}')
         print("{:>5}\t{:>5.3f}".format(chan.value, chan.voltage))
         while chan.voltage<2.4:
@@ -63,6 +64,7 @@ class MovePublisher(Node):
             pwm.set_pwm(0, 1, servo_tmp)
             pwm.set_pwm(0, 2, servo_tmp)
             pwm.set_pwm(0, 4, servo_tmp)
+        servo_tmp=servo_min
         time.sleep(1)
     def gripper_open_callback(self, msg):
         print(f'open cb received: {msg.data}')
