@@ -193,16 +193,16 @@ class yolox_ros(yolox_py):
                         hi.wait_stop()
                         rett=hi.movel_xyz(hi.x,hi.y-50,hi.z,55,80)
                         hi.wait_stop()
-                        time.sleep(1)
+                        time.sleep(0.5)
                     else:
                         hi.get_scara_param()
                         hi.wait_stop()
                         rett=hi.movel_xyz(hi.x,hi.y+50,hi.z,55,80)
                         hi.wait_stop()
-                        time.sleep(1)
+                        time.sleep(0.5)
 
                 r.set("mode","camera_ready");
-                time.sleep(1)
+                time.sleep(0.5)
 
                 logger.info("scan  x rett={}:i={},j={},".format(rett,self.scan_i,self.scan_j))
                 if self.scan_i==2 or rett>1 :  #
@@ -213,7 +213,7 @@ class yolox_ros(yolox_py):
                     if rett>1:
                         rett=hi.movel_xyz(300,50,hi.z,55,80)
                         hi.wait_stop()   
-                        time.sleep(1) 
+                        time.sleep(0.5) 
                 hi.get_scara_param()
                 hi.wait_stop()
                 r.set("global_camera_xy",str(hi.x)+","+str(hi.y))

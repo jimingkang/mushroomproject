@@ -606,14 +606,13 @@ class yolox_ros(yolox_py):
         Frame.last_pose = frame.curr_pose
         return frame
 
-
     def imageflow_callback(self,msg:Image) -> None:
             global bboxes_msg,result_img_rgb,img_rgb,mapp,frame
             img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
-            #logger.info("img_rgb{}".format(img_rgb))
+            logger.info("img_rgb{}".format(img_rgb))
             if img_rgb is not None:
                 outputs, img_info = self.predictor.inference(img_rgb)
-                #logger.info("outputs : {},".format((outputs)))
+                logger.info("outputs : {},".format((outputs)))
 
                 try:
                     logger.info("mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
@@ -634,7 +633,10 @@ class yolox_ros(yolox_py):
                         #mapp.display()
 
                         img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
-                        self.pub_boxes_img.publish(img_rgb_pub)
+                    else:
+                        img_rgb_pub = self.bridge.cv2_to_imgmsg(img_rgb,"bgr8")
+
+                    self.pub_boxes_img.publish(img_rgb_pub)
                         #time.sleep(2)
 
                     #if (self.imshow_isshow):
@@ -720,10 +722,10 @@ class yolox_ros(yolox_py):
             logger.info("in  imageDepthCallback camera_xy:{}, {}".format(camera_xy[0],camera_xy[1]))
 
             if bboxes_msg is not None and len(bboxes_msg.bounding_boxes)>0  and  self.intrinsics is not None:
-                if(result_img_rgb is not None):
-                    points_xyz_rgb=self.depth2PointCloud(cv_image, result_img_rgb,bboxes_msg.bounding_boxes)
+                #if(result_img_rgb is not None):
+                    #points_xyz_rgb=self.depth2PointCloud(cv_image, result_img_rgb,bboxes_msg.bounding_boxes)
                     #points_xyz_rgb=np.delete(points_xyz_rgb,0,axis=0)
-                    logger.info("glabal xyz {}".format(points_xyz_rgb.shape))
+                    #logger.info("glabal xyz {}".format(points_xyz_rgb.shape))
                 r.set("mode","pickup_ready")
                 boxes_cords=BoundingBoxesCords()
 
