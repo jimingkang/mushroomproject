@@ -301,6 +301,8 @@ def gen():
         global frame
         if frame ==None:
             frame = picam2.capture_array()
+            ret, buffer = cv2.imencode('.jpg', frame)
+            frame = buffer.tobytes()
         #frame = camera.get_frame()
         yield b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n'
 
