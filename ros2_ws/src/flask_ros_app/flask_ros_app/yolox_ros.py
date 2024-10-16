@@ -262,9 +262,9 @@ class yolox_ros(yolox_py):
                     logger.info("movedown current location :{},{},{},".format(xy[0],xy[1],hi.z))
                     #if rett==1:
                     r.hdel("detections",key)
-                    gripper_msg = String()
-                    gripper_msg.data = '%d,%d,%d' %(int(xy[0]),int(xy[1]),hi.z) 
-                    self.gripper_detected_publisher.publish(gripper_msg)
+                    detect_msg = String()
+                    detect_msg.data = '%d,%d,%d' %(int(xy[0]),int(xy[1]),hi.z) 
+                    self.gripper_detected_publisher.publish(detect_msg)
                 while r.get("mode")!="adjust_over":
                     time.sleep(1)
                

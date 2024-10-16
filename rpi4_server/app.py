@@ -115,6 +115,10 @@ class MovePublisher(Node):
 
             # Draw the text on the annotated frame
             cv2.putText(annotated_frame, text, (text_x, text_y), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        else:
+            adjust_msg = String()
+            adjust_msg.data = 'no,%d,%d,%d' %(int(5),int(5),hi.z) 
+            self._adjust_publisher.publish(adjust_msg)
 
 
     def gripper_open_callback(self, msg):
