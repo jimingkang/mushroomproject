@@ -770,7 +770,7 @@ class yolox_ros(yolox_py):
                     'centroid': centroid,
                     'normal_vector': normal_vector
                 })
-                logger.info("Rotation{}".format(euler_angles))
+                logger.info("Rotation{}\n,rotation_matrix{}".format(euler_angles,rotation_matrix))
                 #time.sleep(1)
                 
                 
