@@ -302,16 +302,16 @@ def home():
 
 
 
-def gen(self):
+def gen():
     """Video streaming generator function."""
     yield b'--frame\r\n'
     while True:
-        frame = self.get_frame()
+        frame = ros2_node.get_frame()
         yield b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n'
 
 
 @app.route('/video_feed')
-def video_feed(self):
+def video_feed():
     """Video streaming route. Put this in the src attribute of an img tag."""
-    return Response(self.gen(),
+    return Response(gen(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
