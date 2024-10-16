@@ -1,3 +1,4 @@
+import io
 from loguru import logger
 import rclpy
 import signal
@@ -33,8 +34,10 @@ import Adafruit_PCA9685
 pwm = Adafruit_PCA9685.PCA9685(address=0x40, busnum=1)
 
 
+from base_camera import BaseCamera
 import cv2
 from picamera2 import Picamera2
+from camera_pi import Camera
 from ultralytics import YOLO
 import numpy as np
 
@@ -60,7 +63,7 @@ servo_min = 250  # Min pulse length out of 4096
 servo_inc=50
 servo_max = 400  # Max pulse length out of 4096
 
-class MovePublisher(Node):
+class MovePublisher(Node,BaseCamera):
     def __init__(self):
         super().__init__('test_publisher')
         self._adjust_publisher = self.create_publisher(String, '/yolox/move/adjust/xy', 1)
@@ -72,6 +75,20 @@ class MovePublisher(Node):
         self.latest_message = None
         #self.bridge = CvBridge()
 
+    @staticmethod
+    def frames():
+            # let camera warm up
+            time.sleep(2)
+            stream = io.BytesIO()
+            for _ in picam2.capture_continuous(stream, 'jpeg',
+                                                 use_video_port=True):
+                # return current frame
+                stream.seek(0)
+                yield stream.read()
+
+                # reset stream for next frame
+                stream.seek(0)
+                stream.truncate()
     def chatter_callback(self, msg):
         global frame
         #print(f'chatter cb received: {msg.data}')
@@ -112,7 +129,7 @@ class MovePublisher(Node):
             if(label=="orange" or label=="carrot" ):
                 cv2.rectangle(frame, (left, top), (right, bottom), (255, 0, 0), 2)
                 cv2.putText(frame, label, (left, top - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 1, cv2.LINE_AA)
-                cv2.imshow("detect",frame)
+                #cv2.imshow("detect",frame)
 
 
         
@@ -294,20 +311,16 @@ def get_publish_message():
     ros2_node.publish_message()
     return {}
 
-def gen():
+def gen(camera):
     """Video streaming generator function."""
     yield b'--frame\r\n'
     while True:
-        global frame
-        if frame ==None:
-            frame = picam2.capture_array()
-            ret, buffer = cv2.imencode('.jpg', frame)
-            frame = buffer.tobytes()
-        #frame = camera.get_frame()
+        frame = camera.get_frame()
         yield b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n'
+
 
 @app.route('/video_feed')
 def video_feed():
     """Video streaming route. Put this in the src attribute of an img tag."""
-    return Response(gen(),
-                    mimetype='multipart/x-mixed-replace; boundary=--frame')
+    return Response(gen(Camera()),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')

@@ -7,14 +7,10 @@ from PIL import Image
 import select
 import cv2
 
-#import move_subcribe
+
 #import v4l2capture
 from .base_camera import BaseCamera
-#from ultralytics import YOLO
-#from yolov8 import YOLOv8
 
-
-#import xyz_publish
 import cv2
 
 import argparse
