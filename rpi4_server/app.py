@@ -311,7 +311,7 @@ def gen(self):
 
 
 @app.route('/video_feed')
-def video_feed():
+def video_feed(self):
     """Video streaming route. Put this in the src attribute of an img tag."""
-    return Response(gen(),
+    return Response(self.gen(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
