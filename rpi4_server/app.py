@@ -293,3 +293,19 @@ def get_current_time():
 def get_publish_message():
     ros2_node.publish_message()
     return {}
+
+def gen():
+    """Video streaming generator function."""
+    yield b'--frame\r\n'
+    while True:
+        global frame
+        if frame ==None:
+            frame = picam2.capture_array()
+        #frame = camera.get_frame()
+        yield b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n'
+
+@app.route('/video_feed')
+def video_feed():
+    """Video streaming route. Put this in the src attribute of an img tag."""
+    return Response(gen(),
+                    mimetype='multipart/x-mixed-replace; boundary=--frame')
