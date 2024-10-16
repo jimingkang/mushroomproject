@@ -58,6 +58,7 @@ from sensor_msgs.msg import CameraInfo
 from std_msgs.msg import String
 #import orbslam3
 from slam import Mapp,Frame
+from scipy.spatial.transform import Rotation as R
 # camera intrinsics
 W, H = 848-12, 480+10
 F = 430.79
@@ -609,10 +610,9 @@ class yolox_ros(yolox_py):
     def imageflow_callback(self,msg:Image) -> None:
             global bboxes_msg,result_img_rgb,img_rgb,mapp,frame
             img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
-            logger.info("img_rgb{}".format(img_rgb))
             if img_rgb is not None:
                 outputs, img_info = self.predictor.inference(img_rgb)
-                logger.info("outputs : {},".format((outputs)))
+                #logger.info("outputs : {},".format((outputs)))
 
                 try:
                     logger.info("mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
@@ -645,7 +645,7 @@ class yolox_ros(yolox_py):
                 except Exception as e:
                     logger.error(e)
                     pass
-    def depth2PointCloud(self,depth, rgb,box):
+    def my_pose_estimation(self,depth, rgb,box):
         global i,pointsxyzrgb_total
         logger.info("before convertion depth:{}".format(depth.shape))
         intrinsics = self.intrinsics
@@ -656,8 +656,9 @@ class yolox_ros(yolox_py):
         cols=848#self.intrinsics.height
         logger.info("depth:{}".format(depth.shape))
         i=i+1
+        rotation_results=[]
         for box in bboxes_msg.bounding_boxes:
-            if  not r.hexists("detections",box.class_id):
+            if 1:# not r.hexists("detections",box.class_id):
                 col, row = np.meshgrid(np.arange(cols), np.arange(rows), sparse=True)
                 row = row.astype(float)
                 col = col.astype(float)
@@ -674,24 +675,117 @@ class yolox_ros(yolox_py):
                 z = np.ravel(z)[valid]
                 x = np.ravel(x)[valid]
                 y = np.ravel(y)[valid]
-                
-                red = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,0])[valid]
-                green = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,1])[valid]
-                blue = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,2])[valid]
-                
-                pointsxyzrgb = np.dstack((x, y, z, red, green, blue))
-                #logger.info("pointsxyzrgb type:{}".format(pointsxyzrgb.dtype))
-                
 
-                pointsxyzrgb = pointsxyzrgb.reshape(-1,6)
-            
-                pointsxyzrgb_total=np.concatenate((pointsxyzrgb_total,pointsxyzrgb))
+                # Stack x, y, z coordinates into a point array
+                points = np.vstack((x, y, z)).T
+
+                # Reshape the RGB image for color mapping and normalize colors
+                #red = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,0])[valid]
+                #green = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,1])[valid]
+                #blue = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,2])[valid]
+                #colors= np.dstack((red, green, blue))
+                #pointsxyzrgb = pointsxyzrgb.reshape(-1,6)
+                #colors = colors.reshape(-1, 3)
+                #colors = (colors).astype(np.uint8)  # Ensure colors are uint8 for PyVista
+
+                # Camera intrinsic parameters (adjust if known)
+                #fx = fy = 382  # Focal length in pixels
+                #cx = rows / 2.0
+                #cy = cols / 2.0
+
+                # Convert pixel coordinates to 3D coordinates in camera space
+                #X = (x - cx) * z / fx
+                #Y = (y - cy) * z / fy
+                #Z = z
+
+                # Stack into Nx3 array
+                #points_3d = np.vstack((X, Y, Z)).T
+                x_min = box.xmin#int(x_min)
+                y_min = box.ymin# int(y_min)
+                #width_bbox = int(width_bbox)
+                #height_bbox = int(height_bbox)
+                x_max = box.xmax# + width_bbox
+                y_max =box.ymax # + height_bbox
+
+                # Handle cases where the bounding box is out of image bounds
+                if x_min < 0 or y_min < 0 or x_max > rows or y_max > cols:
+                    print("Bounding box out of image bounds for box ID:", box.class_id)
+                    continue
+
+                # Get indices within the bounding box
+                bbox_indices = ((x >= x_min) & (x < x_max) & (y >= y_min) & (y < y_max))
+
+                # Get the points and colors within the bounding box
+                #X_bbox = X[bbox_indices]
+                #Y_bbox = Y[bbox_indices]
+                #Z_bbox = Z[bbox_indices]
+                points_bbox = points#np.vstack((X_bbox, Y_bbox, Z_bbox)).T
+                #logger.info("in pose  points_bbox:{}".format(points_bbox))
+
+                if points_bbox.shape[0] < 3:
+                    logger.info("Not enough valid points for plane fitting for annotation ID:{}".format(box.class_id))
+                    continue
+
+                # Fit a plane to the 3D points
+                # Compute the centroid
+                centroid = np.mean(points_bbox, axis=0)
+                # Center the points
+                points_centered = points_bbox - centroid
+                # Compute covariance matrix
+                H_matrix = np.dot(points_centered.T, points_centered)
+                # Singular Value Decomposition
+                _, _, Vt = np.linalg.svd(H_matrix)
+                # Normal vector is the last row of Vt
+                normal_vector = Vt[-1, :]
+                # Ensure normal vector points towards the camera (positive Z)
+                if normal_vector[2] > 0:
+                    normal_vector = -normal_vector
+
+                # Compute rotation matrix
+                z_axis = np.array([0, 0, 1])
+                rotation_axis = np.cross(z_axis, normal_vector)
+                rotation_axis_norm = np.linalg.norm(rotation_axis)
+                if rotation_axis_norm < 1e-6:
+                    # The normal vector is aligned with the z-axis
+                    rotation_matrix = np.eye(3)
+                else:
+                    rotation_axis = rotation_axis / rotation_axis_norm
+                    angle = np.arccos(np.clip(np.dot(z_axis, normal_vector), -1.0, 1.0))
+                    # Rodrigues' rotation formula
+                    K = np.array([[0, -rotation_axis[2], rotation_axis[1]],
+                                    [rotation_axis[2], 0, -rotation_axis[0]],
+                                    [-rotation_axis[1], rotation_axis[0], 0]])
+                    rotation_matrix = np.eye(3) + np.sin(angle) * K + (1 - np.cos(angle)) * np.dot(K, K)
+
+                # Convert rotation matrix to Euler angles (XYZ convention)
+                r = R.from_matrix(rotation_matrix)
+                euler_angles = r.as_euler('xyz', degrees=True)
+
+                # Store rotation results
+                rotation_results.append({
+                    'annotation_id': 1,
+                    'rotation_x': euler_angles[0],
+                    'rotation_y': euler_angles[1],
+                    'rotation_z': euler_angles[2],
+                    'centroid': centroid,
+                    'normal_vector': normal_vector
+                })
+                logger.info("Rotation{}".format(euler_angles))
+                #time.sleep(1)
+                
+                
+                #red = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,0])[valid]
+                #green = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,1])[valid]
+                #blue = np.ravel(rgb[box.ymin:box.ymax,box.xmin:box.xmax,2])[valid]
+                #pointsxyzrgb = np.dstack((x, y, z, red, green, blue))
+                #pointsxyzrgb = pointsxyzrgb.reshape(-1,6)
+                #pointsxyzrgb_total=np.concatenate((pointsxyzrgb_total,pointsxyzrgb))
                 #logger.info("pointsxyzrgb_total :{}".format(pointsxyzrgb_total))
                 #logger.info("pointsxyzrgb_total:{},shape{}".format(pointsxyzrgb_total,pointsxyzrgb_total.shape))
-        self.create_point_cloud_file2(pointsxyzrgb_total,"new_room_total{}.ply".format(i))
-        i=i-1
+        #self.create_point_cloud_file2(pointsxyzrgb_total,"new_room_total{}.ply".format(i))
+        #i=i-1
         #pointsxyzrgb_total=np.delete(pointsxyzrgb_total,0)
-        return pointsxyzrgb_total
+        #return pointsxyzrgb_total
     def create_point_cloud_file2(self,vertices, filename):
         ply_header = '''ply
     format ascii 1.0
@@ -707,7 +801,167 @@ class yolox_ros(yolox_py):
         with open(filename, 'w') as f:
             f.write(ply_header %dict(vert_num=len(vertices)))
             np.savetxt(f,vertices,'%f %f %f %d %d %d')
- 
+    def pose_estimation(self,depth,raw_img,bounding_boxes):
+        print(" pose_estimation bounding_boxes:", bounding_boxes)
+        # Convert depth image to proper format if necessary
+        if depth.dtype != np.float32:
+            depth = depth.astype(np.float32)
+        # Convert depth units if necessary (e.g., scaling)
+        # depth = depth * depth_scale  # Uncomment and set depth_scale if needed
+        # Extract annotations for the specific image
+        #image_id = get_image_id_by_name(image_name, coco)
+        #annotations = [ann for ann in coco['annotations'] if ann['image_id'] == image_id]
+
+        # Generate the 3D point cloud for the entire image using your provided code
+        (height, width, _) = raw_img.shape
+        xx, yy = np.meshgrid(np.arange(0, width), np.arange(0, height))
+
+        # Flatten the arrays to create a point cloud
+        x = xx.flatten()
+        y = yy.flatten()
+        z = depth.flatten()
+
+        # Remove invalid depth points
+        valid = (z > 0) & (~np.isnan(z))
+        x = x[valid]
+        y = y[valid]
+        z = z[valid]
+
+        # Stack x, y, z coordinates into a point array
+        points = np.vstack((x, y, z)).T
+
+        # Reshape the RGB image for color mapping and normalize colors
+        colors = raw_img.reshape(-1, 3)[valid]
+        colors = (colors).astype(np.uint8)  # Ensure colors are uint8 for PyVista
+
+        # Camera intrinsic parameters (adjust if known)
+        fx = fy = 382  # Focal length in pixels
+        cx = width / 2.0
+        cy = height / 2.0
+
+        # Convert pixel coordinates to 3D coordinates in camera space
+        X = (x - cx) * z / fx
+        Y = (y - cy) * z / fy
+        Z = z
+
+        # Stack into Nx3 array
+        points_3d = np.vstack((X, Y, Z)).T
+
+        # Create a PyVista point cloud
+        #cloud = pv.PolyData(points_3d)
+        #cloud["RGB"] = colors
+
+        # Create a PyVista plotter
+        #plotter = pv.Plotter()
+
+        # Add the point cloud to the plotter and set up color mapping
+        #plotter.add_points(cloud, scalars="RGB", rgb=True, point_size=1)
+
+        # Set plot labels
+        #plotter.set_background("white")
+        #plotter.add_axes()
+
+        # Prepare to store rotation values and normals
+        rotation_results = []
+    
+        # Process each mushroom instance
+        for box in bounding_boxes:
+            # Extract bounding box
+            #bbox = ann['bbox']  # Format: [x_min, y_min, width, height]
+            #x_min, y_min, width_bbox, height_bbox = bbox
+            x_min = box.xmin#int(x_min)
+            y_min = box.ymin# int(y_min)
+            #width_bbox = int(width_bbox)
+            #height_bbox = int(height_bbox)
+            x_max = box.xmax# + width_bbox
+            y_max =box.ymax # + height_bbox
+
+            # Handle cases where the bounding box is out of image bounds
+            if x_min < 0 or y_min < 0 or x_max > width or y_max > height:
+                print("Bounding box out of image bounds for box ID:", box.class_id)
+                continue
+
+            # Get indices within the bounding box
+            bbox_indices = ((x >= x_min) & (x < x_max) & (y >= y_min) & (y < y_max))
+
+            # Get the points and colors within the bounding box
+            X_bbox = X[bbox_indices]
+            Y_bbox = Y[bbox_indices]
+            Z_bbox = Z[bbox_indices]
+            points_bbox = np.vstack((X_bbox, Y_bbox, Z_bbox)).T
+
+            if points_bbox.shape[0] < 3:
+                print("Not enough valid points for plane fitting for annotation ID:", box.class_id)
+                continue
+
+            # Fit a plane to the 3D points
+            # Compute the centroid
+            centroid = np.mean(points_bbox, axis=0)
+            # Center the points
+            points_centered = points_bbox - centroid
+            # Compute covariance matrix
+            H_matrix = np.dot(points_centered.T, points_centered)
+            # Singular Value Decomposition
+            _, _, Vt = np.linalg.svd(H_matrix)
+            # Normal vector is the last row of Vt
+            normal_vector = Vt[-1, :]
+            # Ensure normal vector points towards the camera (positive Z)
+            if normal_vector[2] > 0:
+                normal_vector = -normal_vector
+
+            # Compute rotation matrix
+            z_axis = np.array([0, 0, 1])
+            rotation_axis = np.cross(z_axis, normal_vector)
+            rotation_axis_norm = np.linalg.norm(rotation_axis)
+            if rotation_axis_norm < 1e-6:
+                # The normal vector is aligned with the z-axis
+                rotation_matrix = np.eye(3)
+            else:
+                rotation_axis = rotation_axis / rotation_axis_norm
+                angle = np.arccos(np.clip(np.dot(z_axis, normal_vector), -1.0, 1.0))
+                # Rodrigues' rotation formula
+                K = np.array([[0, -rotation_axis[2], rotation_axis[1]],
+                                [rotation_axis[2], 0, -rotation_axis[0]],
+                                [-rotation_axis[1], rotation_axis[0], 0]])
+                rotation_matrix = np.eye(3) + np.sin(angle) * K + (1 - np.cos(angle)) * np.dot(K, K)
+
+            # Convert rotation matrix to Euler angles (XYZ convention)
+            r = R.from_matrix(rotation_matrix)
+            euler_angles = r.as_euler('xyz', degrees=True)
+
+            # Store rotation results
+            rotation_results.append({
+                'annotation_id': 1,
+                'rotation_x': euler_angles[0],
+                'rotation_y': euler_angles[1],
+                'rotation_z': euler_angles[2],
+                'centroid': centroid,
+                'normal_vector': normal_vector
+            })
+            print(f"Rotation: {euler_angles}")
+
+        # Create a plane using the centroid and normal vector
+        #plane_size = max(width_bbox, height_bbox) * depth.mean() / fx  # Adjust size as needed
+        #plane = pv.Plane(center=centroid, direction=normal_vector, i_size=plane_size, j_size=plane_size)
+
+        # Create an arrow to represent the normal vector
+        #arrow_length = plane_size * 0.5  # Adjust length as needed
+        #arrow = pv.Arrow(start=centroid, direction=normal_vector, scale="auto")
+
+        # Add the plane and arrow to the plotter
+        #plotter.add_mesh(plane, color='blue', opacity=0.5)
+        #plotter.add_mesh(arrow, color='red')
+
+        # Optionally, plot the points of the mushroom instance
+        #mushroom_point_cloud = pv.PolyData(points_bbox)
+        #plotter.add_mesh(mushroom_point_cloud, color='yellow', point_size=2, render_points_as_spheres=True)
+
+        # Print rotation results (optional)
+
+        #print(f"Annotation ID: {ann['id']}, Rotation: {euler_angles}")
+
+        # Show the plot
+        #plotter.show()
     def imageDepthCallback(self, data):
         global bboxes_msg,result_img_rgb,i,points_xyz_rgb,global_points_xyz_rgb_list
 
@@ -722,16 +976,18 @@ class yolox_ros(yolox_py):
             logger.info("in  imageDepthCallback camera_xy:{}, {}".format(camera_xy[0],camera_xy[1]))
 
             if bboxes_msg is not None and len(bboxes_msg.bounding_boxes)>0  and  self.intrinsics is not None:
-                #if(result_img_rgb is not None):
-                    #points_xyz_rgb=self.depth2PointCloud(cv_image, result_img_rgb,bboxes_msg.bounding_boxes)
+                #self.pose_estimation(cv_image,result_img_rgb,bboxes_msg.bounding_boxes)
+                if(result_img_rgb is not None):
+                    self.my_pose_estimation(cv_image, result_img_rgb,bboxes_msg.bounding_boxes)
                     #points_xyz_rgb=np.delete(points_xyz_rgb,0,axis=0)
                     #logger.info("glabal xyz {}".format(points_xyz_rgb.shape))
+                
                 r.set("mode","pickup_ready")
                 boxes_cords=BoundingBoxesCords()
 
                 for box in bboxes_msg.bounding_boxes:
                     box_cord=BoundingBoxCord()
-                    logger.info("probability,{},pixal x={},y={}".format(box.probability,box.class_id,(box.xmin+box.xmax)/2,(box.ymin+box.ymax)/2))
+                    #logger.info("probability,{},pixal x={},y={}".format(box.probability,box.class_id,(box.xmin+box.xmax)/2,(box.ymin+box.ymax)/2))
                     line ='probability:%4.2f,track_id:%s'%(box.probability,box.class_id)
                     #pix = (indices[1], indices[0])
                     pix = (int((box.xmin+box.xmax)/2),int((box.ymin+box.ymax)/2))
@@ -786,7 +1042,7 @@ class yolox_ros(yolox_py):
                                                                             # ('b', np.uint8)]
                                                                                 ])
 
-                    logger.info("new_points_xyz_rgb_list{}".format(new_points_xyz_rgb_list))
+                    #logger.info("new_points_xyz_rgb_list{}".format(new_points_xyz_rgb_list))
                     #global_points_xyz_rgb_list=np.concatenate((global_points_xyz_rgb_list,new_points_xyz_rgb_list))
                     #logger.info("global_points_xyz_rgb_list{}".format(global_points_xyz_rgb_list))
 

@@ -1,3 +1,4 @@
+from loguru import logger
 import rclpy
 import signal
 from rclpy.node import Node
@@ -31,6 +32,27 @@ import time
 import Adafruit_PCA9685
 pwm = Adafruit_PCA9685.PCA9685(address=0x40, busnum=1)
 
+
+import cv2
+from picamera2 import Picamera2
+from ultralytics import YOLO
+
+# Set up the camera with Picam
+picam2 = Picamera2()
+picam2.preview_configuration.main.size = (1280, 1280)
+picam2.preview_configuration.main.format = "RGB888"
+picam2.preview_configuration.align()
+picam2.configure("preview")
+picam2.start()
+
+# Load YOLOv8
+model = YOLO("./yolo11n-seg_ncnn_model")
+#model = YOLO("yolov8n.pt")
+
+
+
+
+
 # Configure min and max servo pulse lengths
 servo_min = 250  # Min pulse length out of 4096
 #servo_tmp=servo_min
@@ -40,10 +62,11 @@ servo_max = 400  # Max pulse length out of 4096
 class MovePublisher(Node):
     def __init__(self):
         super().__init__('test_publisher')
-        self.publisher = self.create_publisher(String, '/move/x', 1)
+        self._adjust_publisher = self.create_publisher(String, '/yolox/move/adjust/xy', 1)
         #self.subscription = self.create_subscription(Image,'/yolox/boxes_image',self.chatter_callback,10)
         self.gripper_open_subs= self.create_subscription(String,'/yolox/gripper_open',self.gripper_open_callback,10)
         self.gripper_hold_subs = self.create_subscription(String,'/yolox/gripper_hold',self.gripper_hold_callback,10)
+        self.gripper_hold_subs = self.create_subscription(String,'/yolox//move/detected',self.gripper_detected_move_callback,10)
 
         self.latest_message = None
         #self.bridge = CvBridge()
@@ -65,6 +88,34 @@ class MovePublisher(Node):
         pwm.set_pwm(4, 0, servo_tmp)
         time.sleep(0.05)
         print("servo_tmp={},{:>5}\t{:>5.3f}".format(servo_tmp,chan.value, chan.voltage))
+
+    def gripper_detected_move_callback(self, msg):
+        frame = picam2.capture_array()
+        # Run YOLO model on the captured frame and store the results
+        results = model(frame)
+        logger.info(results)
+        
+        # Output the visual detection data, we will draw this on our camera preview window
+        annotated_frame = results[0].plot()
+        if annotated_frame != None:
+            adjust_msg = String()
+            adjust_msg.data = 'yes,%d,%d,%d' %(int(5),int(5),hi.z) 
+            self._adjust_publisher.publish(adjust_msg)
+
+            # Get inference time
+            inference_time = results[0].speed['inference']
+            fps = 1000 / inference_time  # Convert to milliseconds
+            text = f'FPS: {fps:.1f}'
+
+            # Define font and position
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            text_size = cv2.getTextSize(text, font, 1, 2)[0]
+            text_x = annotated_frame.shape[1] - text_size[0] - 10  # 10 pixels from the right
+            text_y = text_size[1] + 10  # 10 pixels from the top
+
+            # Draw the text on the annotated frame
+            cv2.putText(annotated_frame, text, (text_x, text_y), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+
 
     def gripper_open_callback(self, msg):
         print(f'open cb received: {msg.data}')
