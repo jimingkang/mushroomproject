@@ -140,7 +140,7 @@ class yolox_ros(yolox_py):
         self.sub_boxes = self.create_subscription(BoundingBoxesCords, "/yolox/bounding_boxes_cords", self.boxes_cords_callback, 1)
         self.sub_boxes = self.create_subscription(BoundingBoxesCords, "yolox/move/adjust/xy", self.boxes_move_adjust_callback, 1)
         
-        self.gripper_detected_publisher = self.create_publisher(String, '/yolox//move/detected', 1)
+        self.gripper_detected_publisher = self.create_publisher(String, '/yolox/move/detected', 1)
         self.gripper_publisher = self.create_publisher(String, '/yolox/gripper_hold', 1)
         self.gripper_open_pub = self.create_publisher(String, '/yolox/gripper_open', 1)
         
