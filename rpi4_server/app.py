@@ -46,7 +46,7 @@ picam2.configure("preview")
 picam2.start()
 
 # Load YOLOv8
-model = YOLO("./yolo11n-seg_ncnn_model")
+model = YOLO("/home/pi/yolomodel/yolo11n_ncnn_model")
 #model = YOLO("yolov8n.pt")
 
 
@@ -66,7 +66,7 @@ class MovePublisher(Node):
         #self.subscription = self.create_subscription(Image,'/yolox/boxes_image',self.chatter_callback,10)
         self.gripper_open_subs= self.create_subscription(String,'/yolox/gripper_open',self.gripper_open_callback,10)
         self.gripper_hold_subs = self.create_subscription(String,'/yolox/gripper_hold',self.gripper_hold_callback,10)
-        self.gripper_hold_subs = self.create_subscription(String,'/yolox//move/detected',self.gripper_detected_move_callback,10)
+        self.gripper_hold_subs = self.create_subscription(String,'/yolox/move/detected',self.gripper_detected_move_callback,10)
 
         self.latest_message = None
         #self.bridge = CvBridge()
@@ -93,7 +93,26 @@ class MovePublisher(Node):
         frame = picam2.capture_array()
         # Run YOLO model on the captured frame and store the results
         results = model(frame)
+	results = model.track(frame, persist=True)
         logger.info(results)
+	result=results[0]:
+        boxes = result.boxes  # Boxes object for bounding box outputs
+        masks = result.masks  # Masks object for segmentation masks outputs
+        keypoints = result.keypoints  # Keypoints object for pose outputs
+        probs = result.probs  # Probs object for classification outputs
+        obb = result.obb  # Oriented boxes object for OBB outputs
+        for box in result.boxes:
+            left, top, right, bottom = np.array(box.xyxy.cpu(), dtype=int).squeeze()
+            width = right - left
+            height = bottom - top
+            center = (left + int((right - left) / 2), top + int((bottom - top) / 2))
+            label = results[0].names[int(box.cls)]
+            confidence = float(box.conf.cpu())
+            if(label=="orange" or label=="carrot" ):
+                cv2.rectangle(frame, (left, top), (right, bottom), (255, 0, 0), 2)
+                cv2.putText(frame, label, (left, top - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 1, cv2.LINE_AA)
+
+
         
         # Output the visual detection data, we will draw this on our camera preview window
         annotated_frame = results[0].plot()
