@@ -138,7 +138,7 @@ class yolox_ros(yolox_py):
         self.img_rgb=np.zeros( (512,512,3), dtype=np.uint8);#cv2.imread('/home/jimmy/Downloads/mushroomproject/ros2_ws/src/flask_ros_app/flask_ros_app/mushroom.jpg', 0)
         self.pub_boxes_img = self.create_publisher(Image,"/yolox/boxes_image", 10)
         self.sub_boxes = self.create_subscription(BoundingBoxesCords, "/yolox/bounding_boxes_cords", self.boxes_cords_callback, 1)
-        self.sub_boxes = self.create_subscription(BoundingBoxesCords, "yolox/move/adjust/xy", self.move_adjust_callback, 1)
+        self.sub_boxes = self.create_subscription(BoundingBoxesCords, "yolox/move/adjust/xy", self.boxes_move_adjust_callback, 1)
         
         self.gripper_detected_publisher = self.create_publisher(String, '/yolox//move/detected', 1)
         self.gripper_publisher = self.create_publisher(String, '/yolox/gripper_hold', 1)
