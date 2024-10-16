@@ -14,9 +14,9 @@ from adafruit_ads1x15.analog_in import AnalogIn
 # Create the I2C bus
 i2c = busio.I2C(board.SCL, board.SDA)
 # Create the ADC object using the I2C bus
-ads = ADS.ADS1015(i2c)
+#ads = ADS.ADS1015(i2c)
 # Create single-ended input on channel 0
-chan = AnalogIn(ads, ADS.P0)
+#chan = AnalogIn(ads, ADS.P0)
 
 import redis
 from flask import Flask, render_template, Response, jsonify
@@ -87,7 +87,7 @@ class MovePublisher(Node):
         pwm.set_pwm(2, 0, servo_tmp)
         pwm.set_pwm(4, 0, servo_tmp)
         time.sleep(0.05)
-        print("servo_tmp={},{:>5}\t{:>5.3f}".format(servo_tmp,chan.value, chan.voltage))
+        #print("servo_tmp={},{:>5}\t{:>5.3f}".format(servo_tmp,chan.value, chan.voltage))
 
     def gripper_detected_move_callback(self, msg):
         frame = picam2.capture_array()
