@@ -120,7 +120,7 @@ class MovePublisher(Node):
         #annotated_frame = results[0].plot()
         if result.boxes != None:
             adjust_msg = String()
-            adjust_msg.data = 'yes,%d,%d,%d' %(int(5),int(5),hi.z) 
+            adjust_msg.data = 'yes,%d,%d,%d' %(int(5),int(5),0) 
             self._adjust_publisher.publish(adjust_msg)
 
             # Get inference time
