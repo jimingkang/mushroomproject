@@ -93,7 +93,7 @@ class MovePublisher(Node):
         frame = picam2.capture_array()
         # Run YOLO model on the captured frame and store the results
         results = model(frame)
-        results = model.track(frame, persist=True)
+        #results = model.track(frame, persist=True)
         logger.info(results)
         result=results[0]
         boxes = result.boxes  # Boxes object for bounding box outputs
