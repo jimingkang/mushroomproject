@@ -36,6 +36,7 @@ pwm = Adafruit_PCA9685.PCA9685(address=0x40, busnum=1)
 import cv2
 from picamera2 import Picamera2
 from ultralytics import YOLO
+import numpy as np
 
 # Set up the camera with Picam
 picam2 = Picamera2()
