@@ -112,19 +112,22 @@ class MovePublisher(Node,BaseCamera):
         # Run YOLO model on the captured frame and store the results
         results = model(frame)
         #results = model.track(frame, persist=True)
-        logger.info(results)
+  
         result=results[0]
         boxes = result.boxes  # Boxes object for bounding box outputs
         masks = result.masks  # Masks object for segmentation masks outputs
         keypoints = result.keypoints  # Keypoints object for pose outputs
         probs = result.probs  # Probs object for classification outputs
         obb = result.obb  # Oriented boxes object for OBB outputs
+        logger.info(boxes)
         for box in result.boxes:
             left, top, right, bottom = np.array(box.xyxy.cpu(), dtype=int).squeeze()
             width = right - left
             height = bottom - top
             center = (left + int((right - left) / 2), top + int((bottom - top) / 2))
             label = results[0].names[int(box.cls)]
+            logger.info(label)
+            logger.info("center{}".format(center))
             confidence = float(box.conf.cpu())
             if(label=="orange" or label=="carrot" ):
                 cv2.rectangle(frame, (left, top), (right, bottom), (255, 0, 0), 2)

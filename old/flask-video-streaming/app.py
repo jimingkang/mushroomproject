@@ -21,7 +21,7 @@ import publish
 
 from HitbotInterface import HitbotInterface
 from flask_cors import CORS, cross_origin
-
+from picamera2 import Picamera2
 topic = '/flask/scan'
 topic2 = '/flask/xyz'
 topic3 = '/flask/serial'
@@ -32,7 +32,8 @@ topic7 = '/flask/stop'
 if os.environ.get('CAMERA'):
     Camera = import_module('camera_' + os.environ['CAMERA']).Camera
 else:
-    from camera_rs import Camera
+    from camera_pi import Camera
+
 # Raspberry Pi camera module (requires picamera package)
 
 
