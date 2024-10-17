@@ -8,7 +8,7 @@ from base_camera import BaseCamera
 class Camera(BaseCamera):
     """Requires python-v4l2capture module: https://github.com/gebart/python-v4l2capture"""
 
-    video_source = "/dev/video3"
+    video_source = "/dev/video5"
 
     @staticmethod
     def frames():

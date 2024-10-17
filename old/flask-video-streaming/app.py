@@ -32,7 +32,8 @@ topic7 = '/flask/stop'
 if os.environ.get('CAMERA'):
     Camera = import_module('camera_' + os.environ['CAMERA']).Camera
 else:
-    from camera_pi import Camera
+    #from camera_pi import Camera
+    from camera_usb import Camera
 
 # Raspberry Pi camera module (requires picamera package)
 
@@ -40,14 +41,9 @@ else:
 
 broker=''
 redis_server=''
-try:
-    for line in open("../ip.txt"):
-        if line[0:6] == "broker":
-            broker = line[9:len(line)-1]
-        if line[0:6] == "reddis":
-            redis_server=line[9:len(line)-1]
-except:
-    pass
+
+
+redis_server="172.27.34.72"
 print(broker+" "+redis_server)
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
@@ -63,7 +59,7 @@ app.config['MQTT_TLS_ENABLED'] = False  # If your server supports TLS, set it Tr
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 
-mqtt_client = Mqtt(app)
+#mqtt_client = Mqtt(app)
 
 
 
@@ -185,5 +181,5 @@ def video_feed():
 
 
 if __name__ == '__main__':
-    app.run(host='172.27.34.65', threaded=True)
+    app.run(host='172.27.34.72', threaded=True)
 

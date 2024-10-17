@@ -34,7 +34,7 @@ import Adafruit_PCA9685
 pwm = Adafruit_PCA9685.PCA9685(address=0x40, busnum=1)
 
 
-from base_camera import BaseCamera
+from camera_ipcam import Camera
 import cv2
 from picamera2 import Picamera2
 
@@ -42,14 +42,14 @@ from ultralytics import YOLO
 import numpy as np
 
 # Set up the camera with Picam
-picam2 = Picamera2()
-picam2.preview_configuration.main.size = (1280, 1280)
-picam2.preview_configuration.main.format = "RGB888"
-picam2.preview_configuration.align()
-picam2.configure("preview")
-picam2.start()
+#picam2 = Picamera2()
+#picam2.preview_configuration.main.size = (1280, 1280)
+#picam2.preview_configuration.main.format = "RGB888"
+#picam2.preview_configuration.align()
+#picam2.configure("preview")
+#picam2.start()
 
-# Load YOLOv8
+# Load YOLOv11
 model = YOLO("/home/pi/yolomodel/yolo11n_ncnn_model")
 #model = YOLO("yolov8n.pt")
 
@@ -62,8 +62,8 @@ servo_min = 250  # Min pulse length out of 4096
 #servo_tmp=servo_min
 servo_inc=50
 servo_max = 400  # Max pulse length out of 4096
-
-class MovePublisher(Node,BaseCamera):
+frame=None
+class MovePublisher(Node):
     def __init__(self):
         super().__init__('test_publisher')
         self._adjust_publisher = self.create_publisher(String, '/yolox/move/adjust/xy', 1)
@@ -75,20 +75,6 @@ class MovePublisher(Node,BaseCamera):
         self.latest_message = None
         #self.bridge = CvBridge()
 
-    @staticmethod
-    def frames():
-            # let camera warm up
-            time.sleep(2)
-            stream = io.BytesIO()
-            for _ in picam2.capture_continuous(stream, 'jpeg',
-                                                 use_video_port=True):
-                # return current frame
-                stream.seek(0)
-                yield stream.read()
-
-                # reset stream for next frame
-                stream.seek(0)
-                stream.truncate()
     def chatter_callback(self, msg):
         global frame
         #print(f'chatter cb received: {msg.data}')
@@ -108,9 +94,11 @@ class MovePublisher(Node,BaseCamera):
         #print("servo_tmp={},{:>5}\t{:>5.3f}".format(servo_tmp,chan.value, chan.voltage))
 
     def gripper_detected_move_callback(self, msg):
-        frame = picam2.capture_array()
+        global frame
+        #frame = picam2.capture_array()
         # Run YOLO model on the captured frame and store the results
-        results = model(frame)
+        if frame !=None:
+            results = model(frame)
         #results = model.track(frame, persist=True)
   
         result=results[0]
@@ -305,16 +293,17 @@ def home():
 
 
 
-def gen():
+def gen(camera):
+    global frame
     """Video streaming generator function."""
     yield b'--frame\r\n'
     while True:
-        frame = ros2_node.get_frame()
+        frame = camera.get_frame()
         yield b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n'
 
 
 @app.route('/video_feed')
 def video_feed():
     """Video streaming route. Put this in the src attribute of an img tag."""
-    return Response(gen(),
+    return Response(gen(Camera()),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
