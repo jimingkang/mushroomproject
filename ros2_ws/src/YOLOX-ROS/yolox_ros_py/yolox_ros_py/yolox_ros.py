@@ -614,10 +614,10 @@ class yolox_ros(yolox_py):
             img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
             if img_rgb is not None:
                 outputs, img_info = self.predictor.inference(img_rgb)
-                #logger.info("outputs : {},".format((outputs)))
+                logger.info(" rpi5_imageflow_callback outputs : {},".format((outputs)))
 
                 try:
-                    logger.info("mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
+                    logger.info("rpi mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
                     if  (outputs is not None) and r.get("scan")=="start" :#r.get("mode")=="camera_ready" and
                         #logger.info("output[0]{},img_info{}".format(outputs[0],img_info))
                         result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)

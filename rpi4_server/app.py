@@ -178,16 +178,12 @@ class MovePublisher(Node):
         yield b'--frame\r\n'
         while True:
             frame = camera.get_frame()
-            self.pub_rpi5_raw_img(frame)
-            if boxing_img !=None
-            yield b'Content-Type: image/jpeg\r\n\r\n' + boxing_img + b'\r\n--frame\r\n'
+            self.pub_rpi5_raw_img.publish(frame)
+            if boxing_img !=None:
+                yield b'Content-Type: image/jpeg\r\n\r\n' + boxing_img + b'\r\n--frame\r\n'
+            else:
+                yield b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n'
 
-
-    @app.route('/video_feed')
-    def video_feed(self):
-        """Video streaming route. Put this in the src attribute of an img tag."""
-        return Response(self.gen(Camera()),
-                        mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
 def ros2_thread(node):
@@ -317,5 +313,9 @@ def home():
     return render_template('index.html');
 
 
+
+@app.route('/video_feed')
+def video_feed():
+    return Response(ros2_node.gen(Camera()),mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
