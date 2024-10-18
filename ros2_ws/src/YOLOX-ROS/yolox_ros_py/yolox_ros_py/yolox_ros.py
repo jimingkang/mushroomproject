@@ -318,11 +318,12 @@ class yolox_ros(yolox_py):
         self.pub_bounding_boxes_cords = self.create_publisher(BoundingBoxesCords,"/yolox/bounding_boxes_cords", 1)
         self.pub_boxes_img = self.create_publisher(Image,"/yolox/boxes_image", 10)
         self.pub_rpi5_boxes_img = self.create_publisher(Image,"/yolox/rpi5/boxing_image", 10)
+        #self.sub_rpi_raw_img = self.create_subscription(Image,"/yolox/rpi5/raw_image",self.rpi5_imageflow_callback, 1)
         self.pub_pointclouds = self.create_publisher(PointCloud2,'/yolox/pointclouds', 10)
         self.sub_depth_image = self.create_subscription(Image, depth_image_topic, self.imageDepthCallback, 1)
         self.sub_info = self.create_subscription(CameraInfo, depth_info_topic, self.imageDepthInfoCallback, 1)
         self.sub_move_xy_info = self.create_subscription(String, move_x, self.MoveXYZCallback, 1)
-        self.sub_rpi_raw_img = self.create_subscription(Image,"/yolox/rpi5/raw_image",self.rpi5_imageflow_callback, 1)
+
         self.intrinsics = None
         self.pix = None
         self.pix_grade = None
@@ -332,7 +333,18 @@ class yolox_ros(yolox_py):
         else:
             self.sub = self.create_subscription(Image,raw_image_topic,self.imageflow_callback, 10)
 
-    
+    def gen(self,camera):
+        global frame,boxing_img
+        """Video streaming generator function."""
+        yield b'--frame\r\n'
+        while True:
+            frame = camera.get_frame()
+            self.pub_rpi5_boxes_img.publish(frame)
+            print(boxing_img)
+            if boxing_img !=None:
+                yield b'Content-Type: image/jpeg\r\n\r\n' + boxing_img + b'\r\n--frame\r\n'
+            else:
+                yield b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n'
     def setting_yolox_exp(self) -> None:
 
         WEIGHTS_PATH = '../../weights/yolox_nano.pth'  #for no trt
@@ -971,26 +983,6 @@ class yolox_ros(yolox_py):
             })
             print(f"Rotation: {euler_angles}")
 
-        # Create a plane using the centroid and normal vector
-        #plane_size = max(width_bbox, height_bbox) * depth.mean() / fx  # Adjust size as needed
-        #plane = pv.Plane(center=centroid, direction=normal_vector, i_size=plane_size, j_size=plane_size)
-
-        # Create an arrow to represent the normal vector
-        #arrow_length = plane_size * 0.5  # Adjust length as needed
-        #arrow = pv.Arrow(start=centroid, direction=normal_vector, scale="auto")
-
-        # Add the plane and arrow to the plotter
-        #plotter.add_mesh(plane, color='blue', opacity=0.5)
-        #plotter.add_mesh(arrow, color='red')
-
-        # Optionally, plot the points of the mushroom instance
-        #mushroom_point_cloud = pv.PolyData(points_bbox)
-        #plotter.add_mesh(mushroom_point_cloud, color='yellow', point_size=2, render_points_as_spheres=True)
-
-        # Print rotation results (optional)
-
-        #print(f"Annotation ID: {ann['id']}, Rotation: {euler_angles}")
-
         # Show the plot
         #plotter.show()
     def imageDepthCallback(self, data):
@@ -1150,7 +1142,7 @@ class yolox_ros(yolox_py):
         #for box in bounding_boxes:
         #    logger.info(" boxes_callback probability,%4.2f,%s,x=%4.2f,y=%4.2f",box.probability,box.class_id,(box.xmin+box.xmax)/2,(box.ymin+box.ymax)/2)
 
-
+ros_class=None
 def ros_main(args = None):
             rclpy.init(args=args)
             ros_class = yolox_ros()
@@ -1166,4 +1158,12 @@ def ros_main(args = None):
 if __name__ == '__main__':
     ros_main()
     app.run(host='0.0.0.0', threaded=True,port='5001')
+
+@app.route('/video_feed')
+def video_feed():
+    global ros_class
+    return Response(ros_class.gen(Camera()),mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+
 

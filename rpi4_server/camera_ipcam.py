@@ -79,11 +79,10 @@ class Camera(BaseCamera):
                     break
                 global count
                 count = (count + 1) % 10000
-
-
-
-                    #cv2.namedWindow("yolox", cv2.WINDOW_NORMAL)
-                    #cv2.imshow("yolox", result_frame)
-                yield cv2.imencode('.jpg', img)[1].tobytes()
+                result=model(img)
+                frame=result[0].plot()
+                #cv2.namedWindow("yolox", cv2.WINDOW_NORMAL)
+                #cv2.imshow("yolox", result_frame)
+                yield cv2.imencode('.jpg', frame)[1].tobytes()
         finally:
             video.release()
