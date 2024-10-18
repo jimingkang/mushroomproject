@@ -45,6 +45,7 @@ from .yolox.data.datasets import COCO_CLASSES
 from .yolox.exp import get_exp
 from .yolox.utils import fuse_model, get_model_info, postprocess, setup_logger, vis
 
+import threading
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Header
