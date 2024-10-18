@@ -9,12 +9,8 @@ import cv2
 
 
 #import v4l2capture
-from base_camera import BaseCamera
-from ultralytics import YOLO
-#from yolov8 import YOLOv8
+from .base_camera import BaseCamera
 
-
-#import xyz_publish
 import cv2
 
 import argparse
@@ -22,70 +18,162 @@ import os
 import time
 from loguru import logger
 import torch
-import numpy as np
+from .yolox.data.data_augment import ValTransform
+from .yolox.data.datasets import COCO_CLASSES
+from .yolox.exp import get_exp
+from .yolox.utils import fuse_model, get_model_info, postprocess, vis
 
 
+
+
+
+from paho.mqtt import client as mqtt_client
 
 ip=''
 broker=''
-redis_server='172.27.34.62'
-
+redis_server=''
+try:
+    for line in open("../ip.txt"):
+        if line[0:6] == "broker":
+            broker = line[9:len(line)-1]
+        if line[0:6] == "reddis":
+            redis_server=line[9:len(line)-1]
+except:
+    pass
+print(broker+" "+redis_server)
+print(broker)
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
 
 
-
+port = 1883
+topic = '/flask/mqtt'
+topic2 = '/flask/xyz'
+topic3 = '/flask/serial'
+topic4 = "/flask/downmove"
+# generate client ID with pub prefix randomly
+client_id = f'python-mqtt-{random.randint(0, 100)}'
 
 count=0
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
-#model = YOLO("/home/pi/yolomodel/yolo11n_ncnn_model")
+def make_parser():
+    parser = argparse.ArgumentParser("YOLOX Demo!")
+    parser.add_argument(
+        "--demo", default="webcam", help="demo type, eg. image, video and webcam"
+    )
+    parser.add_argument("-expn", "--experiment-name", type=str, default=None)
+    parser.add_argument("-n", "--name", type=str, default=None, help="model name")
 
-#yolov8_detector = YOLOv8(model_path, conf_thres=0.5, iou_thres=0.5)
-class Camera(BaseCamera):
-    """Requires python-v4l2capture module: https://github.com/gebart/python-v4l2capture"""
+    parser.add_argument(
+        "--path", default="./assets/dog.jpg", help="path to images or video"
+    )
+    parser.add_argument("--camid", type=int, default=0, help="webcam demo camera id")
+    parser.add_argument(
+        "--save_result",
+        action="store_true",
+        help="whether to save the inference result of image/video",
+    )
+    # exp file
+    parser.add_argument(
+        "-f",
+        "--exp_file",
+        default='./exps/example/yolox_voc/yolox_voc_s.py ',
+        type=str,
+        help="please input your experiment description file",
+    )
+    parser.add_argument("-c", "--ckpt", default=None, type=str, help="ckpt for eval")
+    parser.add_argument(
+        "--device",
+        default="cpu",
+        type=str,
+        help="device to run our model, can either be cpu or gpu",
+    )
+    parser.add_argument("--conf", default=0.3, type=float, help="test conf")
+    parser.add_argument("--nms", default=0.3, type=float, help="test nms threshold")
+    parser.add_argument("--tsize", default=None, type=int, help="test img size")
+    parser.add_argument(
+        "--fp16",
+        dest="fp16",
+        default=False,
+        action="store_true",
+        help="Adopting mix precision evaluating.",
+    )
+    parser.add_argument(
+        "--legacy",
+        dest="legacy",
+        default=False,
+        action="store_true",
+        help="To be compatible with older versions",
+    )
+    parser.add_argument(
+        "--fuse",
+        dest="fuse",
+        default=False,
+        action="store_true",
+        help="Fuse conv and bn for testing.",
+    )
+    parser.add_argument(
+        "--trt",
+        dest="trt",
+        default=True,
+        action="store_true",
+        help="Using TensorRT model for testing.",
+    )
+    return parser
+def get_image_list(path):
+    image_names = []
+    for maindir, subdir, file_name_list in os.walk(path):
+        for filename in file_name_list:
+            apath = os.path.join(maindir, filename)
+            ext = os.path.splitext(apath)[1]
+            if ext in IMAGE_EXT:
+                image_names.append(apath)
+    return image_names
 
-    video_source = "/dev/video0"
-    #def __init__(self):
-    #    global ip
-        #ip=newip
-        #self.ip=ip
+def main(exp, args):
+    if not args.experiment_name:
+        args.experiment_name = exp.exp_name
 
-    @staticmethod
-    def frames():
+    file_name = os.path.join(exp.output_dir, args.experiment_name)
+    os.makedirs(file_name, exist_ok=True)
+    args.device = "gpu"
+    logger.info("Args: {}".format(args))
+    exp.test_conf = args.conf
+    exp.nmsthre = args.nms
+    if args.tsize is not None:
+        exp.test_size = (args.tsize, args.tsize)
 
-        #video = cv2.VideoCapture("http://192.168.0.100:5000/video_feed")
-        video = cv2.VideoCapture("http://172.27.34.72:8000/stream.mjpg")
-        #video = cv2.VideoCapture("http://"+ip+":5000/video_feed")
-        #video = cv2.VideoCapture(Camera.video_source,cv2.CAP_V4L2)
-        #video = v4l2capture.Video_device(Camera.video_source)
+    model = exp.get_model()
+    logger.info("Model Summary: {}".format(get_model_info(model, exp.test_size)))
 
-        size_x =640
-        size_y = 480
-        video.set(cv2.CAP_PROP_FRAME_WIDTH, size_x)
-        video.set(cv2.CAP_PROP_FRAME_HEIGHT, size_y)
-        video.set(cv2.CAP_PROP_FPS, 30)
-        bio = io.BytesIO()
+    if args.device == "gpu":
+        model.cuda()
+        if args.fp16:
+            model.half()  # to FP16
+    model.eval()
 
 
+    if args.trt:
+        assert not args.fuse, "TensorRT model is not support model fusing!"
+        trt_file = os.path.join(file_name, "model_trt.pth")
+        assert os.path.exists(
+            trt_file
+        ), "TensorRT model is not found!\n Run python3 tools/trt.py first!"
+        model.head.decode_in_inference = False
+        decoder = model.head.decode_outputs
+        logger.info("Using TensorRT to inference")
+    else:
+        trt_file = None
+        decoder = None
 
-        try:
-            while video.isOpened():
-                ret, img = video.read()
-                #print(img)
-                #cv2.imwrite("buf.jpg",img)
-                if not ret:
-                    break
-                global count
-                count = (count + 1) % 10000
-                #result=model(img)
-                #frame=result[0].plot()
-                #cv2.namedWindow("yolox", cv2.WINDOW_NORMAL)
-                #cv2.imshow("yolox", result_frame)
-                yield cv2.imencode('.jpg', img)[1].tobytes()
-        finally:
-            video.release()
+    predictor = Predictor(
+        model, exp, COCO_CLASSES, trt_file, decoder,
+        'gpu', False, False,
+    )
+    return predictor
+
 
 class Predictor(object):
     def __init__(
@@ -176,3 +264,60 @@ class Predictor(object):
             return vis_res,bboxes, scores, cls, self.cls_names,track_ids
         else:
             return img,None,None,None,None,None
+
+
+
+
+ip=''
+#yolov8_detector = YOLOv8(model_path, conf_thres=0.5, iou_thres=0.5)
+class Camera(BaseCamera):
+    """Requires python-v4l2capture module: https://github.com/gebart/python-v4l2capture"""
+
+    video_source = "/dev/video0"
+    #def __init__(self):
+    #    global ip
+        #ip=newip
+        #self.ip=ip
+
+    @staticmethod
+    def frames():
+        #video = cv2.VideoCapture("http://192.168.0.100:5000/video_feed")
+        video = cv2.VideoCapture("http://172.27.34.72:8000/stream.mjpg")
+        #video = cv2.VideoCapture("http://"+ip+":5000/video_feed")
+        #video = cv2.VideoCapture(Camera.video_source,cv2.CAP_V4L2)
+        #video = v4l2capture.Video_device(Camera.video_source)
+
+        size_x =640
+        size_y = 480
+        video.set(cv2.CAP_PROP_FRAME_WIDTH, size_x)
+        video.set(cv2.CAP_PROP_FRAME_HEIGHT, size_y)
+        video.set(cv2.CAP_PROP_FPS, 30)
+        bio = io.BytesIO()
+
+
+        args = make_parser().parse_args()
+        exp = get_exp(args.exp_file, args.name)
+        predictor = main(exp, args)
+        print(predictor)
+
+        try:
+            while video.isOpened():
+                ret, img = video.read()
+                #print(img)
+                #cv2.imwrite("buf.jpg",img)
+                if not ret:
+                    break
+                global count
+                count = (count + 1) % 10000
+
+                if ret:
+                    if r.get("mode")=="camera_ready":
+                        outputs, img_info = predictor.inference(img)
+                        result_frame = predictor.visual(outputs[0], img_info, predictor.confthre)
+                    else:
+                        result_frame=img
+                    #cv2.namedWindow("yolox", cv2.WINDOW_NORMAL)
+                    #cv2.imshow("yolox", result_frame)
+                yield cv2.imencode('.jpg', result_frame)[1].tobytes()
+        finally:
+            video.release()
