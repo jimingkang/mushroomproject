@@ -40,7 +40,7 @@ r = redis.Redis(connection_pool=pool)
 count=0
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
-model = YOLO("/home/pi/yolomodel/yolo11n_ncnn_model")
+#model = YOLO("/home/pi/yolomodel/yolo11n_ncnn_model")
 
 #yolov8_detector = YOLOv8(model_path, conf_thres=0.5, iou_thres=0.5)
 class Camera(BaseCamera):
@@ -79,10 +79,10 @@ class Camera(BaseCamera):
                     break
                 global count
                 count = (count + 1) % 10000
-                result=model(img)
-                frame=result[0].plot()
+                #result=model(img)
+                #frame=result[0].plot()
                 #cv2.namedWindow("yolox", cv2.WINDOW_NORMAL)
                 #cv2.imshow("yolox", result_frame)
-                yield cv2.imencode('.jpg', frame)[1].tobytes()
+                yield cv2.imencode('.jpg', img)[1].tobytes()
         finally:
             video.release()
