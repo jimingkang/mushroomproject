@@ -5,7 +5,7 @@ import os
 
 import redis
 from flask import Flask, render_template, Response, jsonify
-
+import signal
 from threading import Event
 import requests
 from flask import Flask, render_template, request, jsonify
