@@ -63,9 +63,12 @@ servo_min = 250  # Min pulse length out of 4096
 servo_inc=50
 servo_max = 400  # Max pulse length out of 4096
 frame=None
+boxing_img=None
 class MovePublisher(Node):
     def __init__(self):
         super().__init__('test_publisher')
+        self.pub_rpi5_raw_img = self.create_publisher(Image,"/yolox/rpi5/raw_image", 10)
+        self.sub_boxing_img = self.create_subscription(Image,"/yolox/rpi5/boxing_image",self.imageflow_callback, 10)
         self._adjust_publisher = self.create_publisher(String, '/yolox/move/adjust/xy', 1)
         #self.subscription = self.create_subscription(Image,'/yolox/boxes_image',self.chatter_callback,10)
         self.gripper_open_subs= self.create_subscription(String,'/yolox/gripper_open',self.gripper_open_callback,10)
@@ -74,6 +77,13 @@ class MovePublisher(Node):
 
         self.latest_message = None
         #self.bridge = CvBridge()
+    
+    def imageflow_callback(self,msg:Image) -> None:
+            global frame,boxing_img
+            boxing_img = self.bridge.imgmsg_to_cv2(msg,"bgr8")
+
+
+                
 
     def chatter_callback(self, msg):
         global frame
@@ -162,6 +172,22 @@ class MovePublisher(Node):
 
     def publish_message(self,msg):
         self.publisher.publish(msg)
+    def gen(self,camera):
+        global frame,boxing_img
+        """Video streaming generator function."""
+        yield b'--frame\r\n'
+        while True:
+            frame = camera.get_frame()
+            self.pub_rpi5_raw_img(frame)
+            if boxing_img !=None
+            yield b'Content-Type: image/jpeg\r\n\r\n' + boxing_img + b'\r\n--frame\r\n'
+
+
+    @app.route('/video_feed')
+    def video_feed(self):
+        """Video streaming route. Put this in the src attribute of an img tag."""
+        return Response(self.gen(Camera()),
+                        mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
 def ros2_thread(node):
@@ -293,17 +319,3 @@ def home():
 
 
 
-def gen(camera):
-    global frame
-    """Video streaming generator function."""
-    yield b'--frame\r\n'
-    while True:
-        frame = camera.get_frame()
-        yield b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n'
-
-
-@app.route('/video_feed')
-def video_feed():
-    """Video streaming route. Put this in the src attribute of an img tag."""
-    return Response(gen(Camera()),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')

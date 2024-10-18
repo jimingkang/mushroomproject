@@ -317,10 +317,12 @@ class yolox_ros(yolox_py):
         #self.pub = self.create_publisher(BoundingBoxes,"/yolox/bounding_boxes", 10)
         self.pub_bounding_boxes_cords = self.create_publisher(BoundingBoxesCords,"/yolox/bounding_boxes_cords", 1)
         self.pub_boxes_img = self.create_publisher(Image,"/yolox/boxes_image", 10)
+        self.pub_rpi5_boxes_img = self.create_publisher(Image,"/yolox/rpi5/boxing_image", 10)
         self.pub_pointclouds = self.create_publisher(PointCloud2,'/yolox/pointclouds', 10)
         self.sub_depth_image = self.create_subscription(Image, depth_image_topic, self.imageDepthCallback, 1)
         self.sub_info = self.create_subscription(CameraInfo, depth_info_topic, self.imageDepthInfoCallback, 1)
-        _info = self.create_subscription(String, move_x, self.MoveXYZCallback, 1)
+        self.sub_move_xy_info = self.create_subscription(String, move_x, self.MoveXYZCallback, 1)
+        self.sub_rpi_raw_img = self.create_subscription(Image,"/yolox/rpi5/raw_image",self.rpi5_imageflow_callback, 10)
         self.intrinsics = None
         self.pix = None
         self.pix_grade = None
@@ -607,6 +609,44 @@ class yolox_ros(yolox_py):
         Frame.last_pose = frame.curr_pose
         return frame
 
+    def rpi5_imageflow_callback(self,msg:Image) -> None:
+            global bboxes_msg,result_img_rgb,img_rgb,mapp,frame
+            img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
+            if img_rgb is not None:
+                outputs, img_info = self.predictor.inference(img_rgb)
+                #logger.info("outputs : {},".format((outputs)))
+
+                try:
+                    logger.info("mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
+                    if  (outputs is not None) and r.get("scan")=="start" :#r.get("mode")=="camera_ready" and
+                        #logger.info("output[0]{},img_info{}".format(outputs[0],img_info))
+                        result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
+                        if  bboxes is not None:
+                            bboxes_msg = self.yolox2bboxes_msgs(bboxes, scores, cls, cls_names,track_ids, msg.header, img_rgb)
+
+                    if result_img_rgb is not None:
+
+                        #frame = Frame(result_img_rgb)
+                        #frame = self.process_frame(frame)
+                        #logger.info("process_frame")
+                        #cv2.imshow("slam", frame.image)
+                        #if cv2.waitKey(30) & 0xFF == ord('q'): 
+                        #    exit()
+                        #mapp.display()
+
+                        img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
+                    else:
+                        img_rgb_pub = self.bridge.cv2_to_imgmsg(img_rgb,"bgr8")
+
+                    self.pub_rpi5_boxes_img.publish(img_rgb_pub)
+                        #time.sleep(2)
+
+                    #if (self.imshow_isshow):
+                    #    cv2.imshow("YOLOX",result_img_rgb)
+                    #    cv2.waitKey(1)
+                except Exception as e:
+                    logger.error(e)
+                    pass
     def imageflow_callback(self,msg:Image) -> None:
             global bboxes_msg,result_img_rgb,img_rgb,mapp,frame
             img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")

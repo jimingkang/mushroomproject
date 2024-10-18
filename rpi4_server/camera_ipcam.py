@@ -80,32 +80,10 @@ class Camera(BaseCamera):
                 global count
                 count = (count + 1) % 10000
 
-                if ret:
-                    if 1:# r.get("mode")=="camera_ready":
-                        results=model(img)
-                        result=results[0]
-                        frame=result.plot()
-                        boxes = result.boxes  # Boxes object for bounding box outputs
-                        masks = result.masks  # Masks object for segmentation masks outputs
-                        keypoints = result.keypoints  # Keypoints object for pose outputs
-                        probs = result.probs  # Probs object for classification outputs
-                        obb = result.obb  # Oriented boxes object for OBB outputs
-                        logger.info(boxes)
-                        for box in result.boxes:
-                            left, top, right, bottom = np.array(box.xyxy.cpu(), dtype=int).squeeze()
-                            width = right - left
-                            height = bottom - top
-                            center = (left + int((right - left) / 2), top + int((bottom - top) / 2))
-                            label = results[0].names[int(box.cls)]
-                            logger.info(label)
-                            logger.info("center{}".format(center))
-                            confidence = float(box.conf.cpu())
-                        #if(label=="orange" or label=="carrot" ):
-                            cv2.rectangle(img, (left, top), (right, bottom), (255, 0, 0), 2)
-                            cv2.putText(img, label, (left, top - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 1, cv2.LINE_AA)
+
 
                     #cv2.namedWindow("yolox", cv2.WINDOW_NORMAL)
                     #cv2.imshow("yolox", result_frame)
-                yield cv2.imencode('.jpg', frame)[1].tobytes()
+                yield cv2.imencode('.jpg', img)[1].tobytes()
         finally:
             video.release()

@@ -32,8 +32,8 @@ topic7 = '/flask/stop'
 if os.environ.get('CAMERA'):
     Camera = import_module('camera_' + os.environ['CAMERA']).Camera
 else:
-    #from camera_pi import Camera
-    from camera_usb import Camera
+    from camera_ipcam import Camera
+    #from camera_usb import Camera
 
 # Raspberry Pi camera module (requires picamera package)
 

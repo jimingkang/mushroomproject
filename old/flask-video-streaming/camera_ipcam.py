@@ -254,20 +254,6 @@ class Predictor(object):
 
 
 
-def connect_mqtt():
-    def on_connect(client, userdata, flags, rc):
-        if rc == 0:
-            i=1
-            #print("xyx publish Connected to MQTT Broker!")
-        else:
-            i=0
-            #print("Failed to connect, return code %d\n", rc)
-
-    client = mqtt_client.Client(client_id)
-    client.on_connect = on_connect
-    client.connect(broker, port)
-    return client
-
 
 count = 0
 #yolov8_detector = YOLOv8(model_path, conf_thres=0.5, iou_thres=0.5)
@@ -280,8 +266,8 @@ class Camera(BaseCamera):
     @staticmethod
     def frames():
         #video = cv2.VideoCapture("http://10.0.0.134:5000/video_feed")
-        #video = cv2.VideoCapture("http://192.168.254.42:5000/video_feed")
-        video = cv2.VideoCapture(Camera.video_source,cv2.CAP_V4L2)
+        video = cv2.VideoCapture("http://172.27.34.72:8000/stream.mjpg")
+        #video = cv2.VideoCapture(Camera.video_source,cv2.CAP_V4L2)
         #video = v4l2capture.Video_device(Camera.video_source)
 
         size_x =640
