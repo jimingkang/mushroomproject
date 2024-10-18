@@ -1178,20 +1178,53 @@ class yolox_ros(yolox_py):
         #for box in bounding_boxes:
         #    logger.info(" boxes_callback probability,%4.2f,%s,x=%4.2f,y=%4.2f",box.probability,box.class_id,(box.xmin+box.xmax)/2,(box.ymin+box.ymax)/2)
 
-def ros_main(args = None):
-            rclpy.init(args=args)
-            ros_class = yolox_ros()
 
-            try:
-                rclpy.spin(ros_class)
-            except KeyboardInterrupt:
-                pass
-            finally:
-                ros_class.destroy_node()
-                rclpy.shutdown()
+def ros2_thread(node):
+    print('entering ros2 thread')
+    rclpy.spin(node)
+    print('leaving ros2 thread')
+
+
+def sigint_handler(signal, frame):
+    """
+    SIGINT handler
+    We have to know when to tell rclpy to shut down, because
+    it's in a child thread which would stall the main thread
+    shutdown sequence. So we use this handler to call
+    rclpy.shutdown() and then call the previously-installed
+    SIGINT handler for Flask
+    """
+    rclpy.shutdown()
+    if prev_sigint_handler is not None:
+        prev_sigint_handler(signal)
+
+
+#rclpy.init(args=None)
+#ros2_node = MovePublisher()
+#app = Flask(__name__)
+#threading.Thread(target=ros2_thread, args=[ros2_node]).start()
+#prev_sigint_handler = signal.signal(signal.SIGINT, sigint_handler)
+
+def ros_main(args = None):
+            #rclpy.init(args=args)
+            #ros_class = yolox_ros()
+
+            #try:
+            #    rclpy.spin(ros_class)
+            #except KeyboardInterrupt:
+            #    pass
+            #finally:
+            #    ros_class.destroy_node()
+            #    rclpy.shutdown()
+             
+    rclpy.init(args=None)
+    ros_class = yolox_ros()
+    app = Flask(__name__)
+    threading.Thread(target=ros2_thread, args=[ros_class]).start()
+    prev_sigint_handler = signal.signal(signal.SIGINT, sigint_handler)
 
 if __name__ == '__main__':
     ros_main()
-    app.run(host='0.0.0.0', threaded=True,port='5001')
+    #app.run(host='0.0.0.0', threaded=True,port='5001')
 
 
