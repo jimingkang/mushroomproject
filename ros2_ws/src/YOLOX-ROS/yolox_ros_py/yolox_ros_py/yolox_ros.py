@@ -57,13 +57,13 @@ from .yolox_ros_py_utils.utils import yolox_py
 from sensor_msgs.msg import CameraInfo
 from std_msgs.msg import String
 #import orbslam3
-from slam import Mapp,Frame
+#from slam import Mapp,Frame
 from scipy.spatial.transform import Rotation as R
 # camera intrinsics
 W, H = 848-12, 480+10
 F = 430.79
 K = np.array([[F,0,W//2],[0,F,H//2],[0,0,1]])
-mapp = Mapp(W, H)
+#mapp = Mapp(W, H)
 frame=None
 
 
@@ -610,7 +610,7 @@ class yolox_ros(yolox_py):
         return frame
 
     def rpi5_imageflow_callback(self,msg:Image) -> None:
-            global bboxes_msg,result_img_rgb,img_rgb,mapp,frame
+            global bboxes_msg,result_img_rgb,img_rgb,frame
             img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
             if img_rgb is not None:
                 outputs, img_info = self.predictor.inference(img_rgb)

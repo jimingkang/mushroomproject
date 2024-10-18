@@ -179,6 +179,7 @@ class MovePublisher(Node):
         while True:
             frame = camera.get_frame()
             self.pub_rpi5_raw_img.publish(frame)
+            print(boxing_img)
             if boxing_img !=None:
                 yield b'Content-Type: image/jpeg\r\n\r\n' + boxing_img + b'\r\n--frame\r\n'
             else:
