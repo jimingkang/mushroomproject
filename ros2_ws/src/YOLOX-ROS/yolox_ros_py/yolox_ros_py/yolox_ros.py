@@ -1226,6 +1226,6 @@ def ros_main(args = None):
 
 if __name__ == '__main__':
     ros_main()
-    #app.run(host='0.0.0.0', threaded=True,port='5001')
+    app.run(host='0.0.0.0', threaded=True,port='5001')
 
 
