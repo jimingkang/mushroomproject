@@ -40,7 +40,7 @@ from picamera2 import Picamera2
 
 from ultralytics import YOLO
 import numpy as np
-
+from cv_bridge import CvBridge,CvBridgeError
 # Set up the camera with Picam
 #picam2 = Picamera2()
 #picam2.preview_configuration.main.size = (1280, 1280)
@@ -76,7 +76,7 @@ class MovePublisher(Node):
         self.gripper_hold_subs = self.create_subscription(String,'/yolox/move/detected',self.gripper_detected_move_callback,10)
 
         self.latest_message = None
-        #self.bridge = CvBridge()
+        self.bridge = CvBridge()
     
     def imageflow_callback(self,msg:Image) -> None:
             global frame,boxing_img
@@ -178,6 +178,7 @@ class MovePublisher(Node):
         yield b'--frame\r\n'
         while True:
             frame = camera.get_frame()
+            img_pub = self.bridge.cv2_to_imgmsg(frame,"bgr8")
             self.pub_rpi5_raw_img.publish(frame)
             print(boxing_img)
             if boxing_img !=None:

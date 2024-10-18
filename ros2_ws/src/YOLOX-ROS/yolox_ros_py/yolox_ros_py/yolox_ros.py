@@ -1207,22 +1207,22 @@ def sigint_handler(signal, frame):
 #prev_sigint_handler = signal.signal(signal.SIGINT, sigint_handler)
 
 def ros_main(args = None):
-            #rclpy.init(args=args)
-            #ros_class = yolox_ros()
+        rclpy.init(args=args)
+        ros_class = yolox_ros()
 
-            #try:
-            #    rclpy.spin(ros_class)
-            #except KeyboardInterrupt:
-            #    pass
-            #finally:
-            #    ros_class.destroy_node()
-            #    rclpy.shutdown()
+        try:
+            rclpy.spin(ros_class)
+        except KeyboardInterrupt:
+            pass
+        finally:
+            ros_class.destroy_node()
+            rclpy.shutdown()
              
-    rclpy.init(args=None)
-    ros_class = yolox_ros()
-    app = Flask(__name__)
-    threading.Thread(target=ros2_thread, args=[ros_class]).start()
-    prev_sigint_handler = signal.signal(signal.SIGINT, sigint_handler)
+    #rclpy.init(args=None)
+    #ros_class = yolox_ros()
+    ##app = Flask(__name__)
+    #threading.Thread(target=ros2_thread, args=[ros_class]).start()
+    #prev_sigint_handler = signal.signal(signal.SIGINT, sigint_handler)
 
 if __name__ == '__main__':
     ros_main()
