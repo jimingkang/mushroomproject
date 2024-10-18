@@ -322,7 +322,7 @@ class yolox_ros(yolox_py):
         self.sub_depth_image = self.create_subscription(Image, depth_image_topic, self.imageDepthCallback, 1)
         self.sub_info = self.create_subscription(CameraInfo, depth_info_topic, self.imageDepthInfoCallback, 1)
         self.sub_move_xy_info = self.create_subscription(String, move_x, self.MoveXYZCallback, 1)
-        self.sub_rpi_raw_img = self.create_subscription(Image,"/yolox/rpi5/raw_image",self.rpi5_imageflow_callback, 10)
+        self.sub_rpi_raw_img = self.create_subscription(Image,"/yolox/rpi5/raw_image",self.rpi5_imageflow_callback, 1)
         self.intrinsics = None
         self.pix = None
         self.pix_grade = None
@@ -625,15 +625,6 @@ class yolox_ros(yolox_py):
                             bboxes_msg = self.yolox2bboxes_msgs(bboxes, scores, cls, cls_names,track_ids, msg.header, img_rgb)
 
                     if result_img_rgb is not None:
-
-                        #frame = Frame(result_img_rgb)
-                        #frame = self.process_frame(frame)
-                        #logger.info("process_frame")
-                        #cv2.imshow("slam", frame.image)
-                        #if cv2.waitKey(30) & 0xFF == ord('q'): 
-                        #    exit()
-                        #mapp.display()
-
                         img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
                     else:
                         img_rgb_pub = self.bridge.cv2_to_imgmsg(img_rgb,"bgr8")
