@@ -118,6 +118,7 @@ y = 0
 
 
 
+ros_class=None
 
 
 @app.route('/move/<string:direction>')
@@ -279,11 +280,18 @@ def gen(camera):
         yield b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n'
 
 
+#@app.route('/video_feed')
+#def video_feed():
+#    """Video streaming route. Put this in the src attribute of an img tag."""
+#    return Response(gen(Camera()),
+                    mimetype='multipart/x-mixed-replace; boundary=--frame')
+
+
+
 @app.route('/video_feed')
 def video_feed():
-    """Video streaming route. Put this in the src attribute of an img tag."""
-    return Response(gen(Camera()),
-                    mimetype='multipart/x-mixed-replace; boundary=--frame')
+    global ros_class
+    return Response(ros_class.gen(Camera()),mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
 
@@ -1170,7 +1178,6 @@ class yolox_ros(yolox_py):
         #for box in bounding_boxes:
         #    logger.info(" boxes_callback probability,%4.2f,%s,x=%4.2f,y=%4.2f",box.probability,box.class_id,(box.xmin+box.xmax)/2,(box.ymin+box.ymax)/2)
 
-ros_class=None
 def ros_main(args = None):
             rclpy.init(args=args)
             ros_class = yolox_ros()
@@ -1186,12 +1193,5 @@ def ros_main(args = None):
 if __name__ == '__main__':
     ros_main()
     app.run(host='0.0.0.0', threaded=True,port='5001')
-
-@app.route('/video_feed')
-def video_feed():
-    global ros_class
-    return Response(ros_class.gen(Camera()),mimetype='multipart/x-mixed-replace; boundary=frame')
-
-
 
 
