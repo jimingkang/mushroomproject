@@ -34,7 +34,7 @@ import Adafruit_PCA9685
 pwm = Adafruit_PCA9685.PCA9685(address=0x40, busnum=1)
 
 
-from camera_ipcam import Camera
+from camera_usb import Camera
 import cv2
 from picamera2 import Picamera2
 
@@ -81,6 +81,8 @@ class MovePublisher(Node):
     def imageflow_callback(self,msg:Image) -> None:
             global frame,boxing_img
             boxing_img = self.bridge.imgmsg_to_cv2(msg,"bgr8")
+            frame=cv2.imencode('.jpg', boxing_img)[1].tobytes()
+            boxing_img=None
 
 
                 
@@ -178,13 +180,23 @@ class MovePublisher(Node):
         yield b'--frame\r\n'
         while True:
             frame = camera.get_frame()
-            img_pub = self.bridge.cv2_to_imgmsg(frame,"bgr8")
-            self.pub_rpi5_raw_img.publish(frame)
-            print(boxing_img)
-            if boxing_img !=None:
-                yield b'Content-Type: image/jpeg\r\n\r\n' + boxing_img + b'\r\n--frame\r\n'
-            else:
-                yield b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n'
+            #nparr = np.fromstring(frame, np.uint8)
+            #ogsimg=cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+            #logger.info(frame.type)
+            jpg_as_np = np.frombuffer(frame, dtype=np.uint8)
+            img = cv2.imdecode(jpg_as_np, flags=1)
+            img_pub = self.bridge.cv2_to_imgmsg(img,"bgr8")
+            self.pub_rpi5_raw_img.publish(img_pub)
+            logger.info("box image:{}".format(boxing_img))
+            #time.sleep(0.01)
+            
+            #if frame==None:
+            #    boxing_img= cv2.imencode('.jpg', boxing_img)[1].tobytes()
+            #    yield b'Content-Type: image/jpeg\r\n\r\n' + boxing_img + b'\r\n--frame\r\n'
+            #else:
+            yield b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n'
+            frame=None
 
 
 
