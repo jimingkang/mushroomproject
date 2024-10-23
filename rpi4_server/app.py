@@ -34,9 +34,9 @@ import Adafruit_PCA9685
 pwm = Adafruit_PCA9685.PCA9685(address=0x40, busnum=1)
 
 
-from camera_usb import Camera
+#from camera_usb import Camera
 import cv2
-from picamera2 import Picamera2
+#from picamera2 import Picamera2
 
 from ultralytics import YOLO
 import numpy as np
@@ -50,7 +50,7 @@ from cv_bridge import CvBridge,CvBridgeError
 #picam2.start()
 
 # Load YOLOv11
-model = YOLO("/home/pi/yolomodel/yolo11n_ncnn_model")
+#model = YOLO("/home/pi/yolomodel/yolo11n_ncnn_model")
 #model = YOLO("yolov8n.pt")
 
 
@@ -61,7 +61,7 @@ model = YOLO("/home/pi/yolomodel/yolo11n_ncnn_model")
 servo_min = 250  # Min pulse length out of 4096
 #servo_tmp=servo_min
 servo_inc=50
-servo_max = 400  # Max pulse length out of 4096
+servo_max = 500  # Max pulse length out of 4096
 frame=None
 boxing_img=None
 class MovePublisher(Node):
@@ -101,8 +101,8 @@ class MovePublisher(Node):
         pwm.set_pwm(0, 0, servo_tmp)
         pwm.set_pwm(1, 0, servo_tmp)
         pwm.set_pwm(2, 0, servo_tmp)
-        pwm.set_pwm(4, 0, servo_tmp)
-        time.sleep(0.05)
+        #pwm.set_pwm(4, 0, servo_tmp)
+        time.sleep(1)
         #print("servo_tmp={},{:>5}\t{:>5.3f}".format(servo_tmp,chan.value, chan.voltage))
 
     def gripper_detected_move_callback(self, msg):
@@ -136,7 +136,7 @@ class MovePublisher(Node):
         pwm.set_pwm(0, 0, servo_min)
         pwm.set_pwm(1, 0, servo_min)
         pwm.set_pwm(2, 0, servo_min)
-        pwm.set_pwm(4, 0, servo_min)
+        #pwm.set_pwm(4, 0, servo_min)
         time.sleep(1)
 
 
