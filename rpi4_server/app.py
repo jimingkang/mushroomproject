@@ -49,6 +49,11 @@ from cv_bridge import CvBridge,CvBridgeError
 #picam2.configure("preview")
 #picam2.start()
 
+
+redis_server='172.27.34.62'
+pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
+r = redis.Redis(connection_pool=pool)
+
 # Load YOLOv11
 model = YOLO("/home/pi/yolomodel/yolo11s_ncnn_model")
 
@@ -68,7 +73,7 @@ class MovePublisher(Node):
         super().__init__('test_publisher')
         self.pub_rpi5_raw_img = self.create_publisher(Image,"/yolox/rpi5/raw_image", 10)
         self.sub_boxing_img = self.create_subscription(Image,"/yolox/rpi5/boxing_image",self.imageflow_callback, 10)
-        self._adjust_publisher = self.create_publisher(String, '/yolox/move/adjust/xy', 1)
+        self.gripper_adjust_pub= self.create_publisher(String, '/yolox/move/adjust/xy', 1)
         #self.subscription = self.create_subscription(Image,'/yolox/boxes_image',self.chatter_callback,10)
         self.gripper_open_subs= self.create_subscription(String,'/yolox/gripper_open',self.gripper_open_callback,10)
         self.gripper_hold_subs = self.create_subscription(String,'/yolox/gripper_hold',self.gripper_hold_callback,10)
@@ -128,7 +133,7 @@ class MovePublisher(Node):
 
     def gripper_open_callback(self, msg):
         global servo_min
-	#print(f'open cb received: {msg.data}')
+        print(f'open cb received: {msg.data}')
         pwm.set_pwm(0, 0, servo_min)
         pwm.set_pwm(1, 0, servo_min)
         pwm.set_pwm(2, 0, servo_min)
@@ -145,6 +150,12 @@ class MovePublisher(Node):
         yield b'--frame\r\n'
         while True:
             frame = camera.get_frame()
+            #adjust_gripper_center=r.get("adjust_gripper_center")
+            #logger.info(adjust_gripper_center)
+            #if(adjust_gripper_center!=None):
+            ##    gripper_msg2 = String()
+            #    gripper_msg2.data = adjust_gripper_center
+            #    self.gripper_adjust_pub.publish(gripper_msg2)
             #nparr = np.fromstring(frame, np.uint8)
             #ogsimg=cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
