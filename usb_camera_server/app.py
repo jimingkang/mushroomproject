@@ -47,7 +47,7 @@ class MovePublisher(Node):
     def __init__(self):
         super().__init__('test_publisher')
         self.pub_rpi5_raw_img = self.create_publisher(Image,"/yolox/rpi5/raw_image", 10)
-        #self.sub_boxing_img = self.create_subscription(Image,"/yolox/rpi5/boxing_image",self.imageflow_callback, 10)
+        self.sub_boxing_img = self.create_subscription(Image,"/yolox/rpi5/boxing_image",self.imageflow_callback, 10)
         #self._adjust_publisher = self.create_publisher(String, '/yolox/move/adjust/xy', 1)
         #self.subscription = self.create_subscription(Image,'/yolox/boxes_image',self.chatter_callback,10)
         #self.gripper_open_subs= self.create_subscription(String,'/yolox/gripper_open',self.gripper_open_callback,10)
@@ -60,7 +60,8 @@ class MovePublisher(Node):
     def imageflow_callback(self,msg:Image) -> None:
             global frame,boxing_img
             boxing_img = self.bridge.imgmsg_to_cv2(msg,"bgr8")
-            frame=cv2.imencode('.jpg', boxing_img)[1].tobytes()
+            boxing_img=cv2.imencode('.jpg', boxing_img)[1].tobytes()
+            frame=None
             boxing_img=None
 
 
@@ -95,12 +96,11 @@ class MovePublisher(Node):
             self.pub_rpi5_raw_img.publish(img_pub)
             logger.info("box image:{}".format(boxing_img))
             
-            #if frame==None:
-            #    boxing_img= cv2.imencode('.jpg', boxing_img)[1].tobytes()
-            #    yield b'Content-Type: image/jpeg\r\n\r\n' + boxing_img + b'\r\n--frame\r\n'
-            #else:
-            yield b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n'
-            frame=None
+            if frame==None:
+                yield b'Content-Type: image/jpeg\r\n\r\n' + boxing_img + b'\r\n--frame\r\n'
+            else:
+                yield b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n'
+            #frame=None
 
 
 
