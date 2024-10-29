@@ -138,7 +138,7 @@ class yolox_ros(yolox_py):
         self.img_rgb=np.zeros( (512,512,3), dtype=np.uint8);#cv2.imread('/home/jimmy/Downloads/mushroomproject/ros2_ws/src/flask_ros_app/flask_ros_app/mushroom.jpg', 0)
         self.pub_boxes_img = self.create_publisher(Image,"/yolox/boxes_image", 10)
         self.sub_boxes = self.create_subscription(BoundingBoxesCords, "/yolox/bounding_boxes_cords", self.boxes_cords_callback, 1)
-        self.sub_boxes = self.create_subscription(BoundingBoxesCords, "yolox/move/adjust/xy", self.boxes_move_adjust_callback, 1)
+        self.rpi_sub_boxes = self.create_subscription(String, "/yolox/move/adjust/xy", self.boxes_move_adjust_callback, 1)
         
         self.gripper_detected_publisher = self.create_publisher(String, '/yolox/move/detected', 1)
         self.gripper_publisher = self.create_publisher(String, '/yolox/gripper_hold', 1)
@@ -258,10 +258,12 @@ class yolox_ros(yolox_py):
                     hi.wait_stop()
                     logger.info("movedown current location :{},{},{},".format(xy[0],xy[1],hi.z))
                     r.hdel("detections",key)
+                    #r.set("mode","adjust_camera_init")
+                    #time.sleep(3)
                     gripper_msg = String()
                     gripper_msg.data = '%d,%d,%d' %(int(xy[0]),int(xy[1]),hi.z) 
                     self.gripper_publisher.publish(gripper_msg)
-                    logger.info(r.get("mode")=="catch_over")
+                    logger.info(r.get("mode")=="adjust_camera_init")
                     rett=hi.movel_xyz(int(xy[0]),int(xy[1]),0,5,80)
                     hi.wait_stop()
                     hi.get_scara_param()
@@ -284,54 +286,27 @@ class yolox_ros(yolox_py):
         r.set("scan","start")
         img_rgb_pub = self.bridge.cv2_to_imgmsg(self.img_rgb,"bgr8")
         self.pub_boxes_img.publish(img_rgb_pub)
-    def boxes_move_adjust_callback(self, data):
+    def boxes_move_adjust_callback(self, msg):
         global bounding_boxes_cords
-        bounding_boxes_cords=data.bounding_boxes
-        logger.info(data.bounding_boxes)
+        data=msg.data
+        logger.info(data)
+        adjust=data.split(",")
+        x=int(adjust[0])
+        y=int(adjust[1])
         hi.get_scara_param()
         hi.wait_stop()
-        #if 1:#r.get("mode")=="camera_ready":
-        #    bounding_boxes_cords=data.bounding_boxes
-            #r.set("mode","pickup_ready")
-        r.set("mode","adjust_ready")
-        hlen=r.hlen("detections") 
-        if 1: #r.get("scan")=="stop" and
-            #ele=r.lpop("queue") 
-            #v=r.hget("detections",ele)
-            print(r.hgetall("detections"))
-            for key in r.hkeys("detections"):
-                v=r.hget("detections",key)
-                xy=[]
-                if v is not None:
-                    xy=v.split(",")
-                    logger.info(xy)
-                #if v is not None and len(xy)>0:
-                rett=hi.movel_xyz(int(xy[0]),int(xy[1]),-196,5,80)
+        r.set("mode","adjust_camera_ready")
+        logger.info("adjust_camera_ready (pixel) : {}, {},".format(x,y))
+        if abs(x)>20 or abs(y)>20: #r.get("scan")=="stop" and
+                rett=hi.movel_xyz(hi.x+int(x/10),hi.x+int(y/10),hi.z-10,5,80)
                 logger.info("rett:{}".format(rett))
                 hi.wait_stop()
                 back_z=hi.z
                 hi.get_scara_param()
                 hi.wait_stop()
-                logger.info("movedown current location :{},{},{},".format(xy[0],xy[1],hi.z))
-                #if rett==1:
-                r.hdel("detections",key)
-                gripper_msg = String()
-                gripper_msg.data = '%d,%d,%d' %(int(xy[0]),int(xy[1]),hi.z) 
-                self.gripper_publisher.publish(gripper_msg)
-                logger.info(r.get("mode")=="catch_over")
-                rett=hi.movel_xyz(int(xy[0]),int(xy[1]),0,5,80)
-                hi.wait_stop()
-                hi.get_scara_param()
-                hi.wait_stop()
-                logger.info("moveup  current location :{},{},{},".format(xy[0],xy[1],hi.z))
-                gripper_msg2 = String()
-                gripper_msg2.data = 'gripper open' 
-                self.gripper_open_pub.publish(gripper_msg2)
-                time.sleep(2)
-                hi.get_scara_param()
-                hi.wait_stop()
-                r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
-        r.set("mode","adjust_over")
+                logger.info("movedown current location :{},{},{},".format(hi.x,hi.y,hi.z))
+        r.set("mode","adjust_camera_done")
+        r.set("adjust_gripper_center",str(int((640) / 2))+","+str(int((640) / 2)))
         #hi.get_scara_param()
         #hi.wait_stop()
         #r.set("mode","camera_ready")
