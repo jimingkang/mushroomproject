@@ -4,7 +4,7 @@ import select
 import cv2
 #import v4l2capture
 from base_camera import BaseCamera
-#from ultralytics import YOLO
+from ultralytics import YOLO
 #from yolov8 import YOLOv8
 
 
@@ -27,7 +27,8 @@ model_path = "weights/mush-yolov8-x.onnx"
 
 
 
-
+model = YOLO("/home/pi/yolomodel/yolo11_x_mushroom_jimmy100_ncnn_model")
+model2 = YOLO("/home/pi/yolomodel/shape_yolo11_ncnn_model")
 #yolov8_detector = YOLOv8(model_path, conf_thres=0.5, iou_thres=0.5)
 class Camera(BaseCamera):
     """Requires python-v4l2capture module: https://github.com/gebart/python-v4l2capture"""
@@ -49,6 +50,8 @@ class Camera(BaseCamera):
         try:
             while video.isOpened():
                 ret, img = video.read()
+                result=model(img)
+                frame=result[0].plot()
                 #print(img)
                 #cv2.imwrite("buf.jpg",img)
                 if not ret:
@@ -59,6 +62,6 @@ class Camera(BaseCamera):
                 #combined_img = pred.inference("./buf.jpg", conf=0.2, end2end=True)
 
                 #print(combined_img)
-                yield cv2.imencode('.jpg', img)[1].tobytes()
+                yield cv2.imencode('.jpg', frame)[1].tobytes()
         finally:
             video.release()
