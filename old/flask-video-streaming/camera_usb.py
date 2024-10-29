@@ -32,7 +32,7 @@ model_path = "weights/mush-yolov8-x.onnx"
 class Camera(BaseCamera):
     """Requires python-v4l2capture module: https://github.com/gebart/python-v4l2capture"""
 
-    video_source = "/dev/video5"
+    video_source = "/dev/video0"
 
     @staticmethod
     def frames():
