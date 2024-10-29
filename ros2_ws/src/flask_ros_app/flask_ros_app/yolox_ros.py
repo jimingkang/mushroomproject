@@ -112,7 +112,7 @@ print(hi.is_connect())
 print(hi.unlock_position())
 hi.get_scara_param()
 hi.wait_stop()
-ret=hi.movel_xyz(hi.x,hi.y+10,-20,55,20)
+ret=hi.movel_xyz(hi.x,hi.y+10,-20,5,20)
 print("init set,return:{}".format(ret))
 hi.wait_stop()
 hi.get_scara_param()
@@ -172,7 +172,7 @@ class yolox_ros(yolox_py):
                 r.set("scan","start");
 
             if r.get("scan")=="start":
-                #rett=hi.movel_xyz(hi.x+40*random.choice((-1, 1))*random.random(),hi.y+40*random.choice((-1, 1))*random.random(),hi.z,55,40)
+                #rett=hi.movel_xyz(hi.x+40*random.choice((-1, 1))*random.random(),hi.y+40*random.choice((-1, 1))*random.random(),hi.z,5,40)
                 #hi.wait_stop()
                 #self.scan_i=self.scan_i+1;
                 self.pre_count=self.count;
@@ -184,7 +184,7 @@ class yolox_ros(yolox_py):
                 if self.scan_i<2 and self.scan_j==2:
                     self.scan_i=self.scan_i+1;
                     self.scan_j=0;
-                    rett=hi.movel_xyz(hi.x+50*self.scan_i,hi.y,hi.z,55,80)
+                    rett=hi.movel_xyz(hi.x+50*self.scan_i,hi.y,hi.z,5,80)
                     hi.wait_stop()
                     r.set("scan","stop");
                     
@@ -194,13 +194,13 @@ class yolox_ros(yolox_py):
                     if self.scan_i%2==1:
                         hi.get_scara_param()
                         hi.wait_stop()
-                        rett=hi.movel_xyz(hi.x,hi.y-50,hi.z,55,80)
+                        rett=hi.movel_xyz(hi.x,hi.y,hi.z,5,80)
                         hi.wait_stop()
                         time.sleep(0.5)
                     else:
                         hi.get_scara_param()
                         hi.wait_stop()
-                        rett=hi.movel_xyz(hi.x,hi.y+50,hi.z,55,80)
+                        rett=hi.movel_xyz(hi.x,hi.y+50,hi.z,5,80)
                         hi.wait_stop()
                         time.sleep(0.5)
 
@@ -214,7 +214,7 @@ class yolox_ros(yolox_py):
                     r.set("scan","stop");
                     r.set("mode","camera_ready");
                     if rett>1:
-                        rett=hi.movel_xyz(300,50,hi.z,55,80)
+                        rett=hi.movel_xyz(300,50,hi.z,5,80)
                         hi.wait_stop()   
                         time.sleep(0.5) 
                 hi.get_scara_param()
@@ -235,10 +235,7 @@ class yolox_ros(yolox_py):
         logger.info(data.bounding_boxes)
         hi.get_scara_param()
         hi.wait_stop()
-        #if 1:#r.get("mode")=="camera_ready":
-        #    bounding_boxes_cords=data.bounding_boxes
-            #r.set("mode","pickup_ready")
-        r.set("mode","pickup_ready")
+
         logger.info(r.llen("queue"))  
         logger.info("stop,{}".format(r.get("scan")=="stop")) 
         hlen=r.hlen("detections") 
@@ -253,21 +250,27 @@ class yolox_ros(yolox_py):
                     xy=v.split(",")
                     logger.info(xy)
                 if v is not None and len(xy)>0:
-                    rett=hi.movel_xyz(int(xy[0]),int(xy[1]),hi.z,55,80)
+                    rett=hi.movel_xyz(int(xy[0]),int(xy[1]),-190,5,80)
                     logger.info("rett:{}".format(rett))
                     hi.wait_stop()
                     back_z=hi.z
                     hi.get_scara_param()
                     hi.wait_stop()
                     logger.info("movedown current location :{},{},{},".format(xy[0],xy[1],hi.z))
-                    #if rett==1:
                     r.hdel("detections",key)
-                    detect_msg = String()
-                    detect_msg.data = '%d,%d,%d' %(int(xy[0]),int(xy[1]),hi.z) 
-                    self.gripper_detected_publisher.publish(detect_msg)
-                while r.get("mode")!="adjust_over":
-                    time.sleep(1)
-               
+                    gripper_msg = String()
+                    gripper_msg.data = '%d,%d,%d' %(int(xy[0]),int(xy[1]),hi.z) 
+                    self.gripper_publisher.publish(gripper_msg)
+                    logger.info(r.get("mode")=="catch_over")
+                    rett=hi.movel_xyz(int(xy[0]),int(xy[1]),0,5,80)
+                    hi.wait_stop()
+                    hi.get_scara_param()
+                    hi.wait_stop()
+                    logger.info("moveup  current location :{},{},{},".format(xy[0],xy[1],hi.z))
+                    gripper_msg2 = String()
+                    gripper_msg2.data = 'gripper open' 
+                    self.gripper_open_pub.publish(gripper_msg2)
+                    #time.sleep(2)
             
                 hi.get_scara_param()
                 hi.wait_stop()
@@ -276,7 +279,7 @@ class yolox_ros(yolox_py):
         hi.get_scara_param()
         hi.wait_stop()
         #if hlen>0:
-        #    rett=hi.movel_xyz(hi.x,hi.y+270,hi.z,55,80)
+        #    rett=hi.movel_xyz(hi.x,hi.y+270,hi.z,5,80)
         r.set("mode","camera_ready")
         r.set("scan","start")
         img_rgb_pub = self.bridge.cv2_to_imgmsg(self.img_rgb,"bgr8")
@@ -303,7 +306,7 @@ class yolox_ros(yolox_py):
                     xy=v.split(",")
                     logger.info(xy)
                 #if v is not None and len(xy)>0:
-                rett=hi.movel_xyz(int(xy[0]),int(xy[1]),-196,55,80)
+                rett=hi.movel_xyz(int(xy[0]),int(xy[1]),-196,5,80)
                 logger.info("rett:{}".format(rett))
                 hi.wait_stop()
                 back_z=hi.z
@@ -316,7 +319,7 @@ class yolox_ros(yolox_py):
                 gripper_msg.data = '%d,%d,%d' %(int(xy[0]),int(xy[1]),hi.z) 
                 self.gripper_publisher.publish(gripper_msg)
                 logger.info(r.get("mode")=="catch_over")
-                rett=hi.movel_xyz(int(xy[0]),int(xy[1]),0,55,80)
+                rett=hi.movel_xyz(int(xy[0]),int(xy[1]),0,5,80)
                 hi.wait_stop()
                 hi.get_scara_param()
                 hi.wait_stop()

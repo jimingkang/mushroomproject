@@ -321,16 +321,19 @@ class yolox_ros(yolox_py):
         depth_info_topic = '/camera/depth/camera_info'
         gripper_camera_topic="/camera/gripper/raw_image"
         move_x="/move/x"
+        self.cap = cv2.VideoCapture(6)
+        w, h, fps = (int(self.cap.get(x)) for x in (cv2.CAP_PROP_FRAME_WIDTH, cv2.CAP_PROP_FRAME_HEIGHT, cv2.CAP_PROP_FPS))
+
         # ROS2 init
         super().__init__('yolox_ros', load_params=False)
 
         #self.setting_yolox_exp()
-        #self.cap = cv2.VideoCapture(6)
-        #w, h, fps = (int(self.cap.get(x)) for x in (cv2.CAP_PROP_FRAME_WIDTH, cv2.CAP_PROP_FRAME_HEIGHT, cv2.CAP_PROP_FPS))
-        #self.w=w
-        #self.h=h
-        #self.fps=fps
-        self.infer_model = YOLO("/home/jimmy/Downloads/mushroomproject/ros2_ws/src/YOLOX-ROS/yolox_ros_py/yolox_ros_py/yolo11n_detect_abdollah.engine")
+        self.cap = cv2.VideoCapture(6)
+        w, h, fps = (int(self.cap.get(x)) for x in (cv2.CAP_PROP_FRAME_WIDTH, cv2.CAP_PROP_FRAME_HEIGHT, cv2.CAP_PROP_FPS))
+        self.w=w
+        self.h=h
+        self.fps=fps
+        self.infer_model = YOLO("/home/jimmy/Downloads/mushroomproject/ros2_ws/src/YOLOX-ROS/yolox_ros_py/yolox_ros_py/yolo11_x_mushroom.engine")
 
 
         self.bridge = CvBridge()
@@ -340,12 +343,10 @@ class yolox_ros(yolox_py):
         self.pub_boxes_img = self.create_publisher(Image,"/yolox/boxes_image", 1)
         self.pub_rpi5_boxes_img = self.create_publisher(Image,"/yolox/rpi5/boxing_image", 1)
         self.sub_rpi_raw_img = self.create_subscription(Image,"/yolox/rpi5/raw_image",self.rpi5_imageflow_callback, 1)
-        self.pub_rpi5_adjust = self.create_publisher(String,"/yolox/rpi5/boxing_pixel", 1)
         self.pub_pointclouds = self.create_publisher(PointCloud2,'/yolox/pointclouds', 10)
         self.sub_depth_image = self.create_subscription(Image, depth_image_topic, self.imageDepthCallback, 1)
         self.sub_info = self.create_subscription(CameraInfo, depth_info_topic, self.imageDepthInfoCallback, 1)
         self.sub_move_xy_info = self.create_subscription(String, move_x, self.MoveXYZCallback, 1)
-        self._adjust_publisher = self.create_publisher(String, '/yolox/move/adjust/xy', 1)
 
         self.intrinsics = None
         self.pix = None
@@ -391,6 +392,7 @@ class yolox_ros(yolox_py):
                     logger.error(e)
                     pass
             #self.pub_rpi5_boxes_img.publish(frame)
+            
             #print(boxing_img)
             if img_rgb_pub !=None:
                 yield b'Content-Type: image/jpeg\r\n\r\n' + img_rgb_pub + b'\r\n--frame\r\n'
@@ -402,45 +404,34 @@ class yolox_ros(yolox_py):
         bboxes_msg=None
         result_img_rgb=None
         img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
-        try:
+        if img_rgb is not None:
+            detect_res = self.infer_model(img_rgb, conf=0.90)
+            bboxes = detect_res[0].boxes.cpu().numpy()
+            xyxy = bboxes.xyxy
+            classes = bboxes.cls
+            confs = bboxes.conf
+            try:
                     logger.info("get  rpi5 msg mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
-                    #if  (detect_res is not None) and r.get("scan")=="pickup_ready" :#r.get("mode")=="camera_ready" and
+                    #if  (detect_res is not None) and r.get("scan")=="start" :#r.get("mode")=="camera_ready" and
                         #logger.info("output[0]{},img_info{}".format(outputs[0],img_info))
                         #result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
-                    if   r.get("mode")=="adjust_ready":
-                        if img_rgb is not None:
-                            detect_res = self.infer_model(img_rgb, conf=0.90)
-                            bboxes = detect_res[0].boxes.cpu().numpy()
-                            xyxy = bboxes.xyxy
-                            classes = bboxes.cls
-                            confs = bboxes.conf
-                            for (x1, y1, x2, y2), conf, class_id in zip(xyxy,confs,classes):
-        
-                                left, top, right, bottom = int(x1), int(y1), int(x2), int(y2)
-                                width = right - left
-                                height = bottom - top
-                                center = (left + int((right - left) / 2), top + int((bottom - top) / 2))
-                                adjust_msg = String()
-                                adjust_msg.data = '%d,%d,%d' %(int(center[0]-320),int(center[1]-320),hi.z) 
-                                self.pub_rpi5_adjust.publish(adjust_msg)
-                                label = "class_id:"+str(class_id)
-                                label= label+",conf:"+str(conf)
-                                logger.info("adjust center:{}".format(center))
-                                cv2.rectangle(img_rgb, (left, top), (right, bottom), (255, 0, 0), 5)
-                                cv2.putText(img_rgb, label, (left, top - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 1, cv2.LINE_AA)
-                                break
+                    if  bboxes is not None:
+                        bboxes_msg, result_img_rgb = self.yolox2bboxes_msgs(bboxes, confs, classes, msg.header, img_rgb)
+                            #logger.info("result_img_rgb:{}".format(result_img_rgb))
 
+                    if result_img_rgb is not None:
+                        img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
+                    else:
+                        img_rgb_pub = self.bridge.cv2_to_imgmsg(img_rgb,"bgr8")
 
-                    
-                    img_rgb_pub = self.bridge.cv2_to_imgmsg(img_rgb,"bgr8")
                     self.pub_rpi5_boxes_img.publish(img_rgb_pub)
                     #time,sleep(1)
                     #if (self.imshow_isshow):
                     #    cv2.imshow("YOLOX",result_img_rgb)
                     #    cv2.waitKey(1)
-        except Exception as e:
-            logger.error(e)
-            pass
+            except Exception as e:
+                logger.error(e)
+                pass
     def imageflow_callback(self,msg:Image) -> None:
             global bboxes_msg,result_img_rgb,img_rgb,mapp,frame
             img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
@@ -460,7 +451,7 @@ class yolox_ros(yolox_py):
                 #logger.info("outputs : {},".format((outputs)))
 
                 try:
-                    logger.info("yolo11 mode={}".format(r.get("mode")))
+                    logger.info("yolo11 mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
                     if  (detect_res is not None) and r.get("scan")=="start" :#r.get("mode")=="camera_ready" and
                         #logger.info("output[0]{},img_info{}".format(outputs[0],img_info))
                         #result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)

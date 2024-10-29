@@ -326,8 +326,8 @@ class yolox_ros(yolox_py):
         #self.pub = self.create_publisher(BoundingBoxes,"/yolox/bounding_boxes", 10)
         self.pub_bounding_boxes_cords = self.create_publisher(BoundingBoxesCords,"/yolox/bounding_boxes_cords", 1)
         self.pub_boxes_img = self.create_publisher(Image,"/yolox/boxes_image", 10)
-        self.pub_rpi5_boxes_img = self.create_publisher(Image,"/yolox/rpi5/boxing_image", 10)
-        self.sub_rpi_raw_img = self.create_subscription(Image,"/yolox/rpi5/raw_image",self.rpi5_imageflow_callback, 1)
+        #self.pub_rpi5_boxes_img = self.create_publisher(Image,"/yolox/rpi5/boxing_image", 1)
+        #self.sub_rpi_raw_img = self.create_subscription(Image,"/yolox/rpi5/raw_image",self.rpi5_imageflow_callback, 1)
         self.pub_pointclouds = self.create_publisher(PointCloud2,'/yolox/pointclouds', 10)
         self.sub_depth_image = self.create_subscription(Image, depth_image_topic, self.imageDepthCallback, 1)
         self.sub_info = self.create_subscription(CameraInfo, depth_info_topic, self.imageDepthInfoCallback, 1)
@@ -342,46 +342,7 @@ class yolox_ros(yolox_py):
         else:
             self.sub = self.create_subscription(Image,raw_image_topic,self.imageflow_callback, 10)
 
-    def gen(self,camera):
-        global frame,boxing_img
-        bboxes_msg,result_img_rgb,img_rgb
-        """Video streaming generator function."""
-        yield b'--frame\r\n'
-        while True:
-            frame = camera.get_frame()
-                        
-            if frame is not None:
-                outputs, img_info = self.predictor.inference(img_rgb)
-                logger.info(" rpi5_imageflow_callback outputs : {},".format((outputs)))
-
-                try:
-                    logger.info("rpi mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
-                    if  (outputs is not None) and r.get("scan")=="start" :#r.get("mode")=="camera_ready" and
-                        #logger.info("output[0]{},img_info{}".format(outputs[0],img_info))
-                        result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
-                        if  bboxes is not None:
-                            bboxes_msg = self.yolox2bboxes_msgs(bboxes, scores, cls, cls_names,track_ids, msg.header, img_rgb)
-
-                    if result_img_rgb is not None:
-                        img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
-                    else:
-                        img_rgb_pub = self.bridge.cv2_to_imgmsg(img_rgb,"bgr8")
-
-                    self.pub_rpi5_boxes_img.publish(img_rgb_pub)
-                        #time.sleep(2)
-
-                    #if (self.imshow_isshow):
-                    #    cv2.imshow("YOLOX",result_img_rgb)
-                    #    cv2.waitKey(1)
-                except Exception as e:
-                    logger.error(e)
-                    pass
-            #self.pub_rpi5_boxes_img.publish(frame)
-            #print(boxing_img)
-            if img_rgb_pub !=None:
-                yield b'Content-Type: image/jpeg\r\n\r\n' + img_rgb_pub + b'\r\n--frame\r\n'
-            else:
-                yield b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n'
+  
     def setting_yolox_exp(self) -> None:
 
         WEIGHTS_PATH = '../../weights/yolox_nano.pth'  #for no trt
@@ -659,31 +620,32 @@ class yolox_ros(yolox_py):
         return frame
 
     def rpi5_imageflow_callback(self,msg:Image) -> None:
-            global bboxes_msg,result_img_rgb,img_rgb,frame
-            img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
-            if img_rgb is not None:
+            rpi5_bboxes_msg=None
+            rpi5_result_img_rgb=None,
+            rpi5_img_rgb_pub=None
+            rpi5_img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
+            if rpi5_img_rgb is not None:
                 outputs, img_info = self.predictor.inference(img_rgb)
-                logger.info(" rpi5_imageflow_callback outputs : {},".format((outputs)))
+                #ogger.info(" rpi5_imageflow_callback outputs : {},".format((outputs)))
 
                 try:
                     logger.info("rpi mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
-                    if  (outputs is not None) and r.get("scan")=="start" :#r.get("mode")=="camera_ready" and
+                    if  (outputs is not None)  :#r.get("mode")=="camera_ready" and
                         #logger.info("output[0]{},img_info{}".format(outputs[0],img_info))
-                        result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
+                        rpi5_result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
+                        logger.info(bboxes)
+                        #time.sleep(1)
                         if  bboxes is not None:
-                            bboxes_msg = self.yolox2bboxes_msgs(bboxes, scores, cls, cls_names,track_ids, msg.header, img_rgb)
+                            rpi5_bboxes_msg = self.yolox2bboxes_msgs(bboxes, scores, cls, cls_names,track_ids, msg.header, rpi5_img_rgb)
 
-                    if result_img_rgb is not None:
-                        img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
+                    if rpi5_result_img_rgb is not None:
+                        rpi5_img_rgb_pub = self.bridge.cv2_to_imgmsg(rpi5_result_img_rgb,"bgr8")
                     else:
-                        img_rgb_pub = self.bridge.cv2_to_imgmsg(img_rgb,"bgr8")
+                        rpi5_img_rgb_pub = self.bridge.cv2_to_imgmsg(rpi5_img_rgb,"bgr8")
 
-                    self.pub_rpi5_boxes_img.publish(img_rgb_pub)
-                        #time.sleep(2)
+                    self.pub_rpi5_boxes_img.publish(rpi5_img_rgb_pub)
+                    #time.sleep(2)
 
-                    #if (self.imshow_isshow):
-                    #    cv2.imshow("YOLOX",result_img_rgb)
-                    #    cv2.waitKey(1)
                 except Exception as e:
                     logger.error(e)
                     pass
@@ -1068,13 +1030,13 @@ class yolox_ros(yolox_py):
                     #y=-(int(float(result[1])))               #|              #|
                     #y-=170                                  #\|/      X      #\|/         X               
                      
-                    x=(int(float(result[0])))            #Arm#-------> Y    #camera   --- >#Y
-                    y=-(int(float(result[1])))               #|              #/|\
-                    y-=270                                 #\|/      X       #|         X   
+                    #x=(int(float(result[0])))            #Arm#-------> Y    #camera   --- >#Y
+                    #y=-(int(float(result[1])))               #|              #/|\
+                    #y-=270                                 #\|/      X        #|         X   
                     # 
-                    #x=(int(float(result[1])))           #Arm#-------> Y    #camera   --- >#Y
-                    #y=(int(float(result[0])))               #|              #   \
-                    #y-=90                                 #\|/      X       #  \|/        X                   
+                    x=(int(float(result[1])))           #Arm#-------> Y    #camera   --- >#X
+                    y=(int(float(result[0])))               #|              #    |
+                    y-=180                                 #\|/      X       #  \|/        Y                   
                     obj=str(int(float(camera_xy[0]))+x)+","+str(int(float(camera_xy[1]))+y)+","+str(int(float(result[2])))
                     #logger.info(line)
                     if not r.hexists("detections",str(box.class_id)):
