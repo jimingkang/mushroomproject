@@ -36,6 +36,13 @@ from numpy import empty
 from loguru import logger
 from yolox_ros_py.camera_ipcam import Predictor
 
+from collections import defaultdict
+
+import cv2
+import numpy as np
+from ultralytics import YOLO
+from ultralytics.utils.plotting import Annotator, colors
+
 import pyrealsense2 as pyrs
 from numpy import empty
 import torch
@@ -114,7 +121,6 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 
 
 y = 0
-
 
 
 
@@ -313,34 +319,42 @@ class yolox_ros(yolox_py):
         raw_image_topic = '/camera/color/image_rect_raw'
         depth_image_topic = '/camera/depth/image_rect_raw'
         depth_info_topic = '/camera/depth/camera_info'
+        gripper_camera_topic="/camera/gripper/raw_image"
         move_x="/move/x"
-
         # ROS2 init
         super().__init__('yolox_ros', load_params=False)
 
-        self.setting_yolox_exp()
+        #self.setting_yolox_exp()
+        #self.cap = cv2.VideoCapture(6)
+        #w, h, fps = (int(self.cap.get(x)) for x in (cv2.CAP_PROP_FRAME_WIDTH, cv2.CAP_PROP_FRAME_HEIGHT, cv2.CAP_PROP_FPS))
+        #self.w=w
+        #self.h=h
+        #self.fps=fps
+        self.infer_model = YOLO("/home/jimmy/Downloads/mushroomproject/ros2_ws/src/YOLOX-ROS/yolox_ros_py/yolox_ros_py/yolo11n_detect_abdollah.engine")
 
 
         self.bridge = CvBridge()
         
         #self.pub = self.create_publisher(BoundingBoxes,"/yolox/bounding_boxes", 10)
         self.pub_bounding_boxes_cords = self.create_publisher(BoundingBoxesCords,"/yolox/bounding_boxes_cords", 1)
-        self.pub_boxes_img = self.create_publisher(Image,"/yolox/boxes_image", 10)
-        self.pub_rpi5_boxes_img = self.create_publisher(Image,"/yolox/rpi5/boxing_image", 10)
+        self.pub_boxes_img = self.create_publisher(Image,"/yolox/boxes_image", 1)
+        self.pub_rpi5_boxes_img = self.create_publisher(Image,"/yolox/rpi5/boxing_image", 1)
         self.sub_rpi_raw_img = self.create_subscription(Image,"/yolox/rpi5/raw_image",self.rpi5_imageflow_callback, 1)
+        self.pub_rpi5_adjust = self.create_publisher(String,"/yolox/rpi5/boxing_pixel", 1)
         self.pub_pointclouds = self.create_publisher(PointCloud2,'/yolox/pointclouds', 10)
         self.sub_depth_image = self.create_subscription(Image, depth_image_topic, self.imageDepthCallback, 1)
         self.sub_info = self.create_subscription(CameraInfo, depth_info_topic, self.imageDepthInfoCallback, 1)
         self.sub_move_xy_info = self.create_subscription(String, move_x, self.MoveXYZCallback, 1)
+        self._adjust_publisher = self.create_publisher(String, '/yolox/move/adjust/xy', 1)
 
         self.intrinsics = None
         self.pix = None
         self.pix_grade = None
 
-        if (self.sensor_qos_mode):
-            self.sub = self.create_subscription(Image,raw_image_topic,self.imageflow_callback, qos_profile_sensor_data)
-        else:
-            self.sub = self.create_subscription(Image,raw_image_topic,self.imageflow_callback, 10)
+        #if (self.sensor_qos_mode):
+        #    self.sub = self.create_subscription(Image,raw_image_topic,self.imageflow_callback, qos_profile_sensor_data)
+        #else:
+        self.sub = self.create_subscription(Image,raw_image_topic,self.imageflow_callback, 10)
 
     def gen(self,camera):
         global frame,boxing_img
@@ -352,7 +366,7 @@ class yolox_ros(yolox_py):
                         
             if frame is not None:
                 outputs, img_info = self.predictor.inference(img_rgb)
-                logger.info(" rpi5_imageflow_callback outputs : {},".format((outputs)))
+                logger.info(" geb outputs : {},".format((outputs)))
 
                 try:
                     logger.info("rpi mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
@@ -382,342 +396,85 @@ class yolox_ros(yolox_py):
                 yield b'Content-Type: image/jpeg\r\n\r\n' + img_rgb_pub + b'\r\n--frame\r\n'
             else:
                 yield b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n'
-    def setting_yolox_exp(self) -> None:
-
-        WEIGHTS_PATH = '../../weights/yolox_nano.pth'  #for no trt
-
-
-        self.declare_parameter('imshow_isshow',True)
-        self.declare_parameter('yolox_exp_py', '/home/jimmy/Downloads/mushroomproject/ros2_ws/src/YOLOX-ROS/yolox_ros_py/exps/yolox_nano.py')
-        #self.declare_parameter('yolox_exp_py', 'yolox_vos_s.py')
-        self.declare_parameter('fuse',False)
-        self.declare_parameter('trt', True)
-        self.declare_parameter('fp16', False)
-        self.declare_parameter('legacy', False)
-        self.declare_parameter('device', "gpu")
-        # self.declare_parameter('', 0)
-        self.declare_parameter('ckpt', WEIGHTS_PATH)
-        self.declare_parameter('conf', 0.3)
-        # nmsthre -> threshold
-        self.declare_parameter('threshold', 0.55)
-        # --tsize -> resize
-        self.declare_parameter('resize', 640)
-        self.declare_parameter('sensor_qos_mode', False)
-        # =============================================================
-        self.imshow_isshow = self.get_parameter('imshow_isshow').value
-
-        exp_py = self.get_parameter('yolox_exp_py').value
-        fuse = self.get_parameter('fuse').value
-        trt = True#self.get_parameter('trt').value
-        fp16 = self.get_parameter('fp16').value
-        device = self.get_parameter('device').value
-        ckpt = self.get_parameter('ckpt').value
-        conf = self.get_parameter('conf').value
-        legacy = self.get_parameter('legacy').value
-        threshold = self.get_parameter('threshold').value
-        
-        input_shape_w = self.get_parameter('resize').value
-        input_shape_h = input_shape_w
-
-        self.sensor_qos_mode = self.get_parameter('sensor_qos_mode').value
-        # ==============================================================
-        # add for orbslam3
-        #self.declare_parameter('--vocab_file', vocab_file)
-
-        cudnn.benchmark = True
-        exp = get_exp(exp_py, None)
-
-        #BASE_PATH = os.getcwd()
-        #file_name = os.path.join(BASE_PATH, "../YOLOX-main/YOLOX_outputs/yolox_voc_s/")
-        file_name = "/home/jimmy/Downloads/mushroomproject/YOLOX-main/YOLOX_outputs/yolox_voc_s/"#ros2_ws/src/YOLOX-ROS/weights/tensorrt/"#os.path.join(BASE_PATH, "/src/YOLOX-ROS/weights/tensorrt/") #
-        # os.makedirs(file_name, exist_ok=True)
-
-        exp.test_conf = conf # test conf
-        exp.threshold = threshold # nms threshold
-        exp.test_size = (input_shape_h, input_shape_w) # test size
-
-        model = exp.get_model()
-        logger.info("Model Summary: {}".format(get_model_info(model, exp.test_size)))
-
-        if device == "gpu":
-            model.cuda()
-            #if fp16:
-            #    model.half() 
-        # torch.cuda.set_device()
-        # model.cuda()
-        model.eval()
-
-        # about not trt
-        if not trt:
-            if ckpt is None:
-                ckpt_file = os.path.join(file_name, "best_ckpt.pth")
-            else:
-                ckpt_file = ckpt
-            logger.info("loading checkpoint")
-            ckpt = torch.load(ckpt_file, map_location="cpu")
-            # load the model state dict
-            model.load_state_dict(ckpt["model"])
-            logger.info("loaded checkpoint done.")
-
-        # about fuse
-        if fuse:
-            logger.info("\tFusing model...")
-            model = fuse_model(model)
-
-        # TensorRT
-        logger.info("trt: {},file_name:{}".format(trt,file_name))
-        if trt:
-            assert not fuse, "TensorRT model is not support model fusing!"
-            trt_file = os.path.join(file_name, "model_trt.pth") 
-            logger.info("trt_file:{}".format(trt_file))
-            assert os.path.exists(
-                trt_file
-            ), "TensorRT model is not found!\n Run python3 tools/trt.py first!"
-            model.head.decode_in_inference = False
-            decoder = model.head.decode_outputs
-            logger.info("Using TensorRT to inference")
-        else:
-            trt_file = None
-            decoder = None
-
-
-        self.predictor = Predictor(model, exp, COCO_CLASSES, trt_file, decoder, device, fp16, legacy)
-
-    def extract_points(self,frame):
-        logger.info("extract_points")
-
-        orb = cv2.ORB_create()
-        image = cv2.cvtColor(frame.image, cv2.COLOR_BGR2GRAY)
-        # detection corners
-        pts = cv2.goodFeaturesToTrack(image, 3000, qualityLevel=0.01, minDistance=3)
-        #logger.info("pts: {}".format(pts ))
-        # extract features
-        kps = [cv2.KeyPoint(x=pt[0][0], y=pt[0][1], size=20) for pt in pts]
-        logger.info("pts: {}".format(pts ))
-        kps, des = orb.compute(image, kps)
-        #logger.info("kps, des: {},{}".format(kps, des ))
-
-        kps = np.array([(kp.pt[0], kp.pt[1]) for kp in kps])
-        return kps, des
-
-# 当前帧的角点和上一帧的进行配准
-    def match_points(self,frame):
-        #logger.info("match_points")
-        bfmatch = cv2.BFMatcher(cv2.NORM_HAMMING)
-        matches = bfmatch.knnMatch(frame.curr_des, frame.last_des, k=2)
-        match_kps, idx1, idx2 = [], [], []
-
-        for m,n in matches:
-            if m.distance < 0.75*n.distance:
-                idx1.append(m.queryIdx)
-                idx2.append(m.trainIdx)
-
-                p1 = frame.curr_kps[m.queryIdx]
-                p2 = frame.last_kps[m.trainIdx]
-                match_kps.append((p1, p2))
-        assert len(match_kps) >= 8
-
-        frame.curr_kps = frame.curr_kps[idx1]
-        frame.last_kps = frame.last_kps[idx2]
-
-        return match_kps
-    def normalize(self,K, pts):
-        Kinv = np.linalg.inv(K)
-        # turn [[x,y]] -> [[x,y,1]]
-        add_ones = lambda x: np.concatenate([x, np.ones((x.shape[0], 1))], axis=1)
-        norm_pts = np.dot(Kinv, add_ones(pts).T).T[:, 0:2]
-        return norm_pts
-# 八点法对本质矩阵求解
-    def fit_essential_matrix(self,match_kps):
-        global K,frame
-        match_kps = np.array(match_kps)
-
-        # 使用相机内参对角点坐标归一化
-        norm_curr_kps = self.normalize(K, match_kps[:, 0])
-        norm_last_kps = self.normalize(K, match_kps[:, 1])
-
-        # 求解本质矩阵和内点数据
-        model, inliers = ransac((norm_last_kps, norm_curr_kps),
-                                self.EssentialMatrixTransform,
-                                min_samples=8,              # 最少需要 8 个点
-                                residual_threshold=0.005,
-                                max_trials=200)
-
-        frame.curr_kps = frame.curr_kps[inliers]
-        frame.last_kps = frame.last_kps[inliers]
-
-        return model.params
-
-    # 从本质矩阵中分解出相机运动 R、t
-    def extract_Rt(E):
-        W = np.mat([[0,-1,0],[1,0,0],[0,0,1]],dtype=float)
-        U,d,Vt = np.linalg.svd(E)
-
-        if np.linalg.det(U)  < 0: U  *= -1.0
-        if np.linalg.det(Vt) < 0: Vt *= -1.0
-
-        # 相机没有转弯，因此 R 的对角矩阵非常接近 diag([1,1,1])
-        R = (np.dot(np.dot(U, W), Vt))
-        if np.sum(R.diagonal()) < 0:
-            R = np.dot(np.dot(U, W.T), Vt)
-
-        t = U[:, 2]     # 相机一直向前，分量 t[2] > 0
-        if t[2] < 0:
-            t *= -1
-
-        Rt = np.eye(4)
-        Rt[:3, :3] = R
-        Rt[:3, 3] = t
-        return Rt          # Rt 为从相机坐标系的位姿变换到世界坐标系的位姿
-
-    # opencv 的三角测量函数
-    # def triangulate(pts1, pts2, pose1, pose2):
-        # pts1 = normalize(pts1)
-        # pts2 = normalize(pts2)
-
-        # pose1 = np.linalg.inv(pose1)
-        # pose2 = np.linalg.inv(pose2)
-
-        # points4d = cv2.triangulatePoints(pose1[:3], pose2[:3], pts1.T, pts2.T).T
-        # points4d /= points4d[:, 3:]
-        # return points4d
-
-
-    # 自己写的的三角测量函数
-    def triangulate(self,pts1, pts2, pose1, pose2):
-        global K
-        pose1 = np.linalg.inv(pose1)            # 从世界坐标系变换到相机坐标系的位姿, 因此取逆
-        pose2 = np.linalg.inv(pose2)
-
-        pts1 = self.normalize(K, pts1)                 # 使用相机内参对角点坐标归一化
-        pts2 = self.normalize(K, pts2)
-
-        points4d = np.zeros((pts1.shape[0], 4))
-        for i, (kp1, kp2) in enumerate(zip(pts1, pts2)):
-            A = np.zeros((4,4))
-            A[0] = kp1[0] * pose1[2] - pose1[0]
-            A[1] = kp1[1] * pose1[2] - pose1[1]
-            A[2] = kp2[0] * pose2[2] - pose2[0]
-            A[3] = kp2[1] * pose2[2] - pose2[1]
-            _, _, vt = np.linalg.svd(A)         # 对 A 进行奇异值分解
-            points4d[i] = vt[3]
-
-        points4d /= points4d[:, 3:]            # 归一化变换成齐次坐标 [x, y, z, 1]
-        return points4d
-
-    # 画出角点的运动轨迹
-    def draw_points(self,frame):
-        for kp1, kp2 in zip(frame.curr_kps, frame.last_kps):
-            u1, v1 = int(kp1[0]), int(kp1[1])
-            u2, v2 = int(kp2[0]), int(kp2[1])
-            cv2.circle(frame.image, (u1, v1), color=(0,0,255), radius=3)
-            cv2.line(frame.image, (u1, v1), (u2, v2), color=(255,0,0))
-        return None
-
-    # 筛选角点
-    def check_points(self,points4d):
-        # 判断3D点是否在两个摄像头前方
-        good_points = points4d[:, 2] > 0
-        # TODO: parallax、重投投影误差筛选等等 ....
-        return good_points
-
-    def process_frame(self,frame):
-        global mapp
-        # 提取当前帧的角点和描述子特征
-        logger.info("---------------- process_frame----------------")
-        frame.curr_kps, frame.curr_des = self.extract_points(frame)
-        # 将角点位置和描述子通过类的属性传递给下一帧作为上一帧的角点信息
-        Frame.last_kps, Frame.last_des = frame.curr_kps, frame.curr_des
-
-        if frame.idx == 1:
-            # 设置第一帧为初始帧，并以相机坐标系为世界坐标系
-            frame.curr_pose = np.eye(4)
-            points4d = [[0,0,0,1]]      # 原点为 [0, 0, 0] , 1 表示颜色
-        else:
-            # 角点配准, 此时会用 RANSAC 过滤掉一些噪声
-            logger.info("---------------- match_points----------------")
-            match_kps = self.match_points(frame)
-            logger.info("frame: {}, curr_des: {}, last_des: {}, match_kps: {}".format(frame.idx, len(frame.curr_des), len(frame.last_des), len(match_kps)))
-            # 使用八点法拟合出本质矩阵
-            essential_matrix = self.fit_essential_matrix(match_kps)
-            logger.info("---------------- Essential Matrix ----------------")
-            logger.info(essential_matrix)
-            # 利用本质矩阵分解出相机的位姿 Rt
-            Rt = self.extract_Rt(essential_matrix)
-            # 计算出当前帧相对于初始帧的相机位姿
-            frame.curr_pose = np.dot(Rt, frame.last_pose)
-            # 三角测量获得角点的深度信息
-            points4d = self.triangulate(frame.last_kps, frame.curr_kps, frame.last_pose, frame.curr_pose)
-
-            good_pt4d = self.check_points(points4d)
-            points4d = points4d[good_pt4d]
-            # TODO: g2o 后端优化
-            self.draw_points(frame)
-        mapp.add_observation(frame.curr_pose, points4d)     # 将当前的 pose 和点云放入地图中
-        # 将当前帧的 pose 信息存储为下一帧的 last_pose 信息
-        Frame.last_pose = frame.curr_pose
-        return frame
+   
 
     def rpi5_imageflow_callback(self,msg:Image) -> None:
-            global bboxes_msg,result_img_rgb,img_rgb,frame
-            img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
-            if img_rgb is not None:
-                outputs, img_info = self.predictor.inference(img_rgb)
-                logger.info(" rpi5_imageflow_callback outputs : {},".format((outputs)))
-
-                try:
-                    logger.info("rpi mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
-                    if  (outputs is not None) and r.get("scan")=="start" :#r.get("mode")=="camera_ready" and
+        bboxes_msg=None
+        result_img_rgb=None
+        img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
+        try:
+                    logger.info("get  rpi5 msg mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
+                    #if  (detect_res is not None) and r.get("scan")=="pickup_ready" :#r.get("mode")=="camera_ready" and
                         #logger.info("output[0]{},img_info{}".format(outputs[0],img_info))
-                        result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
-                        if  bboxes is not None:
-                            bboxes_msg = self.yolox2bboxes_msgs(bboxes, scores, cls, cls_names,track_ids, msg.header, img_rgb)
+                        #result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
+                    if   r.get("mode")=="adjust_ready":
+                        if img_rgb is not None:
+                            detect_res = self.infer_model(img_rgb, conf=0.90)
+                            bboxes = detect_res[0].boxes.cpu().numpy()
+                            xyxy = bboxes.xyxy
+                            classes = bboxes.cls
+                            confs = bboxes.conf
+                            for (x1, y1, x2, y2), conf, class_id in zip(xyxy,confs,classes):
+        
+                                left, top, right, bottom = int(x1), int(y1), int(x2), int(y2)
+                                width = right - left
+                                height = bottom - top
+                                center = (left + int((right - left) / 2), top + int((bottom - top) / 2))
+                                adjust_msg = String()
+                                adjust_msg.data = '%d,%d,%d' %(int(center[0]-320),int(center[1]-320),hi.z) 
+                                self.pub_rpi5_adjust.publish(adjust_msg)
+                                label = "class_id:"+str(class_id)
+                                label= label+",conf:"+str(conf)
+                                logger.info("adjust center:{}".format(center))
+                                cv2.rectangle(img_rgb, (left, top), (right, bottom), (255, 0, 0), 5)
+                                cv2.putText(img_rgb, label, (left, top - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 1, cv2.LINE_AA)
+                                break
 
-                    if result_img_rgb is not None:
-                        img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
-                    else:
-                        img_rgb_pub = self.bridge.cv2_to_imgmsg(img_rgb,"bgr8")
 
+                    
+                    img_rgb_pub = self.bridge.cv2_to_imgmsg(img_rgb,"bgr8")
                     self.pub_rpi5_boxes_img.publish(img_rgb_pub)
-                        #time.sleep(2)
-
+                    #time,sleep(1)
                     #if (self.imshow_isshow):
                     #    cv2.imshow("YOLOX",result_img_rgb)
                     #    cv2.waitKey(1)
-                except Exception as e:
-                    logger.error(e)
-                    pass
+        except Exception as e:
+            logger.error(e)
+            pass
     def imageflow_callback(self,msg:Image) -> None:
             global bboxes_msg,result_img_rgb,img_rgb,mapp,frame
             img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
             if img_rgb is not None:
-                outputs, img_info = self.predictor.inference(img_rgb)
+
+                #outputs, img_info = self.predictor.inference(img_rgb)
+                detect_res = self.infer_model(img_rgb, conf=0.90)
+                #logger.info(detect_res)
+                bboxes = detect_res[0].boxes.cpu().numpy()
+                xyxy = bboxes.xyxy
+                classes = bboxes.cls
+                confs = bboxes.conf
+               
+                #cv2.imshow("detect",img_rgb)
+                #cv2.waitKey(1)
+
                 #logger.info("outputs : {},".format((outputs)))
 
                 try:
-                    logger.info("mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
-                    if  (outputs is not None) and r.get("scan")=="start" :#r.get("mode")=="camera_ready" and
+                    logger.info("yolo11 mode={}".format(r.get("mode")))
+                    if  (detect_res is not None) and r.get("scan")=="start" :#r.get("mode")=="camera_ready" and
                         #logger.info("output[0]{},img_info{}".format(outputs[0],img_info))
-                        result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
+                        #result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
                         if  bboxes is not None:
-                            bboxes_msg = self.yolox2bboxes_msgs(bboxes, scores, cls, cls_names,track_ids, msg.header, img_rgb)
+                            bboxes_msg, result_img_rgb = self.yolox2bboxes_msgs(bboxes, confs, classes, msg.header, img_rgb)
+                            #logger.info("result_img_rgb:{}".format(result_img_rgb))
 
                     if result_img_rgb is not None:
-
-                        #frame = Frame(result_img_rgb)
-                        #frame = self.process_frame(frame)
-                        #logger.info("process_frame")
-                        #cv2.imshow("slam", frame.image)
-                        #if cv2.waitKey(30) & 0xFF == ord('q'): 
-                        #    exit()
-                        #mapp.display()
-
                         img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
                     else:
                         img_rgb_pub = self.bridge.cv2_to_imgmsg(img_rgb,"bgr8")
 
                     self.pub_boxes_img.publish(img_rgb_pub)
-                        #time.sleep(2)
+
 
                     #if (self.imshow_isshow):
                     #    cv2.imshow("YOLOX",result_img_rgb)
@@ -1047,8 +804,8 @@ class yolox_ros(yolox_py):
 
                 for box in bboxes_msg.bounding_boxes:
                     box_cord=BoundingBoxCord()
-                    #logger.info("probability,{},pixal x={},y={}".format(box.probability,box.class_id,(box.xmin+box.xmax)/2,(box.ymin+box.ymax)/2))
-                    line ='probability:%4.2f,track_id:%s'%(box.probability,box.class_id)
+                    #logger.info("probability,{},pixal x={},y={}".format(box.probability,(box.xmin+box.xmax)/2,(box.ymin+box.ymax)/2))
+                    line ='probability:%4.2f'%(box.probability)
                     #pix = (indices[1], indices[0])
                     pix = (int((box.xmin+box.xmax)/2),int((box.ymin+box.ymax)/2))
                     self.pix = pix
@@ -1076,7 +833,7 @@ class yolox_ros(yolox_py):
                     #y=(int(float(result[0])))               #|              #   \
                     #y-=90                                 #\|/      X       #  \|/        X                   
                     obj=str(int(float(camera_xy[0]))+x)+","+str(int(float(camera_xy[1]))+y)+","+str(int(float(result[2])))
-                    #logger.info(line)
+                    logger.info(line)
                     if not r.hexists("detections",str(box.class_id)):
                         r.hset("detections", box.class_id, obj)
                         r.lpush("queue",box.class_id)
@@ -1090,37 +847,17 @@ class yolox_ros(yolox_py):
 
                 r.set("mode","camera_ready")
                 #gray=((points_xyz_rgb[:,3])+(points_xyz_rgb[:,4]) + (points_xyz_rgb[:,5]))/3
-                if 0:# points_xyz_rgb.shape[0]>1:
-                    points_xyz_rgb=points_xyz_rgb.T
-                    new_points_xyz_rgb=list(zip(points_xyz_rgb[0],points_xyz_rgb[1],points_xyz_rgb[2],points_xyz_rgb[3]))
-                    new_points_xyz_rgb_list=np.array(new_points_xyz_rgb,  dtype=[
-                                                                                ('x', np.float32),
-                                                                                ('y', np.float32),
-                                                                                ('z', np.float32),
-                                                                            ('i', np.uint8),
-                                                                            # ('g', np.uint8),
-                                                                            # ('b', np.uint8)]
-                                                                                ])
-
-                    #logger.info("new_points_xyz_rgb_list{}".format(new_points_xyz_rgb_list))
-                    #global_points_xyz_rgb_list=np.concatenate((global_points_xyz_rgb_list,new_points_xyz_rgb_list))
-                    #logger.info("global_points_xyz_rgb_list{}".format(global_points_xyz_rgb_list))
-
-                    cloud_msg=rnp.msgify(PointCloud2, new_points_xyz_rgb_list)
-                    cloud_msg.header=Header()
-                    cloud_msg.header.stamp = self.get_clock().now().to_msg()#seconds #rospy.Time(t_us/10000000.0)
-                    cloud_msg.header.frame_id = "/camera_link"
-                    #self.pub_pointclouds.publish(cloud_msg)
-
+    
 
                 logger.info(boxes_cords)
                 self.pub_bounding_boxes_cords.publish(boxes_cords)
                 bboxes_msg=None
 
         except CvBridgeError as e:
-            print(e)
+            logger.error(e)
             return
         except ValueError as e:
+            logger.error(e)
             return
         
     def MoveXYZCallback(self, data):
@@ -1148,6 +885,7 @@ class yolox_ros(yolox_py):
             print(e)
             return
         except ValueError as e:
+            logger.error(e)
             return
     
     def imageDepthInfoCallback(self, cameraInfo):
@@ -1207,21 +945,22 @@ def sigint_handler(signal, frame):
 #prev_sigint_handler = signal.signal(signal.SIGINT, sigint_handler)
 
 def ros_main(args = None):
-        rclpy.init(args=args)
-        ros_class = yolox_ros()
+    rclpy.init(args=args)
+    ros_class = yolox_ros()
 
-        try:
-            rclpy.spin(ros_class)
-        except KeyboardInterrupt:
-            pass
-        finally:
-            ros_class.destroy_node()
-            rclpy.shutdown()
+    try:
+        rclpy.spin(ros_class)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        ros_class.destroy_node()
+        rclpy.shutdown()
              
     #rclpy.init(args=None)
     #ros_class = yolox_ros()
-    ##app = Flask(__name__)
+    #app = Flask(__name__)
     #threading.Thread(target=ros2_thread, args=[ros_class]).start()
+    #app.run(host='0.0.0.0', threaded=True,port='5001')
     #prev_sigint_handler = signal.signal(signal.SIGINT, sigint_handler)
 
 if __name__ == '__main__':

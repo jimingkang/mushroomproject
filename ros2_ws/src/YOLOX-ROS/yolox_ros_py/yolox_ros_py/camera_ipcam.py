@@ -281,10 +281,8 @@ class Camera(BaseCamera):
 
     @staticmethod
     def frames():
-        ip=broker.strip().replace("\n","")
-        print(ip)
         #video = cv2.VideoCapture("http://192.168.0.100:5000/video_feed")
-        video = cv2.VideoCapture("http://172.27.34.65:5000/video_feed")
+        video = cv2.VideoCapture("http://172.27.34.72:8000/stream.mjpg")
         #video = cv2.VideoCapture("http://"+ip+":5000/video_feed")
         #video = cv2.VideoCapture(Camera.video_source,cv2.CAP_V4L2)
         #video = v4l2capture.Video_device(Camera.video_source)

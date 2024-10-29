@@ -32,11 +32,11 @@ model_path = "weights/mush-yolov8-x.onnx"
 class Camera(BaseCamera):
     """Requires python-v4l2capture module: https://github.com/gebart/python-v4l2capture"""
 
-    video_source = "/dev/video0"
+    video_source = "/dev/video6"
 
     @staticmethod
     def frames():
-        video = cv2.VideoCapture(Camera.video_source,cv2.CAP_V4L2)
+        video = cv2.VideoCapture(8)
         #video = v4l2capture.Video_device(Camera.video_source)
         # Suggest an image size. The device may choose and return another if unsupported
         size_x =640

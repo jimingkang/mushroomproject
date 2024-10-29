@@ -73,7 +73,7 @@ class Camera(BaseCamera):
         try:
             while video.isOpened():
                 ret, img = video.read()
-                print(img.type)
+                #print(img)
                 #cv2.imwrite("buf.jpg",img)
                 if not ret:
                     break
@@ -83,6 +83,6 @@ class Camera(BaseCamera):
                 #frame=result[0].plot()
                 #cv2.namedWindow("yolox", cv2.WINDOW_NORMAL)
                 #cv2.imshow("yolox", result_frame)
-                yield cv2.imencode('.jpg', img)[1].tobytes()
+                yield cv2.imencode('.jpg', img)[1].tostring()
         finally:
             video.release()
