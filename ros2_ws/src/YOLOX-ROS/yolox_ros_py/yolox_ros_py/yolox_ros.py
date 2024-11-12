@@ -1026,17 +1026,17 @@ class yolox_ros(yolox_py):
                     line += '\r'
 
                     #logger.info("detections id:{},if exist {}".format(box.class_id,r.hexists("detections",str(box.class_id))))
-                    #x=(int(float(result[0])))            #Arm#-------> Y    #camera   <--- #Y
-                    #y=-(int(float(result[1])))               #|              #|
-                    #y-=170                                  #\|/      X      #\|/         X               
+                    x=(int(float(result[0])))            #Arm#-------> Y    #camera   <--- #Y
+                    y=-(int(float(result[1])))               #|              #|
+                    x-=160                                  #\|/      X      #\|/         X               
                      
                     #x=(int(float(result[0])))            #Arm#-------> Y    #camera   --- >#Y
                     #y=-(int(float(result[1])))               #|              #/|\
                     #y-=270                                 #\|/      X        #|         X   
                     # 
-                    x=(int(float(result[1])))           #Arm#-------> Y    #camera   --- >#X
-                    y=(int(float(result[0])))               #|              #    |
-                    y-=180                                 #\|/      X       #  \|/        Y                   
+                    #x=(int(float(result[1])))           #Arm#-------> Y    #camera   --- >#X
+                    #y=(int(float(result[0])))               #|              #    |
+                    #y-=180                                 #\|/      X       #  \|/        Y                   
                     obj=str(int(float(camera_xy[0]))+x)+","+str(int(float(camera_xy[1]))+y)+","+str(int(float(result[2])))
                     #logger.info(line)
                     if not r.hexists("detections",str(box.class_id)):
