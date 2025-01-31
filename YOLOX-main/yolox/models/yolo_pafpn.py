@@ -8,7 +8,7 @@ import torch.nn as nn
 from .darknet import CSPDarknet
 from .network_blocks import BaseConv, CSPLayer, DWConv
 
-
+from .attention import CBAM, SE # 1??????????
 class YOLOPAFPN(nn.Module):
     """
     YOLOv3 model. Darknet 53 is the default backbone of this model.
@@ -79,6 +79,12 @@ class YOLOPAFPN(nn.Module):
             depthwise=depthwise,
             act=act,
         )
+        ### 2??dark3?dark4?dark5?????CBAM ??(??????????FPN????)
+        ### in_channels = [256, 512, 1024],forward?dark5????,??cbam_1?dark5
+        self.cbam_1 = CBAM(int(in_channels[2] * width)) # ??dark5???1024????
+        self.cbam_2 = CBAM(int(in_channels[1] * width))   # ??dark4???512????
+        self.cbam_3 = CBAM(int(in_channels[0] * width))   # ??dark3???256????
+        ##################
 
     def forward(self, input):
         """
@@ -93,6 +99,10 @@ class YOLOPAFPN(nn.Module):
         out_features = self.backbone(input)
         features = [out_features[f] for f in self.in_features]
         [x2, x1, x0] = features
+	    # 3????????????????
+        x0 = self.cbam_1(x0)
+        x1 = self.cbam_2(x1)
+        x2 = self.cbam_3(x2)
 
         fpn_out0 = self.lateral_conv0(x0)  # 1024->512/32
         f_out0 = self.upsample(fpn_out0)  # 512/16

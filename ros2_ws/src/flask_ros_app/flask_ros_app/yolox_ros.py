@@ -23,9 +23,9 @@ from flask_cors import CORS, cross_origin
 import RPi.GPIO as GPIO
 
 import time
-from HitbotInterface import HitbotInterface
+from .HitbotInterface import HitbotInterface
 import redis
-from paho.mqtt import client as mqtt_client
+
 
 import numpy as np
 import cv2
@@ -64,33 +64,23 @@ i = 0
 
 
 redis_server = ''
-broker = ''
-try:
-    for line in open("../ip.txt"):
-        if line[0:6] == "broker":
-            broker = line[9:len(line) - 1]
-        if line[0:6] == "reddis":
-            redis_server = line[9:len(line) - 1]
-except:
-    pass
-#broker = broker.replace("\n", "").replace("\r\n", "")
 
 
-broker="172.27.34.65"
-redis_server="172.27.34.65"
-print(broker)
+#broker="172.27.34.65"
+redis_server="172.23.66.107"
+
 print(redis_server)
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True, password='jimmy')
 r = redis.Redis(connection_pool=pool)
 
 app = Flask(__name__)
 app.config['DEBUG'] = False
-app.config['MQTT_BROKER_URL'] = broker
-app.config['MQTT_BROKER_PORT'] = 1883
-app.config['MQTT_USERNAME'] = ''  # Set this item when you need to verify username and password
-app.config['MQTT_PASSWORD'] = ''  # Set this item when you need to verify username and password
-app.config['MQTT_KEEPALIVE'] = 5  # Set KeepAlive time in seconds
-app.config['MQTT_TLS_ENABLED'] = False  # If your server supports TLS, set it True
+#app.config['MQTT_BROKER_URL'] = broker
+#app.config['MQTT_BROKER_PORT'] = 1883
+#app.config['MQTT_USERNAME'] = ''  # Set this item when you need to verify username and password
+#app.config['MQTT_PASSWORD'] = ''  # Set this item when you need to verify username and password
+#app.config['MQTT_KEEPALIVE'] = 5  # Set KeepAlive time in seconds
+#app.config['MQTT_TLS_ENABLED'] = False  # If your server supports TLS, set it True
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 
@@ -101,7 +91,7 @@ topic4 = '/flask/pickup'
 topic5 = '/flask/home'
 topic6 = '/flask/drop'
 topic7 = '/flask/stop'
-mqtt_client = Mqtt(app)
+#mqtt_client = Mqtt(app)
 y = 0
 
 
@@ -112,7 +102,7 @@ print(hi.is_connect())
 print(hi.unlock_position())
 hi.get_scara_param()
 hi.wait_stop()
-ret=hi.movel_xyz(hi.x,hi.y+10,-50,75,20)
+ret=hi.movel_xyz(hi.x-100,hi.y-100,-50,55,20)
 print("init set,return:{}".format(ret))
 hi.wait_stop()
 hi.get_scara_param()
@@ -123,9 +113,9 @@ print(r.get("global_camera_xy"))
 bounding_boxes_cords=None
 class yolox_ros(yolox_py):
     def __init__(self) -> None:
-        raw_image_topic = '/camera/color/image_rect_raw'
-        depth_image_topic = '/camera/depth/image_rect_raw'
-        depth_info_topic = '/camera/depth/camera_info'
+        raw_image_topic = '/camera/camera/color/image_rect_raw'
+        depth_image_topic = '/camera/camera/depth/image_rect_raw'
+        depth_info_topic = '/camera/camera/depth/camera_info'
 
 
         # ROS2 init
@@ -183,7 +173,7 @@ class yolox_ros(yolox_py):
                 xy=v.split(",")
                 logger.info(xy)
             if v is not None and len(xy)>0:
-                rett=hi.movel_xyz(int(xy[0]),int(xy[1]),-190,75,20)
+                rett=hi.movel_xyz(int(xy[0]),int(xy[1]),-150,55,20)
                 logger.info("rett:{}".format(rett))
                 hi.wait_stop()
                 if rett==1:
@@ -196,7 +186,7 @@ class yolox_ros(yolox_py):
                 #    time.sleep(1)
                 #time.sleep(1)
                 logger.info("current location :{},{},{},".format(xy[0],xy[1],hi.z))
-                rett=hi.movel_xyz(int(xy[0]),int(xy[1]),hi.z,75,20)
+                rett=hi.movel_xyz(int(xy[0]),int(xy[1]),hi.z,55,20)
                 hi.wait_stop()
                 msg = String()
                 msg.data = 'gripper open' 

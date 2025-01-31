@@ -80,8 +80,8 @@ i = 0
 
 
 
-broker="172.27.34.65"
-redis_server="172.27.34.65"
+#broker="172.27.34.65"
+redis_server="172.23.66.107"
 
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True, password='jimmy')
@@ -105,12 +105,12 @@ r = redis.Redis(connection_pool=pool)
 
 app = Flask(__name__)
 app.config['DEBUG'] = False
-app.config['MQTT_BROKER_URL'] = broker
-app.config['MQTT_BROKER_PORT'] = 1883
-app.config['MQTT_USERNAME'] = ''  # Set this item when you need to verify username and password
-app.config['MQTT_PASSWORD'] = ''  # Set this item when you need to verify username and password
-app.config['MQTT_KEEPALIVE'] = 5  # Set KeepAlive time in seconds
-app.config['MQTT_TLS_ENABLED'] = False  # If your server supports TLS, set it True
+#app.config['MQTT_BROKER_URL'] = broker
+#app.config['MQTT_BROKER_PORT'] = 1883
+#app.config['MQTT_USERNAME'] = ''  # Set this item when you need to verify username and password
+#app.config['MQTT_PASSWORD'] = ''  # Set this item when you need to verify username and password
+#app.config['MQTT_KEEPALIVE'] = 5  # Set KeepAlive time in seconds
+#app.config['MQTT_TLS_ENABLED'] = False  # If your server supports TLS, set it True
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 
@@ -121,7 +121,7 @@ topic4 = '/flask/pickup'
 topic5 = '/flask/home'
 topic6 = '/flask/drop'
 topic7 = '/flask/stop'
-mqtt_client = Mqtt(app)
+#mqtt_client = Mqtt(app)
 y = 0
 
 
@@ -244,7 +244,7 @@ def zdown():
 
 
 def autopick():
-    publish_result = mqtt_client.publish(topic, "/flask/scan")
+    #publish_result = mqtt_client.publish(topic, "/flask/scan")
     return render_template('index.html');
 
 
@@ -307,8 +307,8 @@ result_img_rgb=None
 class yolox_ros(yolox_py):
     def __init__(self) -> None:
         #raw_image_topic = '/camera/color/image_rect_raw'
-        depth_image_topic = '/camera/depth/image_rect_raw'
-        depth_info_topic = '/camera/depth/camera_info'
+        depth_image_topic = '/camera/camera/depth/image_rect_raw'
+        depth_info_topic = '/camera/camera/depth/camera_info'
         move_x="/move/x"
 
         # ROS2 init
@@ -331,9 +331,9 @@ class yolox_ros(yolox_py):
         self.pix_grade = None
 
         if (self.sensor_qos_mode):
-            self.sub = self.create_subscription(Image,"/camera/color/image_rect_raw",self.imageflow_callback, qos_profile_sensor_data)
+            self.sub = self.create_subscription(Image,"/camera/camera/color/image_rect_raw",self.imageflow_callback, qos_profile_sensor_data)
         else:
-            self.sub = self.create_subscription(Image,"/camera/color/image_rect_raw",self.imageflow_callback, 10)
+            self.sub = self.create_subscription(Image,"/camera/camera/color/image_rect_raw",self.imageflow_callback, 10)
 
     
     def setting_yolox_exp(self) -> None:
@@ -342,7 +342,7 @@ class yolox_ros(yolox_py):
 
 
         self.declare_parameter('imshow_isshow',True)
-        self.declare_parameter('yolox_exp_py', '/home/jimmy/Downloads/mushroomproject/ros2_ws/src/YOLOX-ROS/yolox_ros_py/exps/yolox_nano.py')
+        self.declare_parameter('yolox_exp_py', '/home/a/Downloads/mushroomproject/ros2_ws/src/YOLOX-ROS/yolox_ros_py/exps/yolox_nano.py')
         #self.declare_parameter('yolox_exp_py', 'yolox_vos_s.py')
         self.declare_parameter('fuse',False)
         self.declare_parameter('trt', True)
@@ -391,7 +391,7 @@ class yolox_ros(yolox_py):
 
         #BASE_PATH = os.getcwd()
         #file_name = os.path.join(BASE_PATH, "../YOLOX-main/YOLOX_outputs/yolox_voc_s/")
-        file_name = "/home/jimmy/Downloads/mushroomproject/YOLOX-main/YOLOX_outputs/yolox_voc_s/"#ros2_ws/src/YOLOX-ROS/weights/tensorrt/"#os.path.join(BASE_PATH, "/src/YOLOX-ROS/weights/tensorrt/") #
+        file_name = "/home/a/Downloads/mushroomproject/YOLOX-main/YOLOX_outputs/yolox_voc_s/"#ros2_ws/src/YOLOX-ROS/weights/tensorrt/"#os.path.join(BASE_PATH, "/src/YOLOX-ROS/weights/tensorrt/") #
         # os.makedirs(file_name, exist_ok=True)
 
         exp.test_conf = conf # test conf
@@ -450,12 +450,13 @@ class yolox_ros(yolox_py):
             global bboxes_msg,result_img_rgb
             img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
             outputs, img_info = self.predictor.inference(img_rgb)
-            #logger.info("outputs: {},".format(outputs))
+            logger.info("outputs: {},".format(outputs))
 
             try:
                 logger.info(r.get("mode")=="camera_ready")
                 if r.get("mode")=="camera_ready":
                     result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
+                    logger.error(scores)
                     bboxes_msg = self.yolox2bboxes_msgs(bboxes, scores, cls, cls_names,track_ids, msg.header, img_rgb)
 
                     #self.pub.publish(bboxes_msg) #bboxes_msg
@@ -508,17 +509,17 @@ class yolox_ros(yolox_py):
                     line += '\r'
 
                     #logger.info("detections id:{},if exist {}".format(box.class_id,r.hexists("detections",str(box.class_id))))
-                    #x=(int(float(result[0])))            #Arm#-------> Y    #camera   <--- #Y
-                    #y=-(int(float(result[1])))               #|              #|
+                    x=(int(float(result[0])))            #Arm#-------> Y    #camera   <--- #Y
+                    y=-(int(float(result[1])))               #|              #|
                     #y-=170                                  #\|/      X      #\|/         X               
                      
                     #x=(int(float(result[0])))            #Arm#-------> Y    #camera   --- >#Y
                     #y=-(int(float(result[1])))               #|              #/|\
                     #y-=270                                 #\|/      X       #|         X   
                     # 
-                    x=(int(float(result[1])))           #Arm#-------> Y    #camera   --- >#Y
-                    y=(int(float(result[0])))               #|              #   \
-                    y-=150                                 #\|/      X       #  \|/        X                   
+                   # x=(int(float(result[1])))           #Arm#-------> Y    #camera   --- >#Y
+                   # y=(int(float(result[0])))               #|              #   \
+                    #y-=150                                 #\|/      X       #  \|/        X                   
                     obj=str(int(float(camera_xy[0]))+x)+","+str(int(float(camera_xy[1]))+y)+","+str(int(float(result[2])))
                     logger.info(line)
                     if not r.hexists("detections",str(box.class_id)):
