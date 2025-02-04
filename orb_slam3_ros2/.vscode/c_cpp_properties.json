@@ -1,0 +1,31 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/media/jimmy/01D9E5979B0C5780/mushroomproject/ros2_ws/install/realsense2_camera_msgs/include/**",
+        "/media/jimmy/01D9E5979B0C5780/mushroomproject/ros2_ws/install/pcl_ros/include/**",
+        "/media/jimmy/01D9E5979B0C5780/mushroomproject/ros2_ws/install/pcl_conversions/include/**",
+        "/media/jimmy/01D9E5979B0C5780/mushroomproject/ros2_ws/install/cv_bridge_orbslam3/include/**",
+        "/media/jimmy/01D9E5979B0C5780/mushroomproject/ros2_ws/install/bboxes_ex_msgs/include/**",
+        "/opt/ros/humble/include/**",
+        "/media/jimmy/01D9E5979B0C5780/mushroomproject/ros2_ws/src/ORB_SLAM3_detailed/include/**",
+        "/media/jimmy/01D9E5979B0C5780/mushroomproject/ros2_ws/src/cv_bridge_orbslam3/include/**",
+        "/media/jimmy/01D9E5979B0C5780/mushroomproject/ros2_ws/src/orb_slam3_ros2/include/**",
+        "/media/jimmy/01D9E5979B0C5780/mushroomproject/ros2_ws/src/perception_pcl/pcl_conversions/include/**",
+        "/media/jimmy/01D9E5979B0C5780/mushroomproject/ros2_ws/src/perception_pcl/pcl_ros/include/**",
+        "/media/jimmy/01D9E5979B0C5780/mushroomproject/ros2_ws/src/realsense-ros/realsense2_camera/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-arm64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

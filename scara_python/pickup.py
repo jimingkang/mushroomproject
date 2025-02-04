@@ -8,7 +8,7 @@ from HitbotInterface import HitbotInterface
 
 import redis
 
-redis_server='192.168.0.100'
+redis_server='172.27.34.62'
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
 
