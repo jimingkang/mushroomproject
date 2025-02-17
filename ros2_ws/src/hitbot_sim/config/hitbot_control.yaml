@@ -1,0 +1,36 @@
+controller_manager:
+  ros__parameters:
+    use_sim_time : True
+    update_rate: 1000 # Hz
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    z_arm_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+z_arm_controller:
+  ros__parameters:
+    use_sim_time : True
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    joints:
+      # - virtual_joint
+      - joint1
+      - joint2
+      - joint3
+      - joint4
+    allow_nonzero_velocity_at_trajectory_end: true
+    state_publish_rate: 50.0 # Defaults to 50
+    action_monitor_rate: 20.0 # Defaults to 20
+
+    allow_partial_joints_goal: false # Defaults to false
+    hardware_state_has_offset: true
+    deduce_states_from_derivatives: true
+    
+    constraints:
+      stopped_velocity_tolerance: 0.01 # Defaults to 0.01
+      goal_time: 0.0 # Defaults to 0.0 (start immediately)
