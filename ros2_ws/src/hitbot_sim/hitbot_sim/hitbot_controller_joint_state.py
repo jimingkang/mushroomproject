@@ -12,7 +12,7 @@ from moveit_msgs.msg import DisplayTrajectory
 
 os.chdir(os.path.expanduser('~'))
 sys.path.append("./ws_moveit/src/hitbot")  ## get import pass: hitbot_interface.py
-from hitbot_interface import HitbotInterface
+from .hitbot_interface import HitbotInterface
 
 class HitbotController(Node):
     def __init__(self):
