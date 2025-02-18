@@ -6,5 +6,12 @@
    <xacro:include filename="$(find scara_description)/urdf/mushroom_bot3_urdf.urdf" />
     <xacro:include filename="mushroom_bot3_urdf.ros2_control.xacro" />  
   <xacro:mushroom_bot3_urdf_ros2_control name="RealScara" initial_positions_file="$(arg initial_positions_file)"/>
+  
+  <!-- IntelRealsense D435 (Plugin) -->
+    <xacro:include filename="$(find hitbot_sim)/urdf/Z-Arm_10042C0_gazebo_sensor_properties.urdf.xacro" />
+<xacro:include filename="$(find hitbot_sim)/urdf/sensors/d435.urdf.xacro" />
+  <xacro:sensor_d455 parent="link3" name="camera_1" use_nominal_extrinsics="$(arg use_nominal_extrinsics)">
+    <xacro:insert_block name="camera_1_pose" />
+  </xacro:sensor_d455>
 
 </robot>

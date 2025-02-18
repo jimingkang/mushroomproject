@@ -62,7 +62,7 @@ class HitbotController(Node):
         )
         
         # Joint State Publisher
-        self.joint_state_pub = self.create_publisher(JointState, "/hitbot/joint_states", 10)
+        self.joint_state_pub = self.create_publisher(JointState, "/joint_states", 10)
 
         # Timer to publish joint states at 50Hz (20ms)
         self.timer = self.create_timer(1, self.publish_joint_states)
