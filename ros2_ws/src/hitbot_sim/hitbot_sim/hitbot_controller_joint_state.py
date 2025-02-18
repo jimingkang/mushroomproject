@@ -71,12 +71,12 @@ class HitbotController(Node):
         self.joint_names = ["joint1", "joint2", "joint3", "joint4"]
        
 
-        self.joint_states_sub = self.create_subscription(
-            JointState,
-            '/joint_states',
-            self.joint_states_callback,
-            10
-        )
+        #self.joint_states_sub = self.create_subscription(
+        #    JointState,
+        #    '/joint_states',
+        #    self.joint_states_callback,
+        #    10
+        #)
         self.joint_command_sub = self.create_subscription(
             DisplayTrajectory,
             "/display_planned_path",
@@ -170,7 +170,7 @@ class HitbotController(Node):
         try:
             joint_names = msg.name
             joint_positions = msg.position
-            self.get_logger().info(" found in /joint_states {msg}")
+            self.get_logger().info(f" found in /joint_states {msg}")
             if all(joint in joint_names for joint in ['joint1', 'joint2', 'joint3', 'joint4']):
                 joint1_index = joint_names.index('joint1')
                 joint2_index = joint_names.index('joint2')
