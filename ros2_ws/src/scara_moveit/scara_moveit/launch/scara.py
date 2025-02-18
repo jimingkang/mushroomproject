@@ -174,20 +174,20 @@ def generate_launch_description():
     )
 
     # Gazebo nodes
-    gazebo = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            [get_package_share_directory("gazebo_ros"), "/launch", "/gazebo.launch.py"]
-        ),
-    )
+    #gazebo = IncludeLaunchDescription(
+    #    PythonLaunchDescriptionSource(
+    #        [get_package_share_directory("gazebo_ros"), "/launch", "/gazebo.launch.py"]
+    #    ),
+    #)
 
     # Spawn robot "-topic", "robot_description"
-    gazebo_spawn_robot = Node(
-        package="gazebo_ros",
-        executable="spawn_entity.py",
-        name="spawn_scara",
-        arguments=["-entity", "scara_description","-topic", "/robot_description"],
-        output="screen",
-    )
+    ##gazebo_spawn_robot = Node(
+    #    package="gazebo_ros",
+    #    executable="spawn_entity.py",
+    #    name="spawn_scara",
+    #    arguments=["-entity", "scara_description","-topic", "/robot_description"],
+    #    output="screen",
+    #)
     moveit_demo_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(get_package_share_directory('scara_moveit_config'),

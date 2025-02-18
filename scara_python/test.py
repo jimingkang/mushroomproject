@@ -39,7 +39,7 @@ def print_hi(name):
         i=i+1
         hi.get_scara_param()
         print(hi.x,hi.y,hi.z)
-        rett=hi.movel_xyz(hi.x-i*20,hi.y-i*20,-80,-63,20)
+        rett=hi.movel_xyz(hi.x-i*20,hi.y-i*20,0,-63,20)
         print(rett)
         hi.wait_stop()
         hi.get_scara_param()

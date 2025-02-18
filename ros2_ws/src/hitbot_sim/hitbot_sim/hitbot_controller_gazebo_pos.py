@@ -4,18 +4,18 @@ from rclpy.node import Node
 from builtin_interfaces.msg import Duration
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 #from moveit_commander import MoveGroupCommander, PlanningSceneInterface, RobotCommander
-from moveit.planning import MoveItPy ,PlanRequestParameters
+#from moveit.planning import MoveItPy ,PlanRequestParameters
 from geometry_msgs.msg import PoseStamped,Pose
 import time
 
 class HitbotControllerGazeboPos(Node):
     def __init__(self):
         super().__init__('hitbot_controller_gazebo_pos')
-        self.publisher_ = self.create_publisher(JointTrajectory, '/z_arm_controller/joint_trajectory', 10)
-        #self.manual_mode = self.get_input_mode()
+        self.publisher_ = self.create_publisher(JointTrajectory, '/scara_arm_controller/joint_trajectory', 10)
+        self.manual_mode = self.get_input_mode()
 
-        #timer_period = 2  # seconds
-        #self.timer = self.create_timer(timer_period, self.publish_trajectory)
+        timer_period = 2  # seconds
+        self.timer = self.create_timer(timer_period, self.publish_trajectory)
         
          # Initialize MoveIt 2 commander
         #self.robot = RobotCommander()
@@ -26,8 +26,8 @@ class HitbotControllerGazeboPos(Node):
         #self.group.set_planner_id("RRTConnectkConfigDefault")
         #self.group.set_max_velocity_scaling_factor(0.5)
         #self.group.set_max_acceleration_scaling_factor(0.5)
-        self.moveit=MoveItPy(node_name=self.get_name())
-        self.arm=self.moveit.get_plainning_component("scara_arm")
+        #self.moveit=MoveItPy(node_name=self.get_name())
+        #self.arm=self.moveit.get_plainning_component("scara_arm")
     def plan_and_show_trajectory(self):
         # Get the current position
         #start_pose = self.group.get_current_pose().pose
@@ -120,8 +120,8 @@ class HitbotControllerGazeboPos(Node):
 def main(args=None):
     rclpy.init(args=args)
     joint_trajectory_publisher = HitbotControllerGazeboPos()
-    joint_trajectory_publisher.plan_and_show_trajectory()
-    #rclpy.spin(joint_trajectory_publisher)
+    #joint_trajectory_publisher.plan_and_show_trajectory()
+    rclpy.spin(joint_trajectory_publisher)
     joint_trajectory_publisher.destroy_node()
     rclpy.shutdown()
 

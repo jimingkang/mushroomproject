@@ -11,8 +11,9 @@ from std_msgs.msg import Float64MultiArray
 from moveit_msgs.msg import DisplayTrajectory
 
 os.chdir(os.path.expanduser('~'))
-sys.path.append("./ws_moveit/src/hitbot")  ## get import pass: hitbot_interface.py
-from .hitbot_interface import HitbotInterface
+#sys.path.append("./ws_moveit/src/hitbot")  ## get import pass: hitbot_interface.py
+#from .hitbot_interface import HitbotInterface
+from .HitbotInterface import HitbotInterface
 
 class HitbotController(Node):
     def __init__(self):
@@ -70,12 +71,12 @@ class HitbotController(Node):
         self.joint_names = ["joint1", "joint2", "joint3", "joint4"]
        
 
-        #self.joint_states_sub = self.create_subscription(
-        #    JointState,
-        #    '/joint_states',
-        #    self.joint_states_callback,
-        #    10
-        #)
+        self.joint_states_sub = self.create_subscription(
+            JointState,
+            '/joint_states',
+            self.joint_states_callback,
+            10
+        )
         self.joint_command_sub = self.create_subscription(
             DisplayTrajectory,
             "/display_planned_path",
@@ -169,7 +170,7 @@ class HitbotController(Node):
         try:
             joint_names = msg.name
             joint_positions = msg.position
-
+            self.get_logger().info(" found in /joint_states {msg}")
             if all(joint in joint_names for joint in ['joint1', 'joint2', 'joint3', 'joint4']):
                 joint1_index = joint_names.index('joint1')
                 joint2_index = joint_names.index('joint2')
@@ -182,6 +183,8 @@ class HitbotController(Node):
                 joint4_angle = joint_positions[joint4_index] * 180 / 3.14
 
                 #self.robot.new_movej_angle(joint2_angle, joint3_angle, joint1, joint4_angle, 100, 1)
+                self.robot.movej_angle(joint2_angle, joint3_angle, joint1, joint4_angle, 100, 1)
+                
             else:
                 self.get_logger().warning("Required joints not found in /joint_states message")
         except Exception as e:
@@ -358,9 +361,9 @@ class HitbotController(Node):
         
         while retries < max_retries:
             try:
-                self.robot.new_movej_angle(request.goal_angle1, request.goal_angle2, request.goal_z, request.goal_r, request.speed, request.roughly)
+                self.robot.movej_angle(request.goal_angle1, request.goal_angle2, request.goal_z, request.goal_r, request.speed, request.roughly)
                 response.success = True
-                if self.robot.new_movej_angle(request.goal_angle1, request.goal_angle2, request.goal_z, request.goal_r, request.speed, request.roughly) == 1:
+                if self.robot.movej_angle(request.goal_angle1, request.goal_angle2, request.goal_z, request.goal_r, request.speed, request.roughly) == 1:
                     self.get_logger().info('Robot Moving')
                 else:
                     self.get_logger().info('Error, Check Robot')
@@ -395,7 +398,9 @@ class HitbotController(Node):
         print('unlock Robot')
         self.robot.unlock_position()
         print('Robot position initialized.')
-        self.robot.new_movej_angle(0, 0, 0, 0, 100, 1)
+        #ret=self.robot.movel_xyz(300,0,0,-63,20)
+    	#ret=self.robot.new_movej_xyz_lr(hi.x-100,hi.y,0,-63,20,0,1)
+        ret=self.robot.movej_angle(0,30,0,0,20,0)
         self.robot.wait_stop()
         print('Robot I/O output initialized.')
         for i in range(12):
