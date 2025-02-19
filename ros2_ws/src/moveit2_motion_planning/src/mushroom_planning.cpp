@@ -71,7 +71,7 @@ move_group_interface.setPlannerId("RRTConnectkConfigDefault");
 move_group_interface.setGoalTolerance(0.01);
 
 // Disable collision checking for debugging
-move_group_interface.setPlanningSceneDiff(true);
+//move_group_interface.setPlanningSceneDiff(true);
 
 // Create a plan to that target pose
 auto const [success, plan] = [&move_group_interface]{
