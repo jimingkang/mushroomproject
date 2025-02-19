@@ -8,6 +8,10 @@ from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from geometry_msgs.msg import PoseStamped,Pose
 import time
 
+from geometry_msgs.msg import PoseStamped
+from moveit_msgs.action import MoveGroup
+from rclpy.action import ActionClient
+
 class HitbotControllerGazeboPos(Node):
     def __init__(self):
         super().__init__('hitbot_controller_gazebo_pos')
@@ -28,6 +32,24 @@ class HitbotControllerGazeboPos(Node):
         #self.group.set_max_acceleration_scaling_factor(0.5)
         #self.moveit=MoveItPy(node_name=self.get_name())
         #self.arm=self.moveit.get_plainning_component("scara_arm")
+        self._action_client = ActionClient(self.node, MoveGroup, '/move_group')
+
+    def send_goal(self, x, y, z):
+        goal_msg = MoveGroup.Goal()
+        goal_msg.request.workspace_parameters.header.frame_id = "base_link"
+
+        # Define target pose
+        pose = PoseStamped()
+        pose.header.frame_id = "base_link"
+        pose.pose.position.x = x
+        pose.pose.position.y = y
+        pose.pose.position.z = 0
+        pose.pose.orientation.w = 1.0  # Default orientation
+
+        goal_msg.request.goal_constraints.append(pose)
+
+        self._action_client.wait_for_server()
+        self._action_client.send_goal_async(goal_msg)
     def plan_and_show_trajectory(self):
         # Get the current position
         #start_pose = self.group.get_current_pose().pose
@@ -121,6 +143,9 @@ def main(args=None):
     rclpy.init(args=args)
     joint_trajectory_publisher = HitbotControllerGazeboPos()
     #joint_trajectory_publisher.plan_and_show_trajectory()
+
+    object_coords = [0.4, 0.0, 0.0]  # Replace with actual object detection result
+    joint_trajectory_publisher.send_goal(*object_coords)
     rclpy.spin(joint_trajectory_publisher)
     joint_trajectory_publisher.destroy_node()
     rclpy.shutdown()
