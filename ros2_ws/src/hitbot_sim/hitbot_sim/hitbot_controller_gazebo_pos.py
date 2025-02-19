@@ -16,10 +16,10 @@ class HitbotControllerGazeboPos(Node):
     def __init__(self):
         super().__init__('hitbot_controller_gazebo_pos')
         self.publisher_ = self.create_publisher(JointTrajectory, '/scara_arm_controller/joint_trajectory', 10)
-        self.manual_mode = self.get_input_mode()
+        #self.manual_mode = self.get_input_mode()
 
-        timer_period = 2  # seconds
-        self.timer = self.create_timer(timer_period, self.publish_trajectory)
+        #timer_period = 2  # seconds
+        #self.timer = self.create_timer(timer_period, self.publish_trajectory)
         
          # Initialize MoveIt 2 commander
         #self.robot = RobotCommander()
@@ -32,7 +32,7 @@ class HitbotControllerGazeboPos(Node):
         #self.group.set_max_acceleration_scaling_factor(0.5)
         #self.moveit=MoveItPy(node_name=self.get_name())
         #self.arm=self.moveit.get_plainning_component("scara_arm")
-        self._action_client = ActionClient(self.node, MoveGroup, '/move_group')
+        self._action_client = ActionClient(self, MoveGroup, '/move_group')
 
     def send_goal(self, x, y, z):
         goal_msg = MoveGroup.Goal()
