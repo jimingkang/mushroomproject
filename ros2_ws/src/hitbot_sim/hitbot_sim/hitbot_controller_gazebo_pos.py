@@ -50,6 +50,7 @@ class HitbotControllerGazeboPos(Node):
 
         self._action_client.wait_for_server()
         self._action_client.send_goal_async(goal_msg)
+        self.get_logger().info(f"goal_msg:{goal_msg}")
     def plan_and_show_trajectory(self):
         # Get the current position
         #start_pose = self.group.get_current_pose().pose
