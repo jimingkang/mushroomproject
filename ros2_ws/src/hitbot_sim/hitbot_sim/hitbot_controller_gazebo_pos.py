@@ -43,7 +43,7 @@ class HitbotControllerGazeboPos(Node):
         pose.header.frame_id = "base_link"
         pose.pose.position.x = x
         pose.pose.position.y = y
-        pose.pose.position.z = 0
+        pose.pose.position.z = z
         pose.pose.orientation.w = 1.0  # Default orientation
 
         goal_msg.request.goal_constraints.append(pose)
