@@ -65,10 +65,13 @@ auto const target_pose = []{
   return msg;
 }();
 move_group_interface.setPoseTarget(target_pose);
-move_group.setStartStateToCurrentState();
-move_group.setPlanningTime(5.0);
-move_group.setPlannerId("RRTConnectkConfigDefault");
-move_group.setGoalTolerance(0.01);
+move_group_interface.setStartStateToCurrentState();
+move_group_interface.setPlanningTime(5.0);
+move_group_interface.setPlannerId("RRTConnectkConfigDefault");
+move_group_interface.setGoalTolerance(0.01);
+
+// Disable collision checking for debugging
+move_group_interface.setPlanningSceneDiff(true);
 
 // Create a plan to that target pose
 auto const [success, plan] = [&move_group_interface]{
