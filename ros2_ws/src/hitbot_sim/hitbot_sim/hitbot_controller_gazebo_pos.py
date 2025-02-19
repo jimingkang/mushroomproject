@@ -9,9 +9,9 @@ from geometry_msgs.msg import PoseStamped,Pose
 import time
 
 from geometry_msgs.msg import PoseStamped
-from moveit_msgs.action import MoveAction
+from moveit_msgs.action import MoveGroup
 from rclpy.action import ActionClient
-from moveit_msgs.msg import MotionPlanRequest
+
 class HitbotControllerGazeboPos(Node):
     def __init__(self):
         super().__init__('hitbot_controller_gazebo_pos')
@@ -32,13 +32,12 @@ class HitbotControllerGazeboPos(Node):
         #self.group.set_max_acceleration_scaling_factor(0.5)
         #self.moveit=MoveItPy(node_name=self.get_name())
         #self.arm=self.moveit.get_plainning_component("scara_arm")
-        self._action_client = ActionClient(self, MoveAction, '/move_action')
+        self._action_client = ActionClient(self, MoveGroup, '/move_action')
 
     def send_goal(self, x, y, z):
-        goal_msg = MoveAction.Goal()
-        goal_msg.request.workspace_parameters.header.frame_id = "base_link"
+        goal_msg = MoveGroup.Goal()
 
-        # Define target pose
+        # Define the target pose
         pose = PoseStamped()
         pose.header.frame_id = "base_link"
         pose.pose.position.x = x
@@ -46,36 +45,29 @@ class HitbotControllerGazeboPos(Node):
         pose.pose.position.z = z
         pose.pose.orientation.w = 1.0  # Default orientation
 
-        #goal_msg.request.goal_constraints.append(pose)
-
-        self._action_client.wait_for_server()
-        self._action_client.send_goal_async(goal_msg)
-        self.get_logger().info(f"goal_msg:{goal_msg}")
-
-        motion_request = MotionPlanRequest()
-        motion_request.workspace_parameters.header.frame_id = "base_link"
-        motion_request.goal_constraints.append(pose)
-        goal_msg.request = motion_request
+        # Set motion request
+        goal_msg.request.workspace_parameters.header.frame_id = "base_link"
+        goal_msg.request.goal_constraints.append(pose)
 
         self._action_client.wait_for_server()
         future = self._action_client.send_goal_async(goal_msg)
-
         future.add_done_callback(self.goal_response_callback)
 
     def goal_response_callback(self, future):
         goal_handle = future.result()
         if not goal_handle.accepted:
-            self.get_logger().info('Goal rejected by MoveIt2.')
+            self.get_logger().info('❌ Goal rejected by MoveIt2.')
             return
         
-        self.get_logger().info('Goal accepted, waiting for result...')
+        self.get_logger().info('✅ Goal accepted, waiting for result...')
         result_future = goal_handle.get_result_async()
         result_future.add_done_callback(self.result_callback)
 
     def result_callback(self, future):
         result = future.result().result
-        self.get_logger().info(f'Execution complete. Success: {result.error_code.val == 1}')
+        self.get_logger().info(f'🎯 Execution complete. Success: {result.error_code.val == 1}')
 
+        
     def plan_and_show_trajectory(self):
         # Get the current position
         #start_pose = self.group.get_current_pose().pose
