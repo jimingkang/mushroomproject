@@ -65,7 +65,7 @@ class HitbotController(Node):
         self.joint_state_pub = self.create_publisher(JointState, "/hitbot/joint_states", 10)
 
         # Timer to publish joint states at 50Hz (20ms)
-        self.timer = self.create_timer(0.2, self.publish_joint_states)
+        self.timer = self.create_timer(0.1, self.publish_joint_states)
 
         # Define joint names (Modify according to your HitBot model)
         self.joint_names = ["joint1", "joint2", "joint3", "joint4"]
@@ -111,7 +111,7 @@ class HitbotController(Node):
 
         # Publish the joint states
         self.joint_state_pub.publish(joint_state_msg)
-        self.get_logger().info(f"Published joint states: {joint_state_msg}")
+        #self.get_logger().info(f"Published joint states: {joint_state_msg}")
     def joint_command_callback(self, msg):
         #self.get_logger().info(f"joint_command_callback trajectory: {msg}")
         #if not msg.points:
