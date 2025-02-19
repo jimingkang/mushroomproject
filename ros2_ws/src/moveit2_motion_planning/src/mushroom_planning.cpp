@@ -35,7 +35,7 @@ public:
 //    auto node = std::make_shared<MoveIt2MotionPlanning>();
  //   rclcpp::spin(node);
 //    rclcpp::shutdown();
-/    return 0;
+//    return 0;
 //}
 
 int main(int argc, char * argv[])
