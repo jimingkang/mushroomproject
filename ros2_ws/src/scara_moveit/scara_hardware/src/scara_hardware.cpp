@@ -89,8 +89,8 @@ void ScaraHardware::jointStateCallback(const sensor_msgs::msg::JointState::Share
             //joint_positions_[i] = msg->position[i];
             
             this->joint_states[joint_names[i]]= {msg->position[i],0};
-             RCLCPP_INFO(node_->get_logger(), "msg->positions i=%d,%f\n",i,msg->position[i]);
-              RCLCPP_INFO(node_->get_logger(), " this->joint_states=%s\n", this->joint_states[joint_names[i]]);
+           //  RCLCPP_INFO(node_->get_logger(), "msg->positions i=%d,%f\n",i,msg->position[i]);
+          //    RCLCPP_INFO(node_->get_logger(), " this->joint_states=%s\n", this->joint_states[joint_names[i]]);
             
             
         }
