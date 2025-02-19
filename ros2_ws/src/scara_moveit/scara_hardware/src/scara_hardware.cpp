@@ -70,7 +70,7 @@ CallbackReturn ScaraHardware::on_init(const hardware_interface::HardwareInfo & i
         }
     }
     
-    // joint_state_sub_ = node_->create_subscription<sensor_msgs::msg::JointState>("/hitbot/joint_states", 10, std::bind(&ScaraHardware::jointStateCallback, this, std::placeholders::_1));
+    joint_state_sub_ = node_->create_subscription<sensor_msgs::msg::JointState>("/hitbot/joint_states", 10, std::bind(&ScaraHardware::jointStateCallback, this, std::placeholders::_1));
 
     // Create publisher and subscriber
     motor_state_sub_ = node_->create_subscription<device_interface::msg::MotorState>(
@@ -89,7 +89,9 @@ void ScaraHardware::jointStateCallback(const sensor_msgs::msg::JointState::Share
             //joint_positions_[i] = msg->position[i];
             
             this->joint_states[joint_names[i]]= {msg->position[i],0};
-             //RCLCPP_INFO(node_->get_logger(), "msg->positions i=%d,%s\n",i,msg->position[i]);
+             RCLCPP_INFO(node_->get_logger(), "msg->positions i=%d,%s\n",i,msg->position[i]);
+              RCLCPP_INFO(node_->get_logger(), " this->joint_states=%s\n", this->joint_states[joint_names[i]]]);
+            
             
         }
         // RCLCPP_INFO(node_->get_logger(), "msg->positions");
@@ -122,6 +124,12 @@ return_type ScaraHardware::read(const rclcpp::Time & /*time*/, const rclcpp::Dur
 {
     // update the joint states
     // already done in the callback
+       for (const auto& joint : joint_names)
+    {
+        this->joint_statesjoint_states[joint] 
+      // RCLCPP_INFO(node_->get_logger(), "read joint=%s,states=%s\n",joint,this->joint_states[joint]);
+    }
+ 
     return return_type::OK;
 }
 
