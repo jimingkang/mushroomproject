@@ -59,12 +59,16 @@ auto move_group_interface = MoveGroupInterface(node, "scara_arm");
 auto const target_pose = []{
   geometry_msgs::msg::Pose msg;
   msg.orientation.w = 1.0;
-  msg.position.x = 0.28;
-  msg.position.y = -0.2;
-  msg.position.z = 0.5;
+  msg.position.x = 0.48;
+  msg.position.y = 0.0;
+  msg.position.z = 0.0;
   return msg;
 }();
 move_group_interface.setPoseTarget(target_pose);
+move_group.setStartStateToCurrentState();
+move_group.setPlanningTime(5.0);
+move_group.setPlannerId("RRTConnectkConfigDefault");
+move_group.setGoalTolerance(0.01);
 
 // Create a plan to that target pose
 auto const [success, plan] = [&move_group_interface]{
