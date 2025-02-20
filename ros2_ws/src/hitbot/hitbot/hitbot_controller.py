@@ -23,7 +23,6 @@ class HitbotController(Node):
         self.NewMovejXYZ_srv = self.create_service(NewMovejXYZ, 'new_movej_xyz_lr', self.new_movej_xyz_lr_callback)
         self.NewMovejAngle_srv = self.create_service(NewMovejAngle, 'new_movej_angle', self.new_movej_angle_callback)
 
-
         self.hitbot_x = 0
         self.hitbot_y = 0
         self.hitbot_z = 0

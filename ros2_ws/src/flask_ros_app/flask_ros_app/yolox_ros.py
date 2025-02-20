@@ -43,7 +43,7 @@ import torch.backends.cudnn as cudnn
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Header,String
+from std_msgs.msg import Header,String,Int64
 from cv_bridge import CvBridge,CvBridgeError
 from sensor_msgs.msg import Image
 from rclpy.qos import qos_profile_sensor_data
@@ -86,12 +86,7 @@ r = redis.Redis(connection_pool=pool)
 
 app = Flask(__name__)
 app.config['DEBUG'] = False
-app.config['MQTT_BROKER_URL'] = broker
-app.config['MQTT_BROKER_PORT'] = 1883
-app.config['MQTT_USERNAME'] = ''  # Set this item when you need to verify username and password
-app.config['MQTT_PASSWORD'] = ''  # Set this item when you need to verify username and password
-app.config['MQTT_KEEPALIVE'] = 3  # Set KeepAlive time in seconds
-app.config['MQTT_TLS_ENABLED'] = False  # If your server supports TLS, set it True
+
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 
@@ -106,20 +101,7 @@ topic7 = '/flask/stop'
 y = 0
 
 
-hi=HitbotInterface(92); #//92 is robotid
-hi.net_port_initial()
-ret=hi.initial(1,210); #
-print(hi.is_connect())
-print(hi.unlock_position())
-hi.get_scara_param()
-hi.wait_stop()
-ret=hi.movel_xyz(hi.x,hi.y,0,-63,20)
-print("init set,return:{}".format(ret))
-hi.wait_stop()
-hi.get_scara_param()
-hi.wait_stop()
-r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
-print(r.get("global_camera_xy"))
+
 
 bounding_boxes_cords=None
 class yolox_ros(yolox_py):
@@ -139,7 +121,8 @@ class yolox_ros(yolox_py):
         self.img_rgb=np.zeros( (512,512,3), dtype=np.uint8);#cv2.imread('/home/jimmy/Downloads/mushroomproject/ros2_ws/src/flask_ros_app/flask_ros_app/mushroom.jpg', 0)
         self.pub_boxes_img = self.create_publisher(Image,"/yolox/boxes_image", 10)
         self.sub_boxes = self.create_subscription(BoundingBoxesCords, "/yolox/bounding_boxes_cords", self.boxes_cords_callback, 1)
-        self.rpi_sub_boxes = self.create_subscription(String, "/yolox/move/adjust/xy", self.boxes_move_adjust_callback, 1)
+        self.hitbot_end_xyz_pub = self.create_publisher(JointState, "/hitbot_end_xyz", 10)
+        #self.rpi_sub_boxes = self.create_subscription(String, "/yolox/move/adjust/xy", self.boxes_move_adjust_callback, 1)
         self.motor_goal = self.create_subscription(MotorGoal, "/motor_goal", self.motor_goal_callback, 1)
         
         self.joint_state_pub = self.create_publisher(JointState, '/joint_states', 1)
@@ -156,17 +139,67 @@ class yolox_ros(yolox_py):
         self.count=0;
         self.pre_count=-1;
 
+        self.hitbot_x = 0
+        self.hitbot_y = 0
+        self.hitbot_z = 0
+        self.hitbot_r = 0
+
         #if (self.sensor_qos_mode):
         #    self.sub = self.create_subscription(Image,"/yolox/boxes_image",self.imageflow_callback, qos_profile_sensor_data)
         #else:
         self.sub = self.create_subscription(Image,"/yolox/boxes_image",self.imageflow_callback, 10)
 
+
+        self.subscription = self.create_subscription(
+            Int64,
+            '/hitbot_x',
+            self.hitbot_x_callback,
+            10
+        )
+
+        self.subscription = self.create_subscription(
+            Int64,
+            '/hitbot_y',
+            self.hitbot_y_callback,
+            10
+        )
+
+        self.subscription = self.create_subscription(
+            Int64,
+            '/hitbot_z',
+            self.hitbot_z_callback,
+            10
+        )
+
+        self.subscription = self.create_subscription(
+            Int64,
+            '/hitbot_r',
+            self.hitbot_r_callback,
+            10
+        )
+
+        self.robot_id = 123  ## 123 is robot_id, Modify it to your own
+        self.robot = HitbotInterface(self.robot_id)
+
+        self.init_robot()
+
+    def hitbot_x_callback(self, msg):
+        self.hitbot_x = msg.data
+
+    def hitbot_y_callback(self, msg):
+        self.hitbot_y = msg.data
+
+    def hitbot_z_callback(self, msg):
+        self.hitbot_z = msg.data
+
+    def hitbot_r_callback(self, msg):
+        self.hitbot_r = msg.data
+
     
     def imageflow_callback(self,msg:Image) -> None:
             global bounding_boxes
             self.img_rgb =self.bridge.imgmsg_to_cv2(msg,"bgr8")
-            #hi.get_scara_param()
-            #hi.wait_stop()
+
             rett=0
 
             #r.set("mode","camera_stop")
@@ -182,30 +215,27 @@ class yolox_ros(yolox_py):
                 self.pre_count=self.count;
                 self.count=self.count+1;
                 r.set("mode","pic_ready");
-                hi.get_scara_param()
-                hi.wait_stop()
 
                 if self.scan_i<2 and self.scan_j==2:
                     self.scan_i=self.scan_i+1;
                     self.scan_j=0;
-                    rett=hi.movel_xyz(hi.x+50*self.scan_i,hi.y,hi.z,-63,80)
-                    hi.wait_stop()
+                    scan_msg = String()
+                    scan_msg.data=str(self.hitbot_x+50*self.scan_i)+","+str(self.hitbot_y)+","+str(self.hitbot_z)+","+str(-63*3.14/180)
+                    self.hitbot_end_xyz_pub(scan_msg)
                     r.set("scan","stop");
                     
 
                 if self.scan_j<2:
                     self.scan_j=self.scan_j+1;
                     if self.scan_i%2==1:
-                        hi.get_scara_param()
-                        hi.wait_stop()
-                        rett=hi.movel_xyz(hi.x,hi.y,hi.z,-63,80)
-                        hi.wait_stop()
+                        scan_msg = String()
+                        scan_msg.data=str(self.hitbot_x)+","+str(self.hitbot_y)+","+str(self.hitbot_z)+","+str(-63)
+                        self.hitbot_end_xyz_pub(scan_msg)
                         time.sleep(0.50)
                     else:
-                        hi.get_scara_param()
-                        hi.wait_stop()
-                        rett=hi.movel_xyz(hi.x,hi.y+50,hi.z,-63,80)
-                        hi.wait_stop()
+                        scan_msg = String()
+                        scan_msg.data=str(self.hitbot_x)+","+str(self.hitbot_y+50)+","+str(self.hitbot_z)+","+str(-63)
+                        self.hitbot_end_xyz_pub(scan_msg)
                         time.sleep(0.5)
 
                 r.set("mode","camera_ready");
@@ -218,42 +248,12 @@ class yolox_ros(yolox_py):
                     r.set("scan","stop");
                     r.set("mode","camera_ready");
                     if rett>1:
-                        rett=hi.movel_xyz(300,50,hi.z,-63,80)
-                        hi.wait_stop()   
+                        scan_msg = String()
+                        scan_msg.data=300+","+50+","+str(self.hitbot_z)+","+str(-63)
+                        self.hitbot_end_xyz_pub(scan_msg)  
                         time.sleep(0.5) 
-                hi.get_scara_param()
-                hi.wait_stop()
-                r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
-                fst=JointState()
-                fst.header.frame_id="base_link"
-                fst.name.append("joint1")
-                fst.name.append("joint2")
-                fst.name.append("joint3")
-                fst.name.append("joint4")
-                fst.name.append("joint5")
-                fst.position.append(hi.z)
-                fst.position.append(hi.angle1)
-                fst.position.append(hi.angle2)
-                fst.position.append(hi.r)
-                fst.position.append(0.0)
-                self.joint_state_pub.publish(fst)
-                mt=MotorState()
-                mt.motor_id.append("J1")
-                mt.motor_id.append("J2")
-                mt.motor_id.append("J3")
-                mt.motor_id.append("J4")
-                mt.motor_id.append("J5")
-                mt.present_pos.append(hi.z)
-                mt.present_pos.append(hi.angle1)
-                mt.present_pos.append(hi.angle2)
-                mt.present_pos.append(hi.r)
-                mt.present_pos.append(0.0)
-                mt.present_vel.append(0.0)
-                mt.present_vel.append(0.0)
-                mt.present_vel.append(0.0)
-                mt.present_vel.append(0.0)
-                mt.present_vel.append(0.0)
-                #self.joint_state_pub.publish(mt)
+
+                
 
             try:
 
@@ -267,8 +267,6 @@ class yolox_ros(yolox_py):
         global bounding_boxes_cords
         bounding_boxes_cords=data.bounding_boxes
         logger.info(data.bounding_boxes)
-        hi.get_scara_param()
-        hi.wait_stop()
 
         logger.info(r.llen("queue"))  
         logger.info("stop,{}".format(r.get("scan")=="stop")) 
@@ -284,13 +282,10 @@ class yolox_ros(yolox_py):
                     xy=v.split(",")
                     logger.info(xy)
                 if v is not None and len(xy)>0:
-                    rett=hi.movel_xyz(int(xy[0]),int(xy[1]),-90,-63,80)
-                    logger.info("rett:{}".format(rett))
-                    hi.wait_stop()
-                    back_z=hi.z
-                    hi.get_scara_param()
-                    hi.wait_stop()
-                    logger.info("movedown current location :{},{},{},".format(xy[0],xy[1],hi.z))
+                    scan_msg = String()
+                    scan_msg.data=str(xy[0])+","+str(xy[1])+","+str(self.hitbot_z-20)+","+str(-63)
+                    self.hitbot_end_xyz_pub(scan_msg)  
+                    logger.info("movedown current location :{},{},".format(xy[0],xy[1]))
                     r.hdel("detections",key)
                     r.set("mode","adjust_camera_init")
                     adjust_gripper_center=r.get("adjust_gripper_center")
@@ -299,79 +294,40 @@ class yolox_ros(yolox_py):
                         adjust=adjust_gripper_center.split(",")
                         x=int(adjust[0])
                         y=int(adjust[1])
-                        hi.get_scara_param()
-                        hi.wait_stop()
+
                         r.set("mode","adjust_camera_ready")
                         logger.info("adjust_camera_ready (pixel) : {}, {},".format(x,y))
                         if abs(x)>20 or abs(y)>20: #r.get("scan")=="stop" and
-                                rett=hi.movel_xyz(hi.x/10+int(x/10),hi.x+int(y),hi.z-10,-63,80)
+
+                                scan_msg = String()
+                                scan_msg.data=str(self.hitbot_x+x/10)+","+str(self.hitbot_y)+","+str(self.hitbot_z-10)+","+str(-63)
+                                self.hitbot_end_xyz_pub(scan_msg)  
+                                
                                 if rett>0:
                                     break
                                 logger.info("rett:{}".format(rett))
-                                hi.wait_stop()
-                                back_z=hi.z
-                                hi.get_scara_param()
-                                hi.wait_stop()
+
                                 logger.info("movedown current location :{},{},{},".format(hi.x,hi.y,hi.z))
                         r.set("mode","adjust_camera_done")
                         time.sleep(1)
                     time.sleep(1)
                     gripper_msg = String()
-                    gripper_msg.data = '%d,%d,%d' %(int(xy[0]),int(xy[1]),hi.z) 
+                    gripper_msg.data = '%d,%d,%d' %(int(xy[0]),int(xy[1]),0) 
                     self.gripper_publisher.publish(gripper_msg)
                     time.sleep(1)
                     logger.info(r.get("mode"))
-                    rett=hi.movel_xyz(hi.x,hi.y,0,-63,80)
-                    hi.wait_stop()
+                    scan_msg = String()
+                    scan_msg.data=str(self.hitbot_x)+","+str(self.hitbot_y)+","+str(0)+","+str(-63)
+                    self.hitbot_end_xyz_pub(scan_msg) 
                     time.sleep(1)
-                    hi.get_scara_param()
-                    hi.wait_stop()
+
                     logger.info("moveup  current location :{},{},{},".format(xy[0],xy[1],hi.z))
                     gripper_msg2 = String()
                     gripper_msg2.data = 'gripper open' 
                     self.gripper_open_pub.publish(gripper_msg2)
                     time.sleep(2)
-                    #rett=hi.movel_xyz(hi.x,hi.y,0,-63,80)
-            
-                hi.get_scara_param()
-                hi.wait_stop()
-                r.set("global_camera_xy",str(hi.x)+","+str(hi.y))
-                fst=JointState()
-                fst.header.frame_id="base_link"
-                fst.name.append("joint1")
-                fst.name.append("joint2")
-                fst.name.append("joint3")
-                fst.name.append("joint4")
-                fst.name.append("joint5")
-                fst.position.append(hi.z)
-                fst.position.append(hi.angle1)
-                fst.position.append(hi.angle2)
-                fst.position.append(hi.r)
-                fst.position.append(0.0)
-                self.joint_state_pub.publish(fst)
-                mt=MotorState()
-                mt.motor_id.append("J1")
-                mt.motor_id.append("J2")
-                mt.motor_id.append("J3")
-                mt.motor_id.append("J4")
-                mt.motor_id.append("J5")
-                mt.present_pos.append(hi.z)
-                mt.present_pos.append(hi.angle1)
-                mt.present_pos.append(hi.angle2)
-                mt.present_pos.append(hi.r)
-                mt.present_pos.append(0.0)
-                mt.present_vel.append(0.0)
-                mt.present_vel.append(0.0)
-                mt.present_vel.append(0.0)
-                mt.present_vel.append(0.0)
-                mt.present_vel.append(0.0)
-                #self.joint_state_pub.publish(mt)
 
 
-
-        
-        hi.get_scara_param()
-        hi.wait_stop()
         #if hlen>0:
         #    rett=hi.movel_xyz(hi.x,hi.y+270,hi.z,-63,80)
         r.set("mode","camera_ready")
@@ -388,28 +344,16 @@ class yolox_ros(yolox_py):
         adjust=data.split(",")
         x=int(adjust[0])
         y=int(adjust[1])
-        hi.get_scara_param()
-        hi.wait_stop()
+
         r.set("mode","adjust_camera_ready")
         logger.info("adjust_camera_ready (pixel) : {}, {},".format(x,y))
         if abs(x)>20 or abs(y)>20: #r.get("scan")=="stop" and
-                rett=hi.movel_xyz(hi.x+int(x),hi.x+int(y),hi.z-10,-63,80)
-                logger.info("rett:{}".format(rett))
-                hi.wait_stop()
-                back_z=hi.z
-                hi.get_scara_param()
-                hi.wait_stop()
-                logger.info("movedown current location :{},{},{},".format(hi.x,hi.y,hi.z))
+                #rett=hi.movel_xyz(hi.x+int(x),hi.y+int(y),hi.z-10,-63,80)
+                #hi.wait_stop()
+                #back_z=hi.z
+                logger.info("movedown current location :{},{},{},".format(0,0,0))
         r.set("mode","adjust_camera_done")
         r.set("adjust_gripper_center",str(int((640) / 2))+","+str(int((640) / 2)))
-        #hi.get_scara_param()
-        #hi.wait_stop()
-        #r.set("mode","camera_ready")
-        ##r.set("scan","start")
-        #img_rgb_pub = self.bridge.cv2_to_imgmsg(self.img_rgb,"bgr8")
-        #self.pub_boxes_img.publish(img_rgb_pub)
-
-
 
 class web_ros(Node):
     def __init__(self) -> None:

@@ -3,7 +3,7 @@ import os
 import rclpy
 import time
 from rclpy.node import Node
-from std_msgs.msg import Int64
+from std_msgs.msg import Int64,String
 from sensor_msgs.msg import JointState
 from hitbot_msgs.srv import *
 from trajectory_msgs.msg import JointTrajectory
@@ -33,50 +33,24 @@ class HitbotController(Node):
         self.hitbot_z = 0
         self.hitbot_r = 0
 
-        self.subscription = self.create_subscription(
-            Int64,
-            '/hitbot_x',
-            self.hitbot_x_callback,
-            10
-        )
-
-        self.subscription = self.create_subscription(
-            Int64,
-            '/hitbot_y',
-            self.hitbot_y_callback,
-            10
-        )
-
-        self.subscription = self.create_subscription(
-            Int64,
-            '/hitbot_z',
-            self.hitbot_z_callback,
-            10
-        )
-
-        self.subscription = self.create_subscription(
-            Int64,
-            '/hitbot_r',
-            self.hitbot_r_callback,
-            10
-        )
+        self.hitbot_x_publisher = self.create_publisher(Int64, '/hitbot_x', 10)
+        self.hitbot_y_publisher = self.create_publisher(Int64, '/hitbot_y', 10)
+        self.hitbot_z_publisher = self.create_publisher(Int64, '/hitbot_z', 10)
+        self.hitbot_r_publisher = self.create_publisher(Int64, '/hitbot_r', 10)
+        self.camera_xyz_publisher = self.create_publisher(String, '/camera_xyz', 10)
+        
+        self.xyz_sub = self.create_subscription(String,"/hitbot_end_xyz",self.hitbot_end_xyzr_callback,10)
         
         # Joint State Publisher
         self.joint_state_pub = self.create_publisher(JointState, "/hitbot/joint_states", 10)
 
         # Timer to publish joint states at 50Hz (20ms)
-        self.timer = self.create_timer(0.01, self.publish_joint_states)
+        self.timer = self.create_timer(0.1, self.publish_joint_states)
 
         # Define joint names (Modify according to your HitBot model)
         self.joint_names = ["joint1", "joint2", "joint3", "joint4"]
        
 
-        #self.joint_states_sub = self.create_subscription(
-        #    JointState,
-        #    '/joint_states',
-        #    self.joint_states_callback,
-        #    10
-        #)
         self.joint_command_sub = self.create_subscription(
             DisplayTrajectory,
             "/display_planned_path",
@@ -97,6 +71,14 @@ class HitbotController(Node):
         self.robot = HitbotInterface(self.robot_id)
 
         self.init_robot()
+    def hitbot_end_xyzr_callback(self,msg):
+        xyzr=msg.data.split(",");
+        self.robot.movel_xyz(int(xyzr[0]),int(xyzr[1]),int(xyzr[2]),int(xyzr[3]),20)
+        self.robot.wait_stop()
+
+    
+    
+
     def publish_joint_states(self):
         # Get real joint positions from HitBot API (Replace this with actual API calls)
         self.robot.get_scara_param()
@@ -111,6 +93,14 @@ class HitbotController(Node):
 
         # Publish the joint states
         self.joint_state_pub.publish(joint_state_msg)
+        self.publish_hitbot_x(self.robot.x)
+        self.publish_hitbot_y(self.robot.y)
+        self.publish_hitbot_z(self.robot.z)
+        self.publish_hitbot_r(self.robot.r)
+        camera_xyz=String()
+        camera_xyz.data="global_camera_xy",str(self.robot.x)+","+str(self.robot.y)
+        self.camera_xyz_publisher.publish(camera_xyz)
+        
         #self.get_logger().info(f"Published joint states: {joint_state_msg}")
     def joint_command_callback(self, msg):
         #self.get_logger().info(f"joint_command_callback trajectory: {msg}")
@@ -149,46 +139,28 @@ class HitbotController(Node):
 
         self.get_logger().info(f"Sent joint command to HitBot")    
 
-    def hitbot_x_callback(self, msg):
-        self.hitbot_x = msg.data
+    def publish_hitbot_x(self, data):
+        msg = Int64()
+        msg.data = data
+        self.hitbot_x_publisher.publish(msg)
 
-    def hitbot_y_callback(self, msg):
-        self.hitbot_y = msg.data
+    def publish_hitbot_y(self, data):
+        msg = Int64()
+        msg.data = data
+        self.hitbot_y_publisher.publish(msg)
 
-    def hitbot_z_callback(self, msg):
-        self.hitbot_z = msg.data
-
-    def hitbot_r_callback(self, msg):
-        self.hitbot_r = msg.data
+    def publish_hitbot_z(self, data):
+        msg = Int64()
+        msg.data = data
+        self.hitbot_z_publisher.publish(msg)
 
     def publish_hitbot_r(self, data):
         msg = Int64()
-        msg.data = int(data)
+        msg.data = data
         self.hitbot_r_publisher.publish(msg)
 
-    def joint_states_callback(self, msg):
-        try:
-            joint_names = msg.name
-            joint_positions = msg.position
-            self.get_logger().info(f" found in /joint_states {msg}")
-            if all(joint in joint_names for joint in ['joint1', 'joint2', 'joint3', 'joint4']):
-                joint1_index = joint_names.index('joint1')
-                joint2_index = joint_names.index('joint2')
-                joint3_index = joint_names.index('joint3')
-                joint4_index = joint_names.index('joint4')
 
-                joint1 = joint_positions[joint1_index] * 1000
-                joint2_angle = joint_positions[joint2_index] * 180 / 3.14
-                joint3_angle = joint_positions[joint3_index] * 180 / 3.14
-                joint4_angle = joint_positions[joint4_index] * 180 / 3.14
 
-                #self.robot.new_movej_angle(joint2_angle, joint3_angle, joint1, joint4_angle, 100, 1)
-                self.robot.movej_angle(joint2_angle, joint3_angle, joint1, joint4_angle, 100, 1)
-                
-            else:
-                self.get_logger().warning("Required joints not found in /joint_states message")
-        except Exception as e:
-            self.get_logger().warning(f"Error processing /joint_states message: {str(e)}")
 
     def set_gpio_callback(self, request, response):
         max_retries = 3
