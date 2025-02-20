@@ -1,0 +1,9 @@
+source;share/flask_ros_app/hook/pythonpath.ps1
+source;share/flask_ros_app/hook/pythonpath.dsv
+source;share/flask_ros_app/hook/pythonpath.sh
+source;share/flask_ros_app/hook/ament_prefix_path.ps1
+source;share/flask_ros_app/hook/ament_prefix_path.dsv
+source;share/flask_ros_app/hook/ament_prefix_path.sh
+source;../../build/flask_ros_app/share/flask_ros_app/hook/pythonpath_develop.ps1
+source;../../build/flask_ros_app/share/flask_ros_app/hook/pythonpath_develop.dsv
+source;../../build/flask_ros_app/share/flask_ros_app/hook/pythonpath_develop.sh

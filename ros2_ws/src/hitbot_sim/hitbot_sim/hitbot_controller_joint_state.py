@@ -141,22 +141,26 @@ class HitbotController(Node):
 
     def publish_hitbot_x(self, data):
         msg = Int64()
+
+        self.get_logger().info(f"set x;{data}") 
         msg.data = data
         self.hitbot_x_publisher.publish(msg)
 
     def publish_hitbot_y(self, data):
         msg = Int64()
         msg.data = data
+        self.get_logger().info(f"set x:{data}") 
         self.hitbot_y_publisher.publish(msg)
 
     def publish_hitbot_z(self, data):
         msg = Int64()
-        msg.data = data
+        msg.data = int(data)
+        self.get_logger().info(f"set y:{data}") 
         self.hitbot_z_publisher.publish(msg)
 
     def publish_hitbot_r(self, data):
         msg = Int64()
-        msg.data = data
+        msg.data = int(data)
         self.hitbot_r_publisher.publish(msg)
 
 
