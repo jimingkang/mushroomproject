@@ -42,7 +42,7 @@ import torch.backends.cudnn as cudnn
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Header,String,Int64
+from std_msgs.msg import Header,String
 from cv_bridge import CvBridge,CvBridgeError
 from sensor_msgs.msg import Image
 from rclpy.qos import qos_profile_sensor_data
@@ -150,28 +150,28 @@ class yolox_ros(yolox_py):
 
 
         self.subscription = self.create_subscription(
-            Int64,
+            String,
             '/hitbot_x',
             self.hitbot_x_callback,
             10
         )
 
         self.subscription = self.create_subscription(
-            Int64,
+            String,
             '/hitbot_y',
             self.hitbot_y_callback,
             10
         )
 
         self.subscription = self.create_subscription(
-            Int64,
+            String,
             '/hitbot_z',
             self.hitbot_z_callback,
             10
         )
 
         self.subscription = self.create_subscription(
-            Int64,
+            String,
             '/hitbot_r',
             self.hitbot_r_callback,
             10
