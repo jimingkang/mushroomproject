@@ -33,10 +33,10 @@ class HitbotController(Node):
         self.hitbot_z = 0
         self.hitbot_r = 0
 
-        self.hitbot_x_publisher = self.create_publisher(Int64, '/hitbot_x', 10)
-        self.hitbot_y_publisher = self.create_publisher(Int64, '/hitbot_y', 10)
-        self.hitbot_z_publisher = self.create_publisher(Int64, '/hitbot_z', 10)
-        self.hitbot_r_publisher = self.create_publisher(Int64, '/hitbot_r', 10)
+        self.hitbot_x_publisher = self.create_publisher(String, '/hitbot_x', 10)
+        self.hitbot_y_publisher = self.create_publisher(String, '/hitbot_y', 10)
+        self.hitbot_z_publisher = self.create_publisher(String, '/hitbot_z', 10)
+        self.hitbot_r_publisher = self.create_publisher(String, '/hitbot_r', 10)
         self.camera_xyz_publisher = self.create_publisher(String, '/camera_xyz', 10)
         
         self.xyz_sub = self.create_subscription(String,"/hitbot_end_xyz",self.hitbot_end_xyzr_callback,10)
@@ -65,7 +65,6 @@ class HitbotController(Node):
             10
         )
 
-        self.hitbot_r_publisher = self.create_publisher(Int64, '/hitbot_r', 10)
 
         self.robot_id = 92  ## 123 is robot_id, Modify it to your own
         self.robot = HitbotInterface(self.robot_id)
@@ -93,12 +92,12 @@ class HitbotController(Node):
 
         # Publish the joint states
         self.joint_state_pub.publish(joint_state_msg)
-        self.publish_hitbot_x(Int64(self.robot.x))
-        self.publish_hitbot_y(Int64(self.robot.x))
-        self.publish_hitbot_z(Int64(self.robot.x))
-        self.publish_hitbot_r(Int64(self.robot.x))
+        self.publish_hitbot_x(str(self.robot.x))
+        self.publish_hitbot_y(str(self.robot.y))
+        self.publish_hitbot_z(str(self.robot.z))
+        self.publish_hitbot_r(str(self.robot.r))
         camera_xyz=String()
-        camera_xyz.data="global_camera_xy",str(self.robot.x)+","+str(self.robot.y)
+        camera_xyz.data=str(self.robot.x)+","+str(self.robot.y)
         self.camera_xyz_publisher.publish(camera_xyz)
         
         #self.get_logger().info(f"Published joint states: {joint_state_msg}")
