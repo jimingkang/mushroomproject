@@ -28,17 +28,9 @@ from paho.mqtt import client as mqtt_client
 
 import numpy as np
 import cv2
-from numpy import empty
 from loguru import logger
-from yolox_ros_py.camera_ipcam import Predictor
 
-from numpy import empty
-import torch
-import torch.backends.cudnn as cudnn
-#from .yolox.data.data_augment import ValTransform
-#from .yolox.data.datasets import COCO_CLASSES
-#from .yolox.exp import get_exp
-#from .yolox.utils import fuse_model, get_model_info, postprocess, setup_logger, vis
+
 
 import rclpy
 from rclpy.node import Node
