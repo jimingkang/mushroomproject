@@ -72,6 +72,7 @@ class HitbotController(Node):
         self.init_robot()
     def hitbot_end_xyzr_callback(self,msg):
         xyzr=msg.data.split(",");
+        self.get_logger().info(f'hitbot_end_xyzr_callback:{msg},{xyzr}')
         self.robot.movel_xyz(int(xyzr[0]),int(xyzr[1]),int(xyzr[2]),int(xyzr[3]),20)
         self.robot.wait_stop()
 
@@ -141,20 +142,19 @@ class HitbotController(Node):
     def publish_hitbot_x(self, data):
         msg = String()
 
-        self.get_logger().info(f"set x;{data}") 
         msg.data = (data)
         self.hitbot_x_publisher.publish(msg)
 
     def publish_hitbot_y(self, data):
         msg = String()
         msg.data = (data)
-        self.get_logger().info(f"set x:{data}") 
+
         self.hitbot_y_publisher.publish(msg)
 
     def publish_hitbot_z(self, data):
         msg = String()
         msg.data = (data)
-        self.get_logger().info(f"set y:{data}") 
+
         self.hitbot_z_publisher.publish(msg)
 
     def publish_hitbot_r(self, data):

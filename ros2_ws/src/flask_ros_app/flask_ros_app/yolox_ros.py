@@ -207,12 +207,11 @@ class yolox_ros(yolox_py):
                 r.set("scan","start");
 
             if r.get("scan")=="start":
-                #rett=hi.movel_xyz(hi.x+40*random.choice((-1, 1))*random.random(),hi.y+40*random.choice((-1, 1))*random.random(),hi.z,-63,40)
-                #hi.wait_stop()
+
                 #self.scan_i=self.scan_i+1;
                 self.pre_count=self.count;
                 self.count=self.count+1;
-                #r.set("mode","pic_ready");
+                r.set("mode","pic_ready");
 
                 if self.scan_i<2 and self.scan_j==2:
                     self.scan_i=self.scan_i+1;
@@ -220,6 +219,7 @@ class yolox_ros(yolox_py):
                     scan_msg = String()
                     scan_msg.data=str(self.hitbot_x+50*self.scan_i)+","+str(self.hitbot_y)+","+str(self.hitbot_z)+","+str(-63*3.14/180)
                     self.hitbot_end_xyz_pub.publish(scan_msg)
+                    logger.info(" self.scan_i<2 and self.scan_j==2 hitbot_end_xyz_pub:{}".format(scan_msg))
                     r.set("scan","stop");
                     
 
