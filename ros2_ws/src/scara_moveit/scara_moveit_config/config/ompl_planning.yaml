@@ -7,6 +7,8 @@ request_adapters: >-
   default_planner_request_adapters/FixStartStateCollision
   default_planner_request_adapters/FixStartStatePathConstraints
 start_state_max_bounds_error: 0.1
+trajectory_execution:
+  allowed_start_tolerance: 0.2  # Default is 0.1, increasing can prevent rejection
 planner_configs:
   SBLkConfigDefault:
     type: geometric::SBL
