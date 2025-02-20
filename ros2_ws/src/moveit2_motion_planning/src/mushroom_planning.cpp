@@ -53,8 +53,7 @@ int main(int argc, char * argv[])
   // Next step goes here
 // Create the MoveIt MoveGroup Interface
 using moveit::planning_interface::MoveGroupInterface;
-auto move_group_interface = MoveGroupInterface(node, "scara_arm");
-
+ auto move_group_interface = MoveGroupInterface(node, "scara_arm");
 // Set a target Pose
 auto const target_pose = []{
   geometry_msgs::msg::Pose msg;
@@ -64,16 +63,21 @@ auto const target_pose = []{
   msg.position.z = 0.0;
   return msg;
 }();
+
+
+
 move_group_interface.setStartStateToCurrentState();
 move_group_interface.setPoseTarget(target_pose);
 move_group_interface.setStartStateToCurrentState();
 move_group_interface.setPlanningTime(10.0);
-move_group_interface.setPlannerId("RRTkConfigDefault");
-//move_group_interface.setPlannerId("RRTConnectkConfigDefault");
+//move_group_interface.setPlannerId("BiTRRTkConfigDefault");
+move_group_interface.setPlannerId("RRTConnectkConfigDefault");
 move_group_interface.setGoalTolerance(0.1);
 
 // Disable collision checking for debugging
 //move_group_interface.setPlanningSceneDiff(true);
+
+
 
 // Create a plan to that target pose
 auto const [success, plan] = [&move_group_interface]{
@@ -88,6 +92,35 @@ if(success) {
 } else {
   RCLCPP_ERROR(logger, "Planning failed!");
 }
+
+/*
+auto move_group = MoveGroupInterface(node, "scara_arm");
+        // Get current pose
+        geometry_msgs::msg::Pose start_pose = move_group.getCurrentPose().pose;
+
+        // Define waypoints
+        std::vector<geometry_msgs::msg::Pose> waypoints;
+        waypoints.push_back(start_pose);  // Start pose
+
+        geometry_msgs::msg::Pose target_pose = start_pose;
+        target_pose.position.x += 0.1;  // Move 10 cm in X direction
+        target_pose.position.y += 0.05; // Move 5 cm up
+        waypoints.push_back(target_pose);
+
+        // Compute Cartesian Path
+        moveit_msgs::msg::RobotTrajectory trajectory;
+        const double jump_threshold = 0.0;  // Disable jump detection
+        const double eef_step = 0.01;       // Small step for precise movement
+
+        double fraction = move_group.computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
+
+        if (fraction > 0.9) {
+            RCLCPP_INFO(logger, "Cartesian path computed successfully (%.2f%% of requested trajectory)", fraction * 100.0);
+            move_group.execute(trajectory);
+        } else {
+            RCLCPP_WARN(logger, "Only %.2f%% of Cartesian path was planned", fraction * 100.0);
+        }
+	*/
   // Shutdown ROS
   rclcpp::shutdown();
   return 0;

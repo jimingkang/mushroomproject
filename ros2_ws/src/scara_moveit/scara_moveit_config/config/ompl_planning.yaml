@@ -6,7 +6,7 @@ request_adapters: >-
   default_planner_request_adapters/FixStartStateBounds
   default_planner_request_adapters/FixStartStateCollision
   default_planner_request_adapters/FixStartStatePathConstraints
-start_state_max_bounds_error: 0.1
+start_state_max_bounds_error: 0.2
 trajectory_execution:
   allowed_start_tolerance: 0.2  # Default is 0.1, increasing can prevent rejection
 planner_configs:
@@ -37,11 +37,11 @@ planner_configs:
     min_valid_path_fraction: 0.5  # Accept partially valid moves above fraction. default: 0.5
   RRTkConfigDefault:
     type: geometric::RRT
-    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
+    range: 0.1  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
     goal_bias: 0.05  # When close to goal select goal, with this probability? default: 0.05
   RRTConnectkConfigDefault:
     type: geometric::RRTConnect
-    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
+    range: 0.1  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
   RRTstarkConfigDefault:
     type: geometric::RRTstar
     range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()

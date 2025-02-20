@@ -65,7 +65,7 @@ class HitbotController(Node):
         self.joint_state_pub = self.create_publisher(JointState, "/hitbot/joint_states", 10)
 
         # Timer to publish joint states at 50Hz (20ms)
-        self.timer = self.create_timer(0.1, self.publish_joint_states)
+        self.timer = self.create_timer(0.01, self.publish_joint_states)
 
         # Define joint names (Modify according to your HitBot model)
         self.joint_names = ["joint1", "joint2", "joint3", "joint4"]
