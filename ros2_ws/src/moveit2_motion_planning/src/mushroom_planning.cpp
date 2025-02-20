@@ -64,11 +64,12 @@ auto const target_pose = []{
   msg.position.z = 0.0;
   return msg;
 }();
+move_group_interface.setStartStateToCurrentState();
 move_group_interface.setPoseTarget(target_pose);
 move_group_interface.setStartStateToCurrentState();
-move_group_interface.setPlanningTime(5.0);
-move_group_interface.setPlannerId("RRTConnectkConfigDefault");
-move_group_interface.setGoalTolerance(0.01);
+move_group_interface.setPlanningTime(10.0);
+move_group_interface.setPlannerId("BFMTkConfigDefault");
+move_group_interface.setGoalTolerance(0.1);
 
 // Disable collision checking for debugging
 //move_group_interface.setPlanningSceneDiff(true);
