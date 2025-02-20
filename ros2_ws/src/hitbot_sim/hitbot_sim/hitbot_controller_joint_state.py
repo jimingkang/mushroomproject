@@ -93,10 +93,10 @@ class HitbotController(Node):
 
         # Publish the joint states
         self.joint_state_pub.publish(joint_state_msg)
-        self.publish_hitbot_x(self.robot.x)
-        self.publish_hitbot_y(self.robot.y)
-        self.publish_hitbot_z(self.robot.z)
-        self.publish_hitbot_r(self.robot.r)
+        self.publish_hitbot_x(Int64(self.robot.x))
+        self.publish_hitbot_y(Int64(self.robot.x))
+        self.publish_hitbot_z(Int64(self.robot.x))
+        self.publish_hitbot_r(Int64(self.robot.x))
         camera_xyz=String()
         camera_xyz.data="global_camera_xy",str(self.robot.x)+","+str(self.robot.y)
         self.camera_xyz_publisher.publish(camera_xyz)
@@ -140,27 +140,27 @@ class HitbotController(Node):
         self.get_logger().info(f"Sent joint command to HitBot")    
 
     def publish_hitbot_x(self, data):
-        msg = Int64()
+        msg = String()
 
         self.get_logger().info(f"set x;{data}") 
-        msg.data = data
+        msg.data = (data)
         self.hitbot_x_publisher.publish(msg)
 
     def publish_hitbot_y(self, data):
-        msg = Int64()
-        msg.data = data
+        msg = String()
+        msg.data = (data)
         self.get_logger().info(f"set x:{data}") 
         self.hitbot_y_publisher.publish(msg)
 
     def publish_hitbot_z(self, data):
-        msg = Int64()
-        msg.data = int(data)
+        msg = String()
+        msg.data = (data)
         self.get_logger().info(f"set y:{data}") 
         self.hitbot_z_publisher.publish(msg)
 
     def publish_hitbot_r(self, data):
-        msg = Int64()
-        msg.data = int(data)
+        msg = String()
+        msg.data = (data)
         self.hitbot_r_publisher.publish(msg)
 
 
