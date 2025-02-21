@@ -1,9 +1,0 @@
-source;share/hitbot_sim/hook/pythonpath.ps1
-source;share/hitbot_sim/hook/pythonpath.dsv
-source;share/hitbot_sim/hook/pythonpath.sh
-source;share/hitbot_sim/hook/ament_prefix_path.ps1
-source;share/hitbot_sim/hook/ament_prefix_path.dsv
-source;share/hitbot_sim/hook/ament_prefix_path.sh
-source;../../build/hitbot_sim/share/hitbot_sim/hook/pythonpath_develop.ps1
-source;../../build/hitbot_sim/share/hitbot_sim/hook/pythonpath_develop.dsv
-source;../../build/hitbot_sim/share/hitbot_sim/hook/pythonpath_develop.sh

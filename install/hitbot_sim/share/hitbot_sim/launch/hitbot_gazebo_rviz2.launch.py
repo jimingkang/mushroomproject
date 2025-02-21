@@ -1,1 +1,0 @@
-/home/a/Downloads/mushroomproject/build/hitbot_sim/launch/hitbot_gazebo_rviz2.launch.py

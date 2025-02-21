@@ -2,7 +2,7 @@
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 
-/*
+
 class MoveIt2MotionPlanning : public rclcpp::Node {
 public:
     MoveIt2MotionPlanning() : Node("moveit2_motion_planning") {
@@ -94,7 +94,7 @@ if(success) {
   RCLCPP_ERROR(logger, "Planning failed!");
 }
 
-
+/*
 auto move_group = MoveGroupInterface(node, "scara_arm");
         // Get current pose
         geometry_msgs::msg::Pose start_pose = move_group.getCurrentPose().pose;
@@ -121,13 +121,13 @@ auto move_group = MoveGroupInterface(node, "scara_arm");
         } else {
             RCLCPP_WARN(logger, "Only %.2f%% of Cartesian path was planned", fraction * 100.0);
         }
-	
+*/	
   // Shutdown ROS
   rclcpp::shutdown();
   return 0;
 }
 
-*/
+/*
 #include <rclcpp/rclcpp.hpp>
 #include <moveit_msgs/srv/get_motion_plan.hpp>
 #include <moveit_msgs/msg/motion_plan_request.hpp>
@@ -235,4 +235,4 @@ int main(int argc, char **argv)
   rclcpp::shutdown();
   return 0;
 }
-
+*/
