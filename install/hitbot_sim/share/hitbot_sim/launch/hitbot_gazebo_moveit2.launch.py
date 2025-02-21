@@ -1,0 +1,1 @@
+/home/a/Downloads/mushroomproject/build/hitbot_sim/launch/hitbot_gazebo_moveit2.launch.py
