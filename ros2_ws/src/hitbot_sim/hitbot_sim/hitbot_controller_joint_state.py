@@ -73,7 +73,8 @@ class HitbotController(Node):
     def hitbot_end_xyzr_callback(self,msg):
         xyzr=msg.data.split(",");
         self.get_logger().info(f'hitbot_end_xyzr_callback:{msg},{xyzr}')
-        self.robot.movel_xyz(int(xyzr[0]),int(xyzr[1]),int(xyzr[2]),int(xyzr[3]),20)
+        ret=self.robot.movel_xyz(int(xyzr[0]),int(xyzr[1]),int(xyzr[2]),int(xyzr[3]),80)
+        self.get_logger().info(f"movel_xyz ret: {ret}")
         self.robot.wait_stop()
 
     
@@ -93,10 +94,11 @@ class HitbotController(Node):
 
         # Publish the joint states
         self.joint_state_pub.publish(joint_state_msg)
-        self.publish_hitbot_x(str(self.robot.x))
-        self.publish_hitbot_y(str(self.robot.y))
-        self.publish_hitbot_z(str(self.robot.z))
-        self.publish_hitbot_r(str(self.robot.r))
+
+        self.publish_hitbot_x(str(int(self.robot.x)))
+        self.publish_hitbot_y(str(int(self.robot.y)))
+        self.publish_hitbot_z(str(int(self.robot.z)))
+        self.publish_hitbot_r(str(int(self.robot.r)))
         camera_xyz=String()
         camera_xyz.data=str(self.robot.x)+","+str(self.robot.y)
         self.camera_xyz_publisher.publish(camera_xyz)

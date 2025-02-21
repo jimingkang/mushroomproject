@@ -47,9 +47,7 @@ from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import  JointState
 
 
-import pyrealsense2 as rs2
-if (not hasattr(rs2, 'intrinsics')):
-    import pyrealsense2.pyrealsense2 as rs2
+
 
 i = 0
 
@@ -97,9 +95,9 @@ y = 0
 bounding_boxes_cords=None
 class yolox_ros(yolox_py):
     def __init__(self) -> None:
-        raw_image_topic = '/camera/color/image_rect_raw'
-        depth_image_topic = '/camera/depth/image_rect_raw'
-        depth_info_topic = '/camera/depth/camera_info'
+        raw_image_topic = '/camera/camera/color/image_rect_raw'
+        depth_image_topic = '/camera/camera/depth/image_rect_raw'
+        depth_info_topic = '/camera/camera/depth/camera_info'
 
 
         # ROS2 init
@@ -130,15 +128,15 @@ class yolox_ros(yolox_py):
         self.count=0;
         self.pre_count=-1;
 
-        self.hitbot_x = 0
-        self.hitbot_y = 0
-        self.hitbot_z = 0
-        self.hitbot_r = 0
+        self.hitbot_x  = "0"
+        self.hitbot_y  = "0"
+        self.hitbot_z  = "0"
+        self.hitbot_r = "0"
 
         #if (self.sensor_qos_mode):
         #    self.sub = self.create_subscription(Image,"/yolox/boxes_image",self.imageflow_callback, qos_profile_sensor_data)
         #else:
-        self.sub = self.create_subscription(Image,"/camera/color/image_rect_raw",self.imageflow_callback, 10) #yolox/boxes_image
+        self.sub = self.create_subscription(Image,"/camera/camera/color/image_rect_raw",self.imageflow_callback, 10) #yolox/boxes_image
 
 
         self.subscription = self.create_subscription(
@@ -174,13 +172,13 @@ class yolox_ros(yolox_py):
 
 
     def hitbot_x_callback(self, msg):
-        self.hitbot_x = msg.data
+        self.hitbot_x  = msg.data
 
     def hitbot_y_callback(self, msg):
         self.hitbot_y = msg.data
 
     def hitbot_z_callback(self, msg):
-        self.hitbot_z = msg.data
+        self.hitbot_z  = msg.data
 
     def hitbot_r_callback(self, msg):
         self.hitbot_r = msg.data
@@ -193,7 +191,7 @@ class yolox_ros(yolox_py):
             rett=0
 
             #r.set("mode","camera_stop")
-            #logger.info(" jimmy scan current location :{},{},{},".format(self.hitbot_x,self.hitbot_y,self.hitbot_z))
+            #logger.info(" jimmy scan current location :{},{},{},".format(self.hitbot_x ,self.hitbot_y ,self.hitbot_z ))
             self.pre_count=self.pre_count+1;
             if self.count==self.pre_count:
                 r.set("scan","start");
@@ -203,47 +201,70 @@ class yolox_ros(yolox_py):
                 #self.scan_i=self.scan_i+1;
                 self.pre_count=self.count;
                 self.count=self.count+1;
-                r.set("mode","pic_ready");
+    
 
-                if self.scan_i<2 and self.scan_j==2:
-                    self.scan_i=self.scan_i+1;
-                    self.scan_j=0;
-                    scan_msg = String()
-                    scan_msg.data=str(self.hitbot_x+50*self.scan_i)+","+str(self.hitbot_y)+","+str(self.hitbot_z)+","+str(-63*3.14/180)
-                    self.hitbot_end_xyz_pub.publish(scan_msg)
-                    logger.info(" self.scan_i<2 and self.scan_j==2 hitbot_end_xyz_pub:{}".format(scan_msg))
-                    r.set("scan","stop");
-                    
 
-                if self.scan_j<2:
-                    self.scan_j=self.scan_j+1;
-                    if self.scan_i%2==1:
-                        scan_msg = String()
-                        scan_msg.data=str(self.hitbot_x)+","+str(self.hitbot_y)+","+str(self.hitbot_z)+","+str(-63)
-                        self.hitbot_end_xyz_pub.publish(scan_msg)
-                        time.sleep(0.50)
-                    else:
-                        scan_msg = String()
-                        scan_msg.data=str(self.hitbot_x)+","+str(self.hitbot_y+50)+","+str(self.hitbot_z)+","+str(-63)
-                        self.hitbot_end_xyz_pub.publish(scan_msg)
-                        time.sleep(0.5)
 
+                scan_msg = String()
+                scan_msg.data="600,0,0,-63"
+                self.hitbot_end_xyz_pub.publish(scan_msg)
+                time.sleep(2)
                 r.set("mode","camera_ready");
-                time.sleep(0.5)
+                time.sleep(1)
+                r.set("mode","camera_stop");
 
-                logger.info("scan  x rett={}:i={},j={},".format(rett,self.scan_i,self.scan_j))
-                if self.scan_i==2 or rett>1 :  #
-                    self.scan_j=0;
-                    self.scan_i=0;
-                    r.set("scan","stop");
-                    r.set("mode","camera_ready");
-                    if rett>1:
-                        scan_msg = String()
-                        scan_msg.data=300+","+50+","+str(self.hitbot_z)+","+str(-63)
-                        self.hitbot_end_xyz_pub.publish(scan_msg)  
-                        time.sleep(0.5) 
-
+                scan_msg.data="500,0,0,-63"
+                self.hitbot_end_xyz_pub.publish(scan_msg)
+                time.sleep(2)
+                r.set("mode","camera_ready");
+                time.sleep(1)
+                r.set("mode","camera_stop");
                 
+                scan_msg.data="400,0,0,-63"
+                self.hitbot_end_xyz_pub.publish(scan_msg)
+                time.sleep(2)
+                r.set("mode","camera_ready");
+                time.sleep(1)
+                r.set("mode","camera_stop");
+
+                scan_msg.data="300,0,0,-63"
+                self.hitbot_end_xyz_pub.publish(scan_msg)
+                time.sleep(2)
+                r.set("mode","camera_ready");
+                time.sleep(1)
+                r.set("mode","camera_stop");
+
+                scan_msg = String()
+                scan_msg.data="300,100,0,-63"
+                self.hitbot_end_xyz_pub.publish(scan_msg)
+                time.sleep(2)
+                r.set("mode","camera_ready");
+                time.sleep(1)
+                r.set("mode","camera_stop");
+
+                scan_msg.data="300,200,0,-63"
+                self.hitbot_end_xyz_pub.publish(scan_msg)
+                time.sleep(2)
+                r.set("mode","camera_ready");
+                time.sleep(1)
+                r.set("mode","camera_stop");
+                
+                scan_msg.data="300,300,0,-63"
+                self.hitbot_end_xyz_pub.publish(scan_msg)
+                time.sleep(2)
+                r.set("mode","camera_ready");
+                time.sleep(1)
+                r.set("mode","camera_stop");
+
+                scan_msg.data="300,400,0,-63"
+                self.hitbot_end_xyz_pub.publish(scan_msg)
+                time.sleep(2)
+                r.set("mode","camera_ready");
+                time.sleep(1)
+                r.set("mode","camera_stop");
+
+                r.set("scan","stop");
+
 
             try:
 
@@ -273,7 +294,7 @@ class yolox_ros(yolox_py):
                     logger.info(xy)
                 if v is not None and len(xy)>0:
                     scan_msg = String()
-                    scan_msg.data=str(xy[0])+","+str(xy[1])+","+str(self.hitbot_z-20)+","+str(-63)
+                    scan_msg.data=str(xy[0])+","+str(xy[1])+","+str(self.hitbot_z -20)+","+str(-63)
                     self.hitbot_end_xyz_pub.publish(scan_msg)  
                     logger.info("movedown current location :{},{},".format(xy[0],xy[1]))
                     r.hdel("detections",key)
@@ -290,7 +311,7 @@ class yolox_ros(yolox_py):
                         if abs(x)>20 or abs(y)>20: #r.get("scan")=="stop" and
 
                                 scan_msg = String()
-                                scan_msg.data=str(self.hitbot_x+x/10)+","+str(self.hitbot_y)+","+str(self.hitbot_z-10)+","+str(-63)
+                                scan_msg.data=str(self.hitbot_x +x/10)+","+self.hitbot_y +","+str(self.hitbot_z -10)+","+str(-63)
                                 self.hitbot_end_xyz_pub.publish(scan_msg)  
                                 
                                 if rett>0:
@@ -304,7 +325,7 @@ class yolox_ros(yolox_py):
                     time.sleep(1)
                     logger.info(r.get("mode"))
                     scan_msg = String()
-                    scan_msg.data=str(self.hitbot_x)+","+str(self.hitbot_y)+","+str(0)+","+str(-63)
+                    scan_msg.data=self.hitbot_x +","+self.hitbot_y +","+str(0)+","+str(-63)
                     self.hitbot_end_xyz_pub.publish(scan_msg) 
                     time.sleep(1)
 
