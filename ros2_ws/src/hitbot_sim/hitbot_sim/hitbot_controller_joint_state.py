@@ -9,6 +9,11 @@ from hitbot_msgs.srv import *
 from trajectory_msgs.msg import JointTrajectory
 from std_msgs.msg import Float64MultiArray
 from moveit_msgs.msg import DisplayTrajectory
+import redis
+
+redis_server='172.27.34.62'
+pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
+r = redis.Redis(connection_pool=pool)
 
 os.chdir(os.path.expanduser('~'))
 #sys.path.append("./ws_moveit/src/hitbot")  ## get import pass: hitbot_interface.py
@@ -102,6 +107,7 @@ class HitbotController(Node):
         camera_xyz=String()
         camera_xyz.data=str(self.robot.x)+","+str(self.robot.y)
         self.camera_xyz_publisher.publish(camera_xyz)
+        r.set("global_camera_xy",camera_xyz.data)
         
         #self.get_logger().info(f"Published joint states: {joint_state_msg}")
     def joint_command_callback(self, msg):

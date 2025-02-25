@@ -210,64 +210,7 @@ def xbackward():
     return render_template('index.html');
 
 
-@app.route('/xforward')
-def xfarward():
-    return render_template('index.html');
 
-
-
-
-@app.route('/catch')
-def catch():
-    #video_dir.move_increase_y(10)
-    print("catch")
-    return render_template('index.html');
-
-
-@app.route('/release')
-def release():
-    #video_dir.move_decrease_y(10)
-    return render_template('index.html');
-@app.route('/zup')
-def zup():
-    #video_dir.move_decrease_x(10)
-    return render_template('index.html');
-@app.route('/zdown')
-def zdown():
-    #video_dir.move_increase_x(10)
-    return render_template('index.html');
-
-
-#def autopick():
-#    publish_result = mqtt_client.publish(topic, "/flask/scan")
-#    return render_template('index.html');
-
-
-@app.route('/zerosetting')
-def zero():
-    # publish_result = mqtt_client.publish(topic, "/flask/home")
-    time.sleep(1)
-    r.set("global_camera_xy", "0,0")
-    return render_template('index.html');
-
-
-@app.route('/home')
-def home():
-    # publish_result = mqtt_client.publish(topic, "/flask/home")
-    time.sleep(1)
-    r.set("global_camera_xy", "0,0")
-    return render_template('index.html');
-
-
-
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-
-@app.route('/msg')
-def msg():
-    return render_template('index.html')
 
 
 @app.route('/update_mushroom_map' ,methods=['GET'])
@@ -329,8 +272,6 @@ class yolox_ros(yolox_py):
         #self.pub = self.create_publisher(BoundingBoxes,"/yolox/bounding_boxes", 10)
         self.pub_bounding_boxes_cords = self.create_publisher(BoundingBoxesCords,"/yolox/bounding_boxes_cords", 1)
         self.pub_boxes_img = self.create_publisher(Image,"/yolox/boxes_image", 10)
-        #self.pub_rpi5_boxes_img = self.create_publisher(Image,"/yolox/rpi5/boxing_image", 1)
-        #self.sub_rpi_raw_img = self.create_subscription(Image,"/yolox/rpi5/raw_image",self.rpi5_imageflow_callback, 1)
         self.pub_pointclouds = self.create_publisher(PointCloud2,'/yolox/pointclouds', 10)
        
         self.sub_info = self.create_subscription(CameraInfo, depth_info_topic, self.imageDepthInfoCallback, 1)
@@ -457,36 +398,7 @@ class yolox_ros(yolox_py):
         self.predictor = Predictor(model, exp, COCO_CLASSES, trt_file, decoder, device, fp16, legacy)
 
 
-    def rpi5_imageflow_callback(self,msg:Image) -> None:
-            rpi5_bboxes_msg=None
-            rpi5_result_img_rgb=None,
-            rpi5_img_rgb_pub=None
-            rpi5_img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
-            if rpi5_img_rgb is not None:
-                outputs, img_info = self.predictor.inference(img_rgb)
-                #ogger.info(" rpi5_imageflow_callback outputs : {},".format((outputs)))
 
-                try:
-                    logger.info("rpi mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
-                    if  (outputs is not None)  :#r.get("mode")=="camera_ready" and
-                        #logger.info("output[0]{},img_info{}".format(outputs[0],img_info))
-                        rpi5_result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
-                        logger.info(bboxes)
-                        #time.sleep(1)
-                        if  bboxes is not None:
-                            rpi5_bboxes_msg = self.yolox2bboxes_msgs(bboxes, scores, cls, cls_names,track_ids, msg.header, rpi5_img_rgb)
-
-                    if rpi5_result_img_rgb is not None:
-                        rpi5_img_rgb_pub = self.bridge.cv2_to_imgmsg(rpi5_result_img_rgb,"bgr8")
-                    else:
-                        rpi5_img_rgb_pub = self.bridge.cv2_to_imgmsg(rpi5_img_rgb,"bgr8")
-
-                    self.pub_rpi5_boxes_img.publish(rpi5_img_rgb_pub)
-                    #time.sleep(2)
-
-                except Exception as e:
-                    logger.error(e)
-                    pass
     def callback(self,msg:Image,data:Image) -> None:
         global bboxes_msg,result_img_rgb,img_rgb,mapp,frame
         img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
@@ -508,7 +420,6 @@ class yolox_ros(yolox_py):
 
         #depth image
                 cv_image = self.bridge.imgmsg_to_cv2(data, data.encoding)
-  
                 global_camera_xy=r.get("global_camera_xy")
                 camera_xy=global_camera_xy.split(",")
                 mode=r.get("mode")=="camera_ready"
@@ -538,11 +449,11 @@ class yolox_ros(yolox_py):
                         #logger.info("detections id:{},if exist {}".format(box.class_id,r.hexists("detections",str(box.class_id))))
                         x=(int(float(result[0])))            #Arm#-------> Y    #camera   <--- #Y
                         y=-(int(float(result[1])))               #|              #|
-                        x-=60                                  #\|/      X      #\|/         X               
+                        #x-=60                                  #\|/      X      #\|/         X               
                
                         obj=str(int(float(camera_xy[0]))+x)+","+str(int(float(camera_xy[1]))+y)+","+str(int(float(result[2])))
-                        #logger.info(line)
-                        if not r.hexists("detections",str(box.class_id)):
+                        logger.info(line)
+                        if  not r.hexists("detections",str(box.class_id)):
                             r.hset("detections", box.class_id, obj)
                             r.lpush("queue",box.class_id)
                             r.hset("detections_history", box.class_id, obj) 
@@ -550,173 +461,20 @@ class yolox_ros(yolox_py):
                             box_cord.y=int(float(camera_xy[1]))+y
                             box_cord.class_id= box.class_id                      
                             boxes_cords.bounding_boxes.append(box_cord)
+                            self.pub_bounding_boxes_cords.publish(boxes_cords)
+                            logger.info(boxes_cords)
 
                     r.set("mode","camera_ready")
+
  
-                    logger.info(boxes_cords)
-                    self.pub_bounding_boxes_cords.publish(boxes_cords)
+
+
                     bboxes_msg=None
 
             except Exception as e:
                 logger.error(e)
                 pass
-    def imageflow_callback(self,msg:Image,data) -> None:
-            global bboxes_msg,result_img_rgb,img_rgb,mapp,frame
-            img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
-            if img_rgb is not None:
-                outputs, img_info = self.predictor.inference(img_rgb)
-                #logger.info("outputs : {},".format((outputs)))
 
-                try:
-                    logger.info("mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
-                    if  (outputs is not None) and r.get("scan")=="start" :#r.get("mode")=="camera_ready" and
-                        #logger.info("output[0]{},img_info{}".format(outputs[0],img_info))
-                        result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
-                        if  bboxes is not None:
-                            bboxes_msg = self.yolox2bboxes_msgs(bboxes, scores, cls, cls_names,track_ids, msg.header, img_rgb)
-
-                    if result_img_rgb is not None:
-                        img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
-                    else:
-                        img_rgb_pub = self.bridge.cv2_to_imgmsg(img_rgb,"bgr8")
-                    self.pub_boxes_img.publish(img_rgb_pub)
-
-                    #depth image
-                    cv_image = self.bridge.imgmsg_to_cv2(data, data.encoding)
-  
-                    global_camera_xy=r.get("global_camera_xy")
-                    camera_xy=global_camera_xy.split(",")
-                    mode=r.get("mode")=="camera_ready"
-                    logger.info("in  imageDepthCallback camera_xy:{}, {}".format(camera_xy[0],camera_xy[1]))
-
-                    if bboxes_msg is not None and len(bboxes_msg.bounding_boxes)>0  and  self.intrinsics is not None:
-
-                        r.set("mode","pickup_ready")
-                        boxes_cords=BoundingBoxesCords()
-
-                        for box in bboxes_msg.bounding_boxes:
-                            box_cord=BoundingBoxCord()
-                            #logger.info("probability,{},pixal x={},y={}".format(box.probability,box.class_id,(box.xmin+box.xmax)/2,(box.ymin+box.ymax)/2))
-                            line ='probability:%4.2f,track_id:%s'%(box.probability,box.class_id)
-                            #pix = (indices[1], indices[0])
-                            pix = (int((box.xmin+box.xmax)/2),int((box.ymin+box.ymax)/2))
-                            self.pix = pix
-                            #line += '\tDepth at pixel(%3d, %3d): %7.1f(mm).' % (pix[0], pix[1], cv_image[pix[1], pix[0]])
-                            if self.intrinsics and pix[0] <848 and pix[1]<480:
-                                depth = cv_image[pix[1], pix[0]]
-                                result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth)
-                                line += '  local Coordinate: %8.2f %8.2f %8.2f.' % (result[0], result[1], result[2])
-                            else:
-                                continue
-                            if (not self.pix_grade is None):
-                                line += ' Grade: %2d' % self.pix_grade
-                            line += '\r'
-
-                            #logger.info("detections id:{},if exist {}".format(box.class_id,r.hexists("detections",str(box.class_id))))
-                            x=(int(float(result[0])))            #Arm#-------> Y    #camera   <--- #Y
-                            y=-(int(float(result[1])))               #|              #|
-                            x-=60                                  #\|/      X      #\|/         X               
-               
-                            obj=str(int(float(camera_xy[0]))+x)+","+str(int(float(camera_xy[1]))+y)+","+str(int(float(result[2])))
-                            #logger.info(line)
-                            if not r.hexists("detections",str(box.class_id)):
-                                r.hset("detections", box.class_id, obj)
-                                r.lpush("queue",box.class_id)
-                                r.hset("detections_history", box.class_id, obj) 
-                                box_cord.x=int(float(camera_xy[0]))+x
-                                box_cord.y=int(float(camera_xy[1]))+y
-                                box_cord.class_id= box.class_id                      
-                                boxes_cords.bounding_boxes.append(box_cord)
-                            #else:
-                            #     r.hdel("detections", box.class_id)
-                        r.set("mode","camera_ready")
-                        #gray=((points_xyz_rgb[:,3])+(points_xyz_rgb[:,4]) + (points_xyz_rgb[:,5]))/3
-                    
-                        logger.info(boxes_cords)
-                        self.pub_bounding_boxes_cords.publish(boxes_cords)
-                        bboxes_msg=None
-                except CvBridgeError as e:
-                    logger.error(e)
-                    return
-                except ValueError as e:
-                    logger.error(e)
-                    return
-                except Exception as e:
-                    logger.error(e)
-                    pass
-
-    def imageDepthCallback(self, data):
-        global bboxes_msg,result_img_rgb,i,points_xyz_rgb,global_points_xyz_rgb_list
-
-        try:
-            cv_image = self.bridge.imgmsg_to_cv2(data, data.encoding)
-  
-            # pick one pixel among all the pixels with the closest range:
-            #indices = np.array(np.where(cv_image == cv_image[cv_image > 0].min()))[:,0]
-            global_camera_xy=r.get("global_camera_xy")
-            camera_xy=global_camera_xy.split(",")
-            mode=r.get("mode")=="camera_ready"
-            logger.info("in  imageDepthCallback camera_xy:{}, {}".format(camera_xy[0],camera_xy[1]))
-
-            if bboxes_msg is not None and len(bboxes_msg.bounding_boxes)>0  and  self.intrinsics is not None:
-
-                r.set("mode","pickup_ready")
-                boxes_cords=BoundingBoxesCords()
-
-                for box in bboxes_msg.bounding_boxes:
-                    box_cord=BoundingBoxCord()
-                    #logger.info("probability,{},pixal x={},y={}".format(box.probability,box.class_id,(box.xmin+box.xmax)/2,(box.ymin+box.ymax)/2))
-                    line ='probability:%4.2f,track_id:%s'%(box.probability,box.class_id)
-                    #pix = (indices[1], indices[0])
-                    pix = (int((box.xmin+box.xmax)/2),int((box.ymin+box.ymax)/2))
-                    self.pix = pix
-                    #line += '\tDepth at pixel(%3d, %3d): %7.1f(mm).' % (pix[0], pix[1], cv_image[pix[1], pix[0]])
-                    if self.intrinsics and pix[0] <848 and pix[1]<480:
-                        depth = cv_image[pix[1], pix[0]]
-                        result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth)
-                        line += '  local Coordinate: %8.2f %8.2f %8.2f.' % (result[0], result[1], result[2])
-                    else:
-                        continue
-                    if (not self.pix_grade is None):
-                        line += ' Grade: %2d' % self.pix_grade
-                    line += '\r'
-
-                    #logger.info("detections id:{},if exist {}".format(box.class_id,r.hexists("detections",str(box.class_id))))
-                    x=(int(float(result[0])))            #Arm#-------> Y    #camera   <--- #Y
-                    y=-(int(float(result[1])))               #|              #|
-                    x-=60                                  #\|/      X      #\|/         X               
-                     
-                    #x=(int(float(result[0])))            #Arm#-------> Y    #camera   --- >#Y
-                    #y=-(int(float(result[1])))               #|              #/|\
-                    #y-=270                                 #\|/      X        #|         X   
-                    # 
-                    #x=(int(float(result[1])))           #Arm#-------> Y    #camera   --- >#X
-                    #y=(int(float(result[0])))               #|              #    |
-                    #y-=180                                 #\|/      X       #  \|/        Y                   
-                    obj=str(int(float(camera_xy[0]))+x)+","+str(int(float(camera_xy[1]))+y)+","+str(int(float(result[2])))
-                    #logger.info(line)
-                    if not r.hexists("detections",str(box.class_id)):
-                        r.hset("detections", box.class_id, obj)
-                        r.lpush("queue",box.class_id)
-                        r.hset("detections_history", box.class_id, obj) 
-                        box_cord.x=int(float(camera_xy[0]))+x
-                        box_cord.y=int(float(camera_xy[1]))+y
-                        box_cord.class_id= box.class_id                      
-                        boxes_cords.bounding_boxes.append(box_cord)
-                    #else:
-                    #     r.hdel("detections", box.class_id)
-                r.set("mode","camera_ready")
-                #gray=((points_xyz_rgb[:,3])+(points_xyz_rgb[:,4]) + (points_xyz_rgb[:,5]))/3
-            
-                logger.info(boxes_cords)
-                self.pub_bounding_boxes_cords.publish(boxes_cords)
-                bboxes_msg=None
-
-        except CvBridgeError as e:
-            print(e)
-            return
-        except ValueError as e:
-            return
         
     def MoveXYZCallback(self, data):
         global bboxes_msg
@@ -804,6 +562,7 @@ def sigint_handler(signal, frame):
 def ros_main(args = None):
         rclpy.init(args=args)
         ros_class = yolox_ros()
+        ros_class.create_rate(2)
 
         try:
             rclpy.spin(ros_class)
