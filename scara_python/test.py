@@ -26,7 +26,7 @@ def print_hi(name):
     print(hi.unlock_position())
     hi.get_scara_param()
     print(hi.x,hi.y)
-    ret=hi.movel_xyz(300,0,0,-63,20)
+    ret=hi.movel_xyz(300,0,0,-63,100)
     #ret=hi.new_movej_xyz_lr(hi.x-100,hi.y,0,-63,20,0,1)
     hi.wait_stop()
     print(ret)

@@ -58,7 +58,14 @@ using moveit::planning_interface::MoveGroupInterface;
 // Set a target Pose
 auto const target_pose = []{
   geometry_msgs::msg::Pose msg;
-  msg.orientation.w = 1.0;
+ // msg.orientation.w = 1.0;
+  msg.orientation.x = -0.000001;
+
+msg.orientation.y = 0.000001;
+
+msg.orientation.z = -0.000001;
+
+msg.orientation.w = 0.519859;
   msg.position.x = 0.48;
   msg.position.y = 0.0;
   msg.position.z = 0.0;
@@ -71,7 +78,7 @@ move_group_interface.setStartStateToCurrentState();
 move_group_interface.setPoseTarget(target_pose);
 move_group_interface.setStartStateToCurrentState();
 move_group_interface.setPlanningTime(10.0);
-//move_group_interface.setPlannerId("BiTRRTkConfigDefault");
+//move_group_interface.setPlannerId("LBKPIECEkConfigDefault");
 move_group_interface.setPlannerId("RRTConnectkConfigDefault");
 move_group_interface.setGoalTolerance(0.1);
 
