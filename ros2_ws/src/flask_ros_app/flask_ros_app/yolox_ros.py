@@ -53,18 +53,6 @@ i = 0
 
 
 
-redis_server = ''
-broker = ''
-try:
-    for line in open("../ip.txt"):
-        if line[0:6] == "broker":
-            broker = line[9:len(line) - 1]
-        if line[0:6] == "reddis":
-            redis_server = line[9:len(line) - 1]
-except:
-    pass
-#broker = broker.replace("\n", "").replace("\r\n", "")
-
 
 broker="172.27.34.62"
 redis_server="172.27.34.62"
@@ -79,14 +67,7 @@ app.config['DEBUG'] = False
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 
-topic = '/flask/scan'
-topic2 = '/flask/xyz'
-topic3 = '/flask/serial'
-topic4 = '/flask/pickup'
-topic5 = '/flask/home'
-topic6 = '/flask/drop'
-topic7 = '/flask/stop'
-#mqtt_client = Mqtt(app)
+
 y = 0
 
 
@@ -167,8 +148,6 @@ class yolox_ros(yolox_py):
             10
         )
 
-  
-
 
 
     def hitbot_x_callback(self, msg):
@@ -190,11 +169,9 @@ class yolox_ros(yolox_py):
 
             rett=0
 
-            #r.set("mode","camera_stop")
-            #logger.info(" jimmy scan current location :{},{},{},".format(self.hitbot_x ,self.hitbot_y ,self.hitbot_z ))
             self.pre_count=self.pre_count+1;
-            if self.count==self.pre_count:
-                r.set("scan","start");
+            #if self.count==self.pre_count:
+            #    r.set("scan","start");
 
             if r.get("scan")=="start":
 
@@ -294,9 +271,9 @@ class yolox_ros(yolox_py):
                     logger.info(xy)
                 if v is not None and len(xy)>0:
                     scan_msg = String()
-                    scan_msg.data=str(xy[0])+","+str(xy[1])+","+str(self.hitbot_z -20)+","+str(-63)
+                    scan_msg.data=str(xy[0])+","+str(xy[1])+","+str(int(self.hitbot_z) -20)+",-63"
                     self.hitbot_end_xyz_pub.publish(scan_msg)  
-                    logger.info("movedown current location :{},{},".format(xy[0],xy[1]))
+                    logger.info(f"movedown current location :{xy[0]},{xy[1]},")
                     r.hdel("detections",key)
                     r.set("mode","adjust_camera_init")
                     adjust_gripper_center=r.get("adjust_gripper_center")
@@ -311,7 +288,7 @@ class yolox_ros(yolox_py):
                         if abs(x)>20 or abs(y)>20: #r.get("scan")=="stop" and
 
                                 scan_msg = String()
-                                scan_msg.data=str(self.hitbot_x +x/10)+","+self.hitbot_y +","+str(self.hitbot_z -10)+","+str(-63)
+                                scan_msg.data=str(self.hitbot_x +x/10)+","+self.hitbot_y +","+str(self.hitbot_z -10)+",-63"
                                 self.hitbot_end_xyz_pub.publish(scan_msg)  
                                 
                                 if rett>0:
@@ -325,7 +302,7 @@ class yolox_ros(yolox_py):
                     time.sleep(1)
                     logger.info(r.get("mode"))
                     scan_msg = String()
-                    scan_msg.data=self.hitbot_x +","+self.hitbot_y +","+str(0)+","+str(-63)
+                    scan_msg.data=self.hitbot_x +","+self.hitbot_y +","+str(0)+",-63"
                     self.hitbot_end_xyz_pub.publish(scan_msg) 
                     time.sleep(1)
 

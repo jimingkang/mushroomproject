@@ -10,6 +10,13 @@ from trajectory_msgs.msg import JointTrajectory
 from std_msgs.msg import Float64MultiArray
 from moveit_msgs.msg import DisplayTrajectory
 import redis
+from octomap_msgs.msg import Octomap
+from geometry_msgs.msg import Point
+from visualization_msgs.msg import Marker
+import numpy as np
+import random
+import octomap
+from scipy.spatial import KDTree
 
 redis_server='172.27.34.62'
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
@@ -75,6 +82,137 @@ class HitbotController(Node):
         self.robot = HitbotInterface(self.robot_id)
 
         self.init_robot()
+
+        self.subscription = self.create_subscription(Octomap,'/rtabmap/octomap_binary',self.octomap_callback,10)
+
+        # Publisher for RRT Path Visualization
+        self.path_publisher = self.create_publisher(Marker, 'rrt_path', 10)
+
+        self.occupancy_map = None  # Store Octomap for collision checking
+        self.bounds = (-2.0, 2.0, -2.0, 2.0, 0.0, 2.0)  # Workspace bounds (xmin, xmax, ymin, ymax, zmin, zmax)
+
+    def octomap_callback(self, msg):
+        """ Callback to receive and process Octomap data. """
+        self.get_logger().info("Received Octomap data.{msg.id}")
+        self.occupancy_map = self.process_octomap(msg)
+
+        self.get_logger().info(f"Received  occupancy_map . {self.occupancy_map is None}")
+        if self.occupancy_map:
+            start = (0.5, 0.0, 0.0)  # Example start position
+            goal = (0.3, 0.0, 0.0)   # Example goal position
+
+            self.get_logger().info(f"before rrt planning")
+            path = self.rrt_planning(start, goal, max_iter=500)
+
+            if path:
+
+                self.get_logger().info(f"get apath {path}")
+                self.visualize_path(path)
+            else:
+                self.get_logger().warn("No valid path found.")
+
+    def process_octomap(self, msg):
+        """ Convert Octomap message to an occupancy grid. """
+        try:
+            octo_tree = octomap.OcTree(0.05)  # 5 cm resolution
+            octo_tree.readBinary(bytearray(msg.data))
+            self.get_logger().info(f"Received  data. {octo_tree}")
+            return octo_tree
+        except Exception as e:
+            self.get_logger().error(f"Failed to process Octomap: {e}")
+            return None
+
+    def is_collision_free(self, point):
+        """ Check if a point is collision-free in the Octomap. """
+        if self.occupancy_map is None:
+            return True  # If no map, assume free space
+        
+        x, y, z = point
+        print(point)
+        nod = self.occupancy_map.search((x, y, z))
+
+        if nod is None :
+            return False
+        
+        print(nod)
+        ret=self.occupancy_map.isNodeOccupied(nod)
+        return ret
+
+    def rrt_planning(self, start, goal, max_iter=500, step_size=0.1):
+        """ RRT Path Planning from `start` to `goal` avoiding obstacles. """
+        nodes = [start]  # RRT Tree
+        parents = {start: None}  # Parent dictionary
+
+        for _ in range(max_iter):
+            rand_point = self.random_point(goal)
+            nearest_node = self.nearest_neighbor(rand_point, nodes)
+            new_node = self.steer(nearest_node, rand_point, step_size)
+
+            if self.is_collision_free(new_node):
+                nodes.append(new_node)
+                parents[new_node] = nearest_node
+
+                if np.linalg.norm(np.array(new_node) - np.array(goal)) < step_size:
+                    return self.reconstruct_path(parents, new_node)
+
+        return None  # No valid path found
+
+    def random_point(self, goal, bias=0.1):
+        """ Generate a random point in space with a goal bias. """
+        if random.random() < bias:
+            return goal  # Occasionally pick the goal to bias growth
+        return (
+            random.uniform(self.bounds[0], self.bounds[1]),
+            random.uniform(self.bounds[2], self.bounds[3]),
+            random.uniform(self.bounds[4], self.bounds[5])
+        )
+
+    def nearest_neighbor(self, point, nodes):
+        """ Find the nearest node in the tree using KDTree. """
+        tree = KDTree(nodes)
+        _, idx = tree.query(point)
+        return nodes[idx]
+
+    def steer(self, from_node, to_node, step_size):
+        """ Generate a new node in the direction of `to_node` from `from_node`. """
+        direction = np.array(to_node) - np.array(from_node)
+        length = np.linalg.norm(direction)
+        if length < step_size:
+            return to_node
+        direction = direction / length
+        new_point = np.array(from_node) + direction * step_size
+        return tuple(new_point)
+
+    def reconstruct_path(self, parents, end_node):
+        """ Reconstruct the path from the end node to the start. """
+        path = []
+        node = end_node
+        while node:
+            path.append(node)
+            node = parents[node]
+        path.reverse()
+        return path
+
+    def visualize_path(self, path):
+        """ Publish the planned path as a Marker in RViz. """
+        marker = Marker()
+        marker.header.frame_id = "map"
+        marker.type = Marker.LINE_STRIP
+        marker.action = Marker.ADD
+        marker.scale.x = 0.02  # Line width
+        marker.color.a = 1.0  # Alpha
+        marker.color.r = 0.0  # Red
+        marker.color.g = 1.0  # Green
+        marker.color.b = 0.0  # Blue
+
+        for (x, y, z) in path:
+            point = Point()
+            point.x, point.y, point.z = x, y, z
+            marker.points.append(point)
+
+        self.path_publisher.publish(marker)
+        self.get_logger().info("Published RRT path.")
+
     def hitbot_end_xyzr_callback(self,msg):
         xyzr=msg.data.split(",");
         self.get_logger().info(f'hitbot_end_xyzr_callback:{msg},{xyzr}')
