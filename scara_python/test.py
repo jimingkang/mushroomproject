@@ -16,6 +16,8 @@ ret = hi.initial(1, 210);  # // I add you on wechat
 hi.is_connect()
 hi.is_collision()
 hi.unlock_position()
+ret=hi.movel_xyz(600,0,0,-63,100)
+hi.wait_stop()
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 
@@ -32,18 +34,16 @@ hi.unlock_position()
  
 
 def move():
-    ret=hi.movel_xyz(600,0,0,-63,100)
-    hi.wait_stop()
-    ret=hi.movel_xyz(300,0,0,0,100)
-    hi.wait_stop()
-    i=2
-    while i<4:
-        i=i+1
-        rett=hi.movel_xyz(hi.x-i*20,hi.y-i*20,-80,-63-i*20,100)
-        #hi.wait_stop()
-    stop_event.set()
 
- 
+    #ret=hi.movel_xyz(300,0,0,0,100)
+    ret=hi.movej_angle(60,0,0,-63,100,1)
+    hi.wait_stop()
+    ret=hi.movej_angle(60,60,0,-63,100,1)
+    hi.wait_stop()
+    ret=hi.movej_angle(60,60,0,0,100,1)
+    hi.wait_stop()
+   
+    stop_event.set()
 
 
 def printstatus():
@@ -59,10 +59,9 @@ def printstatus():
             "x":   [hi.x], 
             "y":  [hi.y],
             "z":   [hi.z], 
-            "r":   [hi.r*180/3.14],
-            "angle1":  [hi.angle1*180/3.14],  
-            "angle2":  [hi.angle2*180/3.14],     
-
+            "r":   [hi.r],
+            "angle1":  [hi.angle1],  
+            "angle2":  [hi.angle2],     
         }
         df_new_rows = pd.DataFrame(data)
 
