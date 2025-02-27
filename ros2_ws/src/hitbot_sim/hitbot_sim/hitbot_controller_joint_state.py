@@ -17,6 +17,8 @@ import numpy as np
 import random
 import octomap
 from scipy.spatial import KDTree
+import fcl
+
 
 redis_server='172.27.34.62'
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
@@ -87,19 +89,54 @@ class HitbotController(Node):
 
         # Publisher for RRT Path Visualization
         self.path_publisher = self.create_publisher(Marker, 'rrt_path', 10)
-
+        self.fcl_octree = None  # FCL Octree for collision checking
         self.occupancy_map = None  # Store Octomap for collision checking
-        self.bounds = (-2.0, 2.0, -2.0, 2.0, 0.0, 2.0)  # Workspace bounds (xmin, xmax, ymin, ymax, zmin, zmax)
+        self.bounds = (-2.0, 2.0, -2.0, 2.0, -2.0, 2.0)  # Workspace bounds (xmin, xmax, ymin, ymax, zmin, zmax)
 
     def octomap_callback(self, msg):
         """ Callback to receive and process Octomap data. """
-        self.get_logger().info("Received Octomap data.{msg.id}")
-        self.occupancy_map = self.process_octomap(msg)
+
+
+        file_path="/home/a/Downloads/map.bt" 
+
+        if not msg.data:
+            return
+        
+        octomap_size = len(msg.data)
+        self.get_logger().info(f"octomap_size: {octomap_size}")
+        #with open(file_path, "wb") as f:
+        #    title=f"# Octomap OcTree binary file\n# \n".encode("utf-8")
+        #    f.write(title)
+        #    #octree_tile=f"# OcTree v1.0\n# Dimensions: 256 256 256\n# DataType: uint8\n"..encode("utf-8")
+       #     #f.write(octree_tile)  # ? Write header
+        #    header = f"id ColorOcTree\nsize {octomap_size}\nres 0.05\ndata\n".encode("utf-8")
+        #    f.write(header)  # ? Write header
+        #    data = bytearray(msg.data)
+        #    f.write(data)
+        #    f.flush()  # ? Ensure data is written to disk
+        #    f.close()
+
+        self.get_logger().info(f"Received  msg.{msg.resolution}") 
+        self.occupancy_map = octomap.OcTree(0.05)  #self.process_octomap(msg)# 5 cm resolution
+  
+        #file_path = file_path.decode("utf-8")
+        if isinstance(file_path, bytes):  
+            file_path = file_path.decode("utf-8")  # ? Convert bytes to string
+
+        # ? Load the Octomap from the file
+        if self.occupancy_map.readBinary(file_path.encode()):  
+            print("? Octomap loaded successfully!")
+            print(f"Number of occupied nodes: {sum(1 for _ in self.occupancy_map.begin_leafs())}")
+        else:
+            print("? Error: Could not load Octomap from file!")
+        #self.occupancy_map.readBinary("/home/a/Downloads/test.bt")
 
         self.get_logger().info(f"Received  occupancy_map . {self.occupancy_map is None}")
         if self.occupancy_map:
-            start = (0.5, 0.0, 0.0)  # Example start position
-            goal = (0.3, 0.0, 0.0)   # Example goal position
+            start = (0.0, 0.0,0.5)  # Example start position
+            goal = (0.0, 0.0, 0.3)   # Example goal position
+            self.convert_to_fcl_objects()#fcl.OcTree(self.occupancy_map)  # ? Convert Octomap to FCL Octree
+            self.get_logger().info("? Octomap converted to FCL Octree!")
 
             self.get_logger().info(f"before rrt planning")
             path = self.rrt_planning(start, goal, max_iter=500)
@@ -115,14 +152,88 @@ class HitbotController(Node):
         """ Convert Octomap message to an occupancy grid. """
         try:
             octo_tree = octomap.OcTree(0.05)  # 5 cm resolution
-            octo_tree.readBinary(bytearray(msg.data))
-            self.get_logger().info(f"Received  data. {octo_tree}")
+            binary_data = bytearray(msg.data)  # Convert to bytes
+            octo_tree.readBinary(binary_data)
+            #nod = octo_tree.search((0.4, 0, 0))
+            #self.get_logger().info(f"Received process_octomap data. {nod}")
             return octo_tree
         except Exception as e:
             self.get_logger().error(f"Failed to process Octomap: {e}")
             return None
+    def convert_to_fcl_objects(self):
+        """ Convert Octomap Occupied Nodes into FCL Collision Objects """
+        if not self.occupancy_map:
+            self.get_logger().error("? No Octomap data available!")
+            return
 
-    def is_collision_free(self, point):
+        self.fcl_octree = []  # Clear old objects
+
+        for node in self.occupancy_map.begin_leafs():
+            if self.occupancy_map.isNodeOccupied(node):  # ? Only process occupied nodes
+                key = node.getKey()
+                x, y, z = self.occupancy_map.keyToCoord(key)  # ? Convert key to world coordinates
+
+                # ? Convert each occupied node to an FCL Box (representing the voxel)
+                size = node.getSize()
+                self.get_logger().info(f"{size}")
+                box = fcl.Box(size, size, size)  # ? Box matching Octomap voxel size
+                box_tf = fcl.Transform([x, y, z])  # ? Box position
+                self.fcl_octree.append(fcl.CollisionObject(box, box_tf))
+
+
+                # ? Define a simple bounding volume for each voxel (Cube)
+                #vertices = [
+                #    (x - size / 2, y - size / 2, z - size / 2),
+                  #  (x + size / 2, y - size / 2, z - size / 2),
+                 #   (x + size / 2, y + size / 2, z - size / 2),
+                  #  (x - size / 2, y + size / 2, z - size / 2),
+                   # (x - size / 2, y - size / 2, z + size / 2),
+                  #  (x + size / 2, y - size / 2, z + size / 2),
+                  #  (x + size / 2, y + size / 2, z + size / 2),
+                  #  (x - size / 2, y + size / 2, z + size / 2),
+               # ]
+
+                #triangles = [
+                #    (0, 1, 2), (2, 3, 0), (4, 5, 6), (6, 7, 4),
+                #    (0, 1, 5), (5, 4, 0), (2, 3, 7), (7, 6, 2),
+                #    (1, 2, 6), (6, 5, 1), (3, 0, 4), (4, 7, 3)
+                #]
+                #convex = fcl.Convex(vertices, triangles)
+                #collision_object = fcl.CollisionObject(convex)
+
+                # ? Create an FCL BVHModel (Bounding Volume Hierarchy)
+                #bvh = fcl.BVHModel()
+                #bvh.beginModel(len(vertices), len(triangles))
+                #bvh.addSubModel(vertices, triangles)
+                #bvh.endModel()
+                #collision_object = fcl.CollisionObject(bvh)
+                #self.fcl_octree.append(collision_object)
+
+
+        self.get_logger().info(f"? Converted {len(self.collision_objects)} occupied nodes into FCL objects!")
+
+    def is_collision_free(self,point):
+        octree_object = fcl.CollisionObject(self.fcl_octree)
+
+        # ? Define a moving sphere (radius = 0.1m)
+        sphere = fcl.Sphere(0.1)
+        x, y, z = point
+        sphere_tf = fcl.Transform([x,y,z])  # Position of the sphere
+        sphere_object = fcl.CollisionObject(sphere, sphere_tf)
+
+        # ? Perform collision checking
+        request = fcl.CollisionRequest()
+        result = fcl.CollisionResult()
+        collision = fcl.collide(octree_object, sphere_object, request, result)
+        if collision:
+            self.get_logger().warn(f" Collision detected between Octomap and point{x,y,z}!")
+            return False
+        else:
+            self.get_logger().info("? No collision detected.")
+            return True
+
+
+    def is_collision_free2(self, point):
         """ Check if a point is collision-free in the Octomap. """
         if self.occupancy_map is None:
             return True  # If no map, assume free space
@@ -130,15 +241,24 @@ class HitbotController(Node):
         x, y, z = point
         print(point)
         nod = self.occupancy_map.search((x, y, z))
-
         if nod is None :
-            return False
+            return True
         
-        print(nod)
-        ret=self.occupancy_map.isNodeOccupied(nod)
-        return ret
+        key = self.occupancy_map.coordToKey(np.array(point))
+        # Convert the key to coordinates
+        node_coords = self.occupancy_map.keyToCoord(key)
 
-    def rrt_planning(self, start, goal, max_iter=500, step_size=0.1):
+        #try:
+        if nod is not None:
+            ret=self.occupancy_map.isNodeOccupied(nod)
+            self.get_logger().info(f"node: {node_coords},ret occuped:{ret}")
+            return ret
+        #except Exception as e:
+        #    self.get_logger().error(f"Failed to process isNodeOccupied: {e}")
+        #    return False
+
+
+    def rrt_planning(self, start, goal, max_iter=500, step_size=0.05):
         """ RRT Path Planning from `start` to `goal` avoiding obstacles. """
         nodes = [start]  # RRT Tree
         parents = {start: None}  # Parent dictionary
@@ -199,10 +319,10 @@ class HitbotController(Node):
         marker.header.frame_id = "map"
         marker.type = Marker.LINE_STRIP
         marker.action = Marker.ADD
-        marker.scale.x = 0.02  # Line width
+        marker.scale.x = 0.01  # Line width
         marker.color.a = 1.0  # Alpha
-        marker.color.r = 0.0  # Red
-        marker.color.g = 1.0  # Green
+        marker.color.r = 1.0  # Red
+        marker.color.g = 0.0  # Green
         marker.color.b = 0.0  # Blue
 
         for (x, y, z) in path:
