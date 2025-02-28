@@ -1,3 +1,5 @@
+import io
+import subprocess
 import sys
 import os
 import rclpy
@@ -97,13 +99,15 @@ class HitbotController(Node):
         """ Callback to receive and process Octomap data. """
 
 
-        file_path="/home/a/Downloads/map.bt" 
-
+        file_path="/home/a/Downloads/newmap.bt"
+        octomap_size = len(msg.data)
+        self.get_logger().info(f"octomap_size: {octomap_size},{self.robot.x/1000}{self.robot.y/1000},{self.robot.z/1000}")
         if not msg.data:
             return
+        output=subprocess.check_output(["ros2", "run", "octomap_server", "octomap_saver_node", "--ros-args", "-p" ,"octomap_path:=/home/a/Downloads/newmap.bt" ,"-r" ,"octomap_binary:=/rtabmap/octomap_binary" ],text=True)
+
         
-        octomap_size = len(msg.data)
-        self.get_logger().info(f"octomap_size: {octomap_size}")
+
         #with open(file_path, "wb") as f:
         #    title=f"# Octomap OcTree binary file\n# \n".encode("utf-8")
         #    f.write(title)
@@ -116,12 +120,13 @@ class HitbotController(Node):
         #    f.flush()  # ? Ensure data is written to disk
         #    f.close()
 
-        self.get_logger().info(f"Received  msg.{msg.resolution}") 
+
         self.occupancy_map = octomap.OcTree(0.05)  #self.process_octomap(msg)# 5 cm resolution
   
         #file_path = file_path.decode("utf-8")
         if isinstance(file_path, bytes):  
             file_path = file_path.decode("utf-8")  # ? Convert bytes to string
+
 
         # ? Load the Octomap from the file
         if self.occupancy_map.readBinary(file_path.encode()):  
@@ -129,13 +134,13 @@ class HitbotController(Node):
             print(f"Number of occupied nodes: {sum(1 for _ in self.occupancy_map.begin_leafs())}")
         else:
             print("? Error: Could not load Octomap from file!")
-        #self.occupancy_map.readBinary("/home/a/Downloads/test.bt")
 
         self.get_logger().info(f"Received  occupancy_map . {self.occupancy_map is None}")
         if self.occupancy_map:
-            start = (0.0, 0.0,0.5)  # Example start position
-            goal = (0.0, 0.0, 0.3)   # Example goal position
-            self.convert_to_fcl_objects()#fcl.OcTree(self.occupancy_map)  # ? Convert Octomap to FCL Octree
+            start = (-self.robot.y/1000, self.robot.z/1000, self.robot.x/1000)  # Example start position
+            goal = (-(self.robot.y+200)/1000, self.robot.z/1000, self.robot.x/1000)   # Example goal position
+            #self.convert_to_fcl_objects()#fcl.OcTree(self.occupancy_map)  # ? Convert Octomap to FCL Octree
+
             self.get_logger().info("? Octomap converted to FCL Octree!")
 
             self.get_logger().info(f"before rrt planning")
@@ -166,19 +171,19 @@ class HitbotController(Node):
             self.get_logger().error("? No Octomap data available!")
             return
 
-        self.fcl_octree = []  # Clear old objects
+        occupied_voxels= []  # Clear old objects
 
-        for node in self.occupancy_map.begin_leafs():
-            if self.occupancy_map.isNodeOccupied(node):  # ? Only process occupied nodes
-                key = node.getKey()
-                x, y, z = self.occupancy_map.keyToCoord(key)  # ? Convert key to world coordinates
-
-                # ? Convert each occupied node to an FCL Box (representing the voxel)
-                size = node.getSize()
-                self.get_logger().info(f"{size}")
-                box = fcl.Box(size, size, size)  # ? Box matching Octomap voxel size
-                box_tf = fcl.Transform([x, y, z])  # ? Box position
-                self.fcl_octree.append(fcl.CollisionObject(box, box_tf))
+        #for node in self.occupancy_map.begin_leafs():
+            #if self.occupancy_map.isNodeOccupied(node):  # ? Only process occupied nodes
+                #occupied_voxels.append([node.getX(),node.getY(),node.getZ()])
+                #key = node.getKey()
+                #x, y, z = self.occupancy_map.keyToCoord(key)  # ? Convert key to world coordinates
+        #        # ? Convert each occupied node to an FCL Box (representing the voxel)
+                #size = node.getSize()
+                #self.get_logger().info(f"Node geteX{node.getX()}")
+                #box = fcl.Box(size, size, size)  # ? Box matching Octomap voxel size
+                #box_tf = fcl.Transform([x, y, z])  # ? Box position
+                #occupied_voxels.append(fcl.CollisionObject(box, box_tf))
 
 
                 # ? Define a simple bounding volume for each voxel (Cube)
@@ -208,16 +213,20 @@ class HitbotController(Node):
                 #bvh.endModel()
                 #collision_object = fcl.CollisionObject(bvh)
                 #self.fcl_octree.append(collision_object)
+        #occupied_voxels=np.array(occupied_voxels,dtype=np.float32)
+        #self.fcl_octree = fcl.OcTree(occupied_voxels,0.05)
+        self.get_logger().info(f"? Converted {len(self.fcl_octree)} occupied nodes into FCL objects!")
 
-
-        self.get_logger().info(f"? Converted {len(self.collision_objects)} occupied nodes into FCL objects!")
-
-    def is_collision_free(self,point):
+    def is_collision_free2(self,point):
+        self.get_logger().warn(f" inside is_collision_free")
+        if(self.fcl_octree is None):
+            return True
         octree_object = fcl.CollisionObject(self.fcl_octree)
-
+        self.get_logger().warn(f" generate octree_object {octree_object}")
         # ? Define a moving sphere (radius = 0.1m)
         sphere = fcl.Sphere(0.1)
         x, y, z = point
+        print(point)
         sphere_tf = fcl.Transform([x,y,z])  # Position of the sphere
         sphere_object = fcl.CollisionObject(sphere, sphere_tf)
 
@@ -233,41 +242,90 @@ class HitbotController(Node):
             return True
 
 
-    def is_collision_free2(self, point):
+
+    def find_nearest_node(self, query_point, find_occupied=True):
+        """
+        Find the nearest occupied or free node in an OctoMap.
+        
+        Parameters:
+        - octree (octomap.OcTree): The OctoMap object.
+        - query_point (tuple): The (x, y, z) coordinates to search from.
+        - find_occupied (bool): If True, finds the nearest occupied node; if False, finds the nearest free node.
+
+        Returns:
+        - tuple: (nearest_node_coords, distance) or (None, None) if no valid node found.
+        """
+        nearest_node = None
+        min_distance = 0.05
+
+        # Iterate through all leaf nodes in the OctoMap
+        for node in self.occupancy_map.begin_leafs():
+            node_coord = node.getCoordinate()
+            node_occupancy = node.getOccupancy()  # Occupancy probability (0=free, 1=occupied)
+            
+            # Check if the node matches the requested type (occupied or free)
+            is_occupied = node_occupancy > 0.5  # Adjust threshold if necessary
+            if is_occupied != find_occupied:
+                continue
+
+            # Compute Euclidean distance
+            node_point = np.array([node_coord[0], node_coord[1], node_coord[2]])
+            query_point_np = np.array(query_point)
+            distance = np.linalg.norm(node_point - query_point_np)
+
+            # Update nearest node if closer
+            if distance < min_distance:
+                nearest_node = node_point
+                min_distance = distance
+
+        return (tuple(nearest_node), min_distance) if nearest_node is not None else (None, None)
+
+
+    def is_collision_free(self, point):
         """ Check if a point is collision-free in the Octomap. """
         if self.occupancy_map is None:
             return True  # If no map, assume free space
         
         x, y, z = point
-        print(point)
+        #print(point)
+
         nod = self.occupancy_map.search((x, y, z))
         if nod is None :
             return True
-        
-        key = self.occupancy_map.coordToKey(np.array(point))
-        # Convert the key to coordinates
-        node_coords = self.occupancy_map.keyToCoord(key)
+        else:
+            nearest_node=self.find_nearest_node(point)
+            self.get_logger().info(f"search node {nod},nearest_node {nearest_node[0]},steer point:{x,y,z}")
+            if nearest_node[0] is None:
+                return True
+            else:
+                self.get_logger().info(f"too close nearest_node and distance {nearest_node},steer point:{x,y,z}")
+                return False
 
+
+        #key = self.occupancy_map.coordToKey(np.array(point))
+        #node_coords = self.occupancy_map.keyToCoord(key)
+        #self.get_logger().info(f"node_coords,point: {node_coords},{x,y,z}")
         #try:
-        if nod is not None:
-            ret=self.occupancy_map.isNodeOccupied(nod)
-            self.get_logger().info(f"node: {node_coords},ret occuped:{ret}")
-            return ret
+        #if nod is not None:
+        #    ret=self.occupancy_map.isNodeOccupied(nod)
+        #    #self.get_logger().info(f"node: {node_coords},ret occuped:{ret}")
+        #    return ret
         #except Exception as e:
         #    self.get_logger().error(f"Failed to process isNodeOccupied: {e}")
         #    return False
 
 
-    def rrt_planning(self, start, goal, max_iter=500, step_size=0.05):
+    def rrt_planning(self, start, goal, max_iter=1000, step_size=0.05):
         """ RRT Path Planning from `start` to `goal` avoiding obstacles. """
         nodes = [start]  # RRT Tree
         parents = {start: None}  # Parent dictionary
-
+        #self.get_logger().info(f" in rrt_planning:{parents}")
         for _ in range(max_iter):
             rand_point = self.random_point(goal)
             nearest_node = self.nearest_neighbor(rand_point, nodes)
             new_node = self.steer(nearest_node, rand_point, step_size)
 
+            #self.get_logger().info(f" beofre is_collision_free")
             if self.is_collision_free(new_node):
                 nodes.append(new_node)
                 parents[new_node] = nearest_node
@@ -329,6 +387,7 @@ class HitbotController(Node):
             point = Point()
             point.x, point.y, point.z = x, y, z
             marker.points.append(point)
+            self.robot.movej_xyz(z*1000,-x*1000,0,-63,50,1)
 
         self.path_publisher.publish(marker)
         self.get_logger().info("Published RRT path.")
@@ -353,7 +412,11 @@ class HitbotController(Node):
         joint_state_msg.header.stamp = self.get_clock().now().to_msg()
         joint_state_msg.name = self.joint_names
         joint_state_msg.position = joint_positions
-        #self.get_logger().info(f'joint_state_msg:{joint_state_msg}')
+
+        self.hitbot_x=self.robot.x/1000
+        self.hitbot_y=self.robot.y/1000
+        self.hitbot_z=self.robot.z/1000
+
 
         # Publish the joint states
         self.joint_state_pub.publish(joint_state_msg)
@@ -639,9 +702,9 @@ class HitbotController(Node):
         print('unlock Robot')
         self.robot.unlock_position()
         print('Robot position initialized.')
-        #ret=self.robot.movel_xyz(300,0,0,-63,20)
+        ret=self.robot.movel_xyz(600,0,0,-63,20)
     	#ret=self.robot.new_movej_xyz_lr(hi.x-100,hi.y,0,-63,20,0,1)
-        ret=self.robot.movej_angle(0,30,0,0,20,0)
+        #ret=self.robot.movej_angle(0,30,0,0,20,0)
         self.robot.wait_stop()
         print('Robot I/O output initialized.')
         for i in range(12):
