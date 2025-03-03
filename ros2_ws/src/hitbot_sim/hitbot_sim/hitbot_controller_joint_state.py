@@ -1,4 +1,5 @@
 import io
+import math
 import subprocess
 import sys
 import os
@@ -25,13 +26,7 @@ from ikpy.chain import Chain
 
 
 # Load the URDF file and create the chain
-urdf_file = "/home/jimmy/Downloads/mushroomproject/ros2_ws/src/hitbot_sim/urdf/Z-Arm_10042C0_gazebo.urdf"
-chain = Chain.from_urdf_file(urdf_file)
-target_position = [0.0, 0.0, 0.5]
-target_orientation = rpy_matrix(0, 0, 0)
 
-# Compute the inverse kinematics
-ik_solution = chain.inverse_kinematics(target_position)
 
 redis_server='172.27.34.62'
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
@@ -97,6 +92,13 @@ class HitbotController(Node):
         self.robot = HitbotInterface(self.robot_id)
 
         self.init_robot()
+        self.urdf_file = "/home/jimmy/Downloads/mushroomproject/ros2_ws/src/hitbot_sim/hitbot_sim/scara_ik.xml"
+        self.scara_arm = Chain.from_urdf_file(self.urdf_file)
+        self.R = np.array([
+        [0, -1, 0], #[1,0,0]
+        [0, 0, -1],  # [0, 1, 0],
+        [1, 0, 0]    #        [0,0,1]
+        ])
 
         self.subscription = self.create_subscription(Octomap,'/rtabmap/octomap_binary',self.octomap_callback,10)
 
@@ -106,76 +108,127 @@ class HitbotController(Node):
         self.occupancy_map = None  # Store Octomap for collision checking
         self.bounds = (-2.0, 2.0, -2.0, 2.0, -2.0, 2.0)  # Workspace bounds (xmin, xmax, ymin, ymax, zmin, zmax)
 
+    def get_occupied_voxels(self,octree):
+        self.occupied_voxels = set()  # Use a set for faster lookups
+        for node in octree.begin_leafs():
+            if octree.isNodeOccupied(node):
+                x, y, z = node.getCoordinate()
+                self.occupied_voxels.add((x, z))  # Store XZ coordinates
+        return self.occupied_voxels
+
+    def check_joint_collision(self,p1, occupied_voxels, voxel_size=0.1):
+        # Bresenham's line algorithm to check for intersections
+        #x1, z1 = p1
+
+        nearest_node, distance = self.find_nearest_node(p1, occupied_voxels)
+        print(distance)
+        if distance<0.1:
+            return True
+        else: 
+            return False
+    def find_nearest_node(self,p1, occupied_voxels):
+        min_distance = float('inf')  # Initialize with a large value
+        nearest_node = None
+
+        for (x2, z2) in occupied_voxels:
+            distance = math.sqrt((x2 - p1[0]) ** 2 + (z2 - p1[2]) ** 2)  # Euclidean distance
+            if distance < min_distance:
+                min_distance = distance
+                nearest_node = (x2, z2)
+
+        return nearest_node, min_distance
+# Check if the robot's links collide with the obstacles in the XZ plane
+    def check_robot_collision_xz(self, joint_positions, occupied_voxels):
+        # Get the transformation matrices for each joint
+        #frames = chain.forward_kinematics(joint_positions, full_kinematics=True)
+        # Extract the XZ positions of the joints
+        #joint_positions_xz = [frame[[0, 2], 3] for frame in frames]  # Extract X and Z coordinates
+        # Extract the XY positions of the joints
+        #joint_positions_xy = [frame[:2, 3] for frame in frames]  # Extract X and Y coordinates
+
+        joint_positions_xz =joint_positions#np.array(joint_positions)[:,:2].tolist() # Extract X and Y coordinates
+        # Check for collisions between each pair of consecutive joints
+        for i in range(len(joint_positions_xz) - 1):
+            p1 = joint_positions_xz[i]
+            p2 = joint_positions_xz[i + 1]
+            if self.check_joint_collision(p1, occupied_voxels):
+                print(f"Collision detected between joint {i} and joint {i + 1}!")
+                return True
+            #if check_line_collision(p1, p2, occupied_voxels):
+            #    print(f"Collision detected between joint {i} and joint {i + 1}!")
+            #    return True
+        print("No collision detected.")
+        return False
+    def load_octomap(file_path):
+        occupancy_map = octomap.OcTree(0.05)  #self.process_octomap(msg)# 5 cm resolution
+        if isinstance(file_path, bytes):  
+            file_path = file_path.decode("utf-8")  # ? Convert bytes to string
+
+            # ? Load the Octomap from the file
+        if occupancy_map.readBinary(file_path.encode()):  
+            print("? Octomap loaded successfully!")
+            print(f"Number of occupied nodes: {sum(1 for _ in occupancy_map.begin_leafs())}")
+        else:
+            print("? Error: Could not load Octomap from file!")
+        return occupancy_map
     def octomap_callback(self, msg):
         """ Callback to receive and process Octomap data. """
 
 
-        file_path="/home/a/Downloads/newmap.bt"
+        file_path="/home/jimmy/Downloads/newmap.bt"
         octomap_size = len(msg.data)
         self.get_logger().info(f"octomap_size: {octomap_size},{self.robot.x/1000}{self.robot.y/1000},{self.robot.z/1000}")
         if not msg.data:
             return
-        output=subprocess.check_output(["ros2", "run", "octomap_server", "octomap_saver_node", "--ros-args", "-p" ,"octomap_path:=/home/a/Downloads/newmap.bt" ,"-r" ,"octomap_binary:=/rtabmap/octomap_binary" ],text=True)
+        output=subprocess.check_output(["ros2", "run", "octomap_server", "octomap_saver_node", "--ros-args", "-p" ,"octomap_path:=/home/jimmy/Downloads/newmap.bt" ,"-r" ,"octomap_binary:=/rtabmap/octomap_binary" ],text=True)
 
-        
-
-        #with open(file_path, "wb") as f:
-        #    title=f"# Octomap OcTree binary file\n# \n".encode("utf-8")
-        #    f.write(title)
-        #    #octree_tile=f"# OcTree v1.0\n# Dimensions: 256 256 256\n# DataType: uint8\n"..encode("utf-8")
-       #     #f.write(octree_tile)  # ? Write header
-        #    header = f"id ColorOcTree\nsize {octomap_size}\nres 0.05\ndata\n".encode("utf-8")
-        #    f.write(header)  # ? Write header
-        #    data = bytearray(msg.data)
-        #    f.write(data)
-        #    f.flush()  # ? Ensure data is written to disk
-        #    f.close()
+ 
 
 
-        self.occupancy_map = octomap.OcTree(0.05)  #self.process_octomap(msg)# 5 cm resolution
-  
-        #file_path = file_path.decode("utf-8")
-        if isinstance(file_path, bytes):  
-            file_path = file_path.decode("utf-8")  # ? Convert bytes to string
+        self.occupancy_map = self.loadmap(file_path)  #self.process_octomap(msg)# 5 cm resolution
 
-
-        # ? Load the Octomap from the file
-        if self.occupancy_map.readBinary(file_path.encode()):  
-            print("? Octomap loaded successfully!")
-            print(f"Number of occupied nodes: {sum(1 for _ in self.occupancy_map.begin_leafs())}")
-        else:
-            print("? Error: Could not load Octomap from file!")
-
-        self.get_logger().info(f"Received  occupancy_map . {self.occupancy_map is None}")
         if self.occupancy_map:
             start = (-self.robot.y/1000, self.robot.z/1000, self.robot.x/1000)  # Example start position
             goal = (-(self.robot.y+200)/1000, self.robot.z/1000, self.robot.x/1000)   # Example goal position
             #self.convert_to_fcl_objects()#fcl.OcTree(self.occupancy_map)  # ? Convert Octomap to FCL Octree
 
-            self.get_logger().info("? Octomap converted to FCL Octree!")
 
+    
+            # Define joint positions (example)
+            target_position = list(goal)  # Replace with your target position
+            target_orientation = [0, 0, 0.0]  # Replace with your target orientation (roll, pitch, yaw)
+            
+        
+
+            joint_angles = self.scara_arm.inverse_kinematics(target_position,target_orientation)
+            print("Computed Joint Angles:", joint_angles)
+
+            # Compute forward kinematics to get the positions of all joints
+            joint_positions = self.scara_arm.forward_kinematics(joint_angles, full_kinematics=True)
+
+            # Extract the positions of all joints
+            joint_positions = [frame[:3, 3] for frame in joint_positions]
+
+            camera_joint_positions=self.R@np.transpose(np.matrix(joint_positions))
+            camera_joint_positions=np.asarray(np.transpose(camera_joint_positions))
+            print("Computed Joint joint_positions:",camera_joint_positions)
+        
+            
+            occupied_voxels = self.get_occupied_voxels(self.occupancy_map)
+            # Check for collisions
+            collision=self.check_robot_collision_xz( camera_joint_positions, occupied_voxels)
+            if(collision):
+                return
             self.get_logger().info(f"before rrt planning")
             path = self.rrt_planning(start, goal, max_iter=500)
 
             if path:
-
                 self.get_logger().info(f"get apath {path}")
                 self.visualize_path(path)
             else:
                 self.get_logger().warn("No valid path found.")
 
-    def process_octomap(self, msg):
-        """ Convert Octomap message to an occupancy grid. """
-        try:
-            octo_tree = octomap.OcTree(0.05)  # 5 cm resolution
-            binary_data = bytearray(msg.data)  # Convert to bytes
-            octo_tree.readBinary(binary_data)
-            #nod = octo_tree.search((0.4, 0, 0))
-            #self.get_logger().info(f"Received process_octomap data. {nod}")
-            return octo_tree
-        except Exception as e:
-            self.get_logger().error(f"Failed to process Octomap: {e}")
-            return None
+
     def convert_to_fcl_objects(self):
         """ Convert Octomap Occupied Nodes into FCL Collision Objects """
         if not self.occupancy_map:

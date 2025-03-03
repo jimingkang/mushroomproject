@@ -36,6 +36,13 @@ def generate_launch_description():
         #    arguments=['0.0', '0.0', '0.0', '0.0', '0.0', '0.0', 't265_frame', 'base_link']
         #),
         Node(
+            # Configure the TF of the robot 
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            output='screen',
+            arguments=['0.0', '0.0', '0.0', '0.0', '0.0', '0.0', 'base_link', 'odom']
+        ),
+        Node(
             package='tf2_ros',
             executable='static_transform_publisher',
             output='screen',
