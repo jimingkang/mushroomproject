@@ -222,3 +222,26 @@ if __name__ == "__main__":
     occupied_voxels = get_occupied_voxels(octree)
     # Check for collisions
     check_robot_collision_xy(chain, joint_positions, occupied_voxels)
+
+
+     # Plot the SCARA arm manually
+    #fig = plt.figure()
+    #ax = fig.add_subplot(111, projection='3d')
+
+    # Plot the links
+    #for i in range(len(joint_positions) - 1):
+    #    start = joint_positions[i]
+    #    end = joint_positions[i + 1]
+    #    ax.plot([start[0], end[0]], [start[1], end[1]], [start[2], end[2]], 'b-o', label=f'Link {i+1}')
+
+    # Plot the target position
+    #ax.scatter(target_position[0], target_position[1], target_position[2], c='r', s=100, label='Target Position')
+
+    # Plot settings
+    #ax.set_title("SCARA Arm Configuration (Manual Plot)")
+    #ax.set_xlabel("X-axis")
+    #ax.set_ylabel("Y-axis")
+    #ax.set_zlabel("Z-axis")
+    #ax.legend()
+    #plt.grid(True)
+    #plt.show()
