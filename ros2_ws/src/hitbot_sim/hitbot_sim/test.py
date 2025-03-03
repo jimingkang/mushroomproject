@@ -1,6 +1,6 @@
 import octomap
 def main(args=None):
-    file_path="/home/a/Downloads/test.bt" 
+    file_path="/home/jimmy/Downloads/newmap.bt" 
 
 
 

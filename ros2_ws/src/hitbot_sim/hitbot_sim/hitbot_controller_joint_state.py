@@ -20,7 +20,18 @@ import random
 import octomap
 from scipy.spatial import KDTree
 import fcl
+from ikpy.chain import Chain
 
+
+
+# Load the URDF file and create the chain
+urdf_file = "/home/jimmy/Downloads/mushroomproject/ros2_ws/src/hitbot_sim/urdf/Z-Arm_10042C0_gazebo.urdf"
+chain = Chain.from_urdf_file(urdf_file)
+target_position = [0.0, 0.0, 0.5]
+target_orientation = rpy_matrix(0, 0, 0)
+
+# Compute the inverse kinematics
+ik_solution = chain.inverse_kinematics(target_position)
 
 redis_server='172.27.34.62'
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')

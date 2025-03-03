@@ -282,6 +282,7 @@
       effort="0.5"
       velocity="0.01" />
   </joint>
+
  <link
     name="link5">
     <inertial>

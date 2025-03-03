@@ -1,0 +1,337 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-1-g15f4949  Build Version: 1.6.7594.29634
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot name="Z-Arm_10042C0_gazebo">
+  
+  <!--
+   <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="-0.15609 -0.0016863 0.25062"
+        rpy="0 0 0" />
+      <mass
+        value="14.052" />
+      <inertia
+        ixx="0.56351"
+        ixy="0.00030413"
+        ixz="0.017757"
+        iyy="0.56374"
+        iyz="-0.0012972"
+        izz="0.066772" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://hitbot_sim/meshes/Z-Arm_10042C0/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.89804 0.91765 0.92941 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://hitbot_sim/meshes/Z-Arm_10042C0/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+    <joint
+    name="joint1"
+    type="prismatic">
+    <origin
+      xyz="0 0 0.30686"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="link1" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-0.15"
+      upper="0.0"
+      effort="5"
+      velocity="0.01" />
+  </joint>
+  -->
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="-0.056359 2.3516E-10 0.15547"
+        rpy="0 0 0" />
+      <mass
+        value="1.2027" />
+      <inertia
+        ixx="0.001609"
+        ixy="1.8058E-11"
+        ixz="0.00018904"
+        iyy="0.0057321"
+        iyz="6.1535E-12"
+        izz="0.0067457" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://hitbot_sim/meshes/Z-Arm_10042C0/Link1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.89804 0.91765 0.92941 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://hitbot_sim/meshes/Z-Arm_10042C0/Link1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint2"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="link2" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-2.87"
+      upper="2.87"
+      effort="0.5"
+      velocity="0.01" />
+  </joint>
+  <link
+    name="link2">
+    <inertial>
+      <origin
+        xyz="0.22558 8.8601E-07 0.034559"
+        rpy="0 0 0" />
+      <mass
+        value="1.3921" />
+      <inertia
+        ixx="0.0023969"
+        ixy="1.4147E-07"
+        ixz="-8.7167E-05"
+        iyy="0.020922"
+        iyz="6.8204E-09"
+        izz="0.022324" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://hitbot_sim/meshes/Z-Arm_10042C0/Link2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.89804 0.91765 0.92941 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://hitbot_sim/meshes/Z-Arm_10042C0/Link2.STL" />
+      </geometry>
+    </collision>
+  </link>
+<joint
+    name="joint3"
+    type="revolute">
+    <origin
+      xyz="0.325 0 0"
+      rpy="0 0 0" />
+    <parent
+      link="link2" />
+    <child
+      link="link3" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-3.1415"
+      upper="3.1415"
+      effort="0.5"
+      velocity="0.01" />
+  </joint>
+  <link
+    name="link3">
+    <inertial>
+      <origin
+        xyz="0.15992 -0.003251 0.031489"
+        rpy="0 0 0" />
+      <mass
+        value="0.82346" />
+      <inertia
+        ixx="0.00097691"
+        ixy="0.00011852"
+        ixz="-5.1942E-07"
+        iyy="0.006861"
+        iyz="7.7427E-08"
+        izz="0.0077311" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://hitbot_sim/meshes/Z-Arm_10042C0/Link3.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.89804 0.91765 0.92941 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://hitbot_sim/meshes/Z-Arm_10042C0/Link3.STL" />
+      </geometry>
+    </collision>
+  </link>
+   <joint
+    name="joint4"
+    type="revolute">
+    <origin
+      xyz="0.27494 -0.0055 0"
+      rpy="0 0 0" />
+    <parent
+      link="link3" />
+    <child
+      link="link4" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.1415"
+      upper="3.1415"
+      effort="0.5"
+      velocity="0.01" />
+  </joint>
+  <link
+    name="link4">
+    <inertial>
+      <origin
+        xyz="0.081298 -3.1739E-13 0.0031854"
+        rpy="0 0 0" />
+      <mass
+        value="0.26408" />
+      <inertia
+        ixx="0.00013535"
+        ixy="1.0514E-15"
+        ixz="-6.7538E-06"
+        iyy="0.0010714"
+        iyz="2.6377E-17"
+        izz="0.0012047" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://hitbot_sim/meshes/Z-Arm_10042C0/Link4.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.84706 0.84706 0.84706 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://hitbot_sim/meshes/Z-Arm_10042C0/Link4.STL" />
+      </geometry>
+    </collision>
+  </link>
+ 
+
+ <link
+    name="link5">
+    <inertial>
+      <origin
+        xyz="-1.1102E-16 5.0307E-17 0.002"
+        rpy="0 0 0" />
+      <mass
+        value="0.0037324" />
+      <inertia
+        ixx="5.9097E-08"
+        ixy="3.9728E-36"
+        ixz="-7.5499E-24"
+        iyy="5.9097E-08"
+        iyz="-1.1452E-24"
+        izz="5.5988E-08" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://scara_description/meshes/Link5.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 0.94902 0.89804 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://hitbot_sim/meshes/Z-Arm_10042C0/Link5.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint5"
+    type="fixed">
+    <origin
+      xyz="0.172158865969243 0 0"
+      rpy="0 0 0" />
+    <parent
+      link="link4" />
+    <child
+      link="link5" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <!---->
+</robot>
