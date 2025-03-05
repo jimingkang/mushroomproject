@@ -12,7 +12,7 @@ def generate_launch_description():
         .robot_description_semantic(file_path="config/scara_description.srdf")
         .trajectory_execution(file_path="config/moveit_controllers.yaml")
         .planning_pipelines(pipelines=["ompl"])
-        .sensors_3d(file_path="config/sensor_3d.yaml")  # Load the 3D sensor configuration
+       # .sensors_3d(file_path="config/sensor_3d.yaml")  # Load the 3D sensor configuration
         .to_moveit_configs()
         )
     return generate_demo_launch(moveit_config)

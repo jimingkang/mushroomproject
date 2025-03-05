@@ -1,0 +1,4 @@
+octomap_frame: "map"
+octomap_resolution: 0.05
+octomap_topic: "/rtabmap/octomap_binary"
+

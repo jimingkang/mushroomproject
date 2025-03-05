@@ -21,3 +21,7 @@ kinect_depthimage:
   queue_size: 5
   sensor_plugin: occupancy_map_monitor/DepthImageOctomapUpdater
   shadow_threshold: 0.2
+  octomap_frame: "map"
+  octomap_topic: "/rtabmap/octomap_binary"
+  octomap_resolution: 0.05
+

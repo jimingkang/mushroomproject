@@ -92,7 +92,7 @@ class HitbotController(Node):
         self.robot = HitbotInterface(self.robot_id)
 
         self.init_robot()
-        self.urdf_file = "/home/jimmy/Downloads/mushroomproject/ros2_ws/src/hitbot_sim/hitbot_sim/scara_ik.xml"
+        self.urdf_file = "/mushroomproject/ros2_ws/src/hitbot_sim/hitbot_sim/scara_ik.xml"
         self.scara_arm = Chain.from_urdf_file(self.urdf_file)
         self.R = np.array([
         [0, -1, 0], #[1,0,0]

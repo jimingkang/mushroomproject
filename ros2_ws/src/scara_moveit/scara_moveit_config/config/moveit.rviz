@@ -4,10 +4,14 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
-        - /MotionPlanning1
+        - /Global Options1
         - /TwistStamped1
+        - /ColorOccupancyGrid1
+        - /ColorOccupancyGrid1/Status1
+        - /ColorOccupancyGrid1/Topic1
+        - /ColorOccupancyGrid2
       Splitter Ratio: 0.5
-    Tree Height: 186
+    Tree Height: 189
   - Class: rviz_common/Help
     Name: Help
   - Class: rviz_common/Views
@@ -72,6 +76,67 @@ Visualization Manager:
             Show Axes: false
             Show Trail: false
             Value: true
+          camera_1_accel_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_accel_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_bottom_screw_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_color_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_color_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_depth_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_depth_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_gyro_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_gyro_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_imu_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_infra1_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_infra1_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_infra2_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_infra2_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
           link1:
             Alpha: 1
             Show Axes: false
@@ -93,21 +158,6 @@ Visualization Manager:
             Show Trail: false
             Value: true
           link5:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          link6:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          link7:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          link8:
             Alpha: 1
             Show Axes: false
             Show Trail: false
@@ -163,6 +213,67 @@ Visualization Manager:
             Show Axes: false
             Show Trail: false
             Value: true
+          camera_1_accel_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_accel_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_bottom_screw_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_color_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_color_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_depth_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_depth_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_gyro_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_gyro_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_imu_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_infra1_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_infra1_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_infra2_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_infra2_optical_frame:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          camera_1_link:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
           link1:
             Alpha: 1
             Show Axes: false
@@ -184,21 +295,6 @@ Visualization Manager:
             Show Trail: false
             Value: true
           link5:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          link6:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          link7:
-            Alpha: 1
-            Show Axes: false
-            Show Trail: false
-            Value: true
-          link8:
             Alpha: 1
             Show Axes: false
             Show Trail: false
@@ -227,10 +323,44 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /scara/delta_twist_cmds
       Value: true
+    - Class: octomap_rviz_plugins/ColorOccupancyGrid
+      Enabled: true
+      Max. Height Display: inf
+      Max. Octree Depth: 16
+      Min. Height Display: -inf
+      Name: ColorOccupancyGrid
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /rtabmap/octomap_binary
+      Value: true
+      Voxel Alpha: 1
+      Voxel Coloring: Z-Axis
+      Voxel Rendering: Occupied Voxels
+    - Class: octomap_rviz_plugins/ColorOccupancyGrid
+      Enabled: true
+      Max. Height Display: inf
+      Max. Octree Depth: 16
+      Min. Height Display: -inf
+      Name: ColorOccupancyGrid
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /rtabmap/octomap_binary
+      Value: true
+      Voxel Alpha: 1
+      Voxel Coloring: Z-Axis
+      Voxel Rendering: Occupied Voxels
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: base_link
+    Fixed Frame: camera_1_link
     Frame Rate: 30
   Name: root
   Tools:
@@ -245,7 +375,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 2
+      Distance: 3.727780818939209
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -260,10 +390,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.8599995374679565
+      Pitch: 0.5499995350837708
       Target Frame: base_link
       Value: Orbit (rviz_default_plugins)
-      Yaw: 0.30701228976249695
+      Yaw: 5.810198783874512
     Saved: ~
 Window Geometry:
   Displays:
@@ -277,7 +407,7 @@ Window Geometry:
     collapsed: false
   MotionPlanning - Trajectory Slider:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000100000000000002b400000375fc0200000005fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000004100fffffffb000000100044006900730070006c006100790073010000003d0000013d000000c900fffffffb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e00670100000180000001880000018800fffffffb0000000800480065006c0070000000029a0000006e0000006e00fffffffb0000000a00560069006500770073010000030e000000a4000000a400ffffff000001f60000037500000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000100000000000002b400000379fc0200000005fb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000003f00fffffffb000000100044006900730070006c006100790073010000003b0000013e000000c700fffffffb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e0067010000017f0000018a0000016900fffffffb0000000800480065006c0070000000029a0000006e0000006e00fffffffb0000000a00560069006500770073010000030f000000a5000000a000ffffff000001f60000037900000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Views:
     collapsed: false
   Width: 1200
