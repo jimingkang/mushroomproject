@@ -10,7 +10,7 @@
   <!-- IntelRealsense D435 (Plugin) -->
     <xacro:include filename="Z-Arm_10042C0_gazebo_sensor_properties.urdf.xacro" />
 <xacro:include filename="sensors/d435.urdf.xacro" />
-  <xacro:sensor_d455 parent="base_link" name="camera_1" use_nominal_extrinsics="$(arg use_nominal_extrinsics)">
+  <xacro:sensor_d455 parent="base_link" name="camera_link_d435" use_nominal_extrinsics="$(arg use_nominal_extrinsics)">
     <xacro:insert_block name="camera_1_pose" />
   </xacro:sensor_d455>
 

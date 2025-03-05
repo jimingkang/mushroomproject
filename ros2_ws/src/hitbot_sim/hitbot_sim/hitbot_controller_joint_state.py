@@ -92,6 +92,7 @@ class HitbotController(Node):
         self.robot = HitbotInterface(self.robot_id)
 
         self.init_robot()
+
         self.urdf_file = "/mushroomproject/ros2_ws/src/hitbot_sim/hitbot_sim/scara_ik.xml"
         self.scara_arm = Chain.from_urdf_file(self.urdf_file)
         self.R = np.array([
@@ -120,13 +121,13 @@ class HitbotController(Node):
         # Bresenham's line algorithm to check for intersections
         #x1, z1 = p1
 
-        nearest_node, distance = self.find_nearest_node(p1, occupied_voxels)
+        nearest_node, distance = self.find2_nearest_node(p1, occupied_voxels)
         print(distance)
-        if distance<0.1:
+        if (distance is not None) and (distance<0.1):
             return True
         else: 
             return False
-    def find_nearest_node(self,p1, occupied_voxels):
+    def find2_nearest_node(self,p1, occupied_voxels):
         min_distance = float('inf')  # Initialize with a large value
         nearest_node = None
 
@@ -159,7 +160,7 @@ class HitbotController(Node):
             #    return True
         print("No collision detected.")
         return False
-    def load_octomap(file_path):
+    def load_octomap(self,file_path):
         occupancy_map = octomap.OcTree(0.05)  #self.process_octomap(msg)# 5 cm resolution
         if isinstance(file_path, bytes):  
             file_path = file_path.decode("utf-8")  # ? Convert bytes to string
@@ -175,21 +176,20 @@ class HitbotController(Node):
         """ Callback to receive and process Octomap data. """
 
 
-        file_path="/home/jimmy/Downloads/newmap.bt"
+        file_path="/home/a/Downloads/newmap.bt"
         octomap_size = len(msg.data)
         self.get_logger().info(f"octomap_size: {octomap_size},{self.robot.x/1000}{self.robot.y/1000},{self.robot.z/1000}")
         if not msg.data:
             return
-        output=subprocess.check_output(["ros2", "run", "octomap_server", "octomap_saver_node", "--ros-args", "-p" ,"octomap_path:=/home/jimmy/Downloads/newmap.bt" ,"-r" ,"octomap_binary:=/rtabmap/octomap_binary" ],text=True)
-
- 
+        output=subprocess.check_output(["ros2", "run", "octomap_server", "octomap_saver_node", "--ros-args", "-p" ,"octomap_path:=/home/a/Downloads/newmap.bt" ,"-r" ,"octomap_binary:=/rtabmap/octomap_binary" ],text=True)
 
 
-        self.occupancy_map = self.loadmap(file_path)  #self.process_octomap(msg)# 5 cm resolution
+
+        self.occupancy_map = self.load_octomap(file_path)  #self.process_octomap(msg)# 5 cm resolution
 
         if self.occupancy_map:
-            start = (-self.robot.y/1000, self.robot.z/1000, self.robot.x/1000)  # Example start position
-            goal = (-(self.robot.y+200)/1000, self.robot.z/1000, self.robot.x/1000)   # Example goal position
+            start = ( self.robot.x/1000,(self.robot.y)/1000, 0.0)  # Example start position
+            goal = ((self.robot.x-100)/1000,(self.robot.y+50)/1000, 0.0 )   # Example goal position
             #self.convert_to_fcl_objects()#fcl.OcTree(self.occupancy_map)  # ? Convert Octomap to FCL Octree
 
 
@@ -320,7 +320,7 @@ class HitbotController(Node):
         - tuple: (nearest_node_coords, distance) or (None, None) if no valid node found.
         """
         nearest_node = None
-        min_distance = 0.05
+        min_distance = 0.5
 
         # Iterate through all leaf nodes in the OctoMap
         for node in self.occupancy_map.begin_leafs():
@@ -333,7 +333,7 @@ class HitbotController(Node):
                 continue
 
             # Compute Euclidean distance
-            node_point = np.array([node_coord[0], node_coord[1], node_coord[2]])
+            node_point = np.array([node_coord[0],  node_coord[2]])
             query_point_np = np.array(query_point)
             distance = np.linalg.norm(node_point - query_point_np)
 
@@ -352,18 +352,40 @@ class HitbotController(Node):
         
         x, y, z = point
         #print(point)
+        target_position=[x,y,z]
+        joint_angles = self.scara_arm.inverse_kinematics(target_position)
+        #print("  Computed Joint Angles:", joint_angles)
 
-        nod = self.occupancy_map.search((x, y, z))
-        if nod is None :
-            return True
+        #Compute forward kinematics to get the positions of all joints
+        joint_positions = self.scara_arm.forward_kinematics(joint_angles, full_kinematics=True)
+
+        # Extract the positions of all joints
+        joint_positions = [frame[:3, 3] for frame in joint_positions]
+
+        camera_joint_positions=self.R@np.transpose(np.matrix(joint_positions))
+        camera_joint_positions=np.asarray(np.transpose(camera_joint_positions))
+        #print(" Computed camera_joint_positions:",camera_joint_positions)
+        
+            
+        occupied_voxels = self.get_occupied_voxels(self.occupancy_map)
+            # Check for collisions
+        collision=self.check_robot_collision_xz( camera_joint_positions, occupied_voxels)
+        if collision:
+            return False
         else:
-            nearest_node=self.find_nearest_node(point)
-            self.get_logger().info(f"search node {nod},nearest_node {nearest_node[0]},steer point:{x,y,z}")
-            if nearest_node[0] is None:
-                return True
-            else:
-                self.get_logger().info(f"too close nearest_node and distance {nearest_node},steer point:{x,y,z}")
-                return False
+            return True
+        #point=(-y, 0.0, x)
+        #nod = self.occupancy_map.search(point)
+        ##if nod is None :
+        #    return True
+        #else:
+        #    nearest_node=self.find_nearest_node((-y, 0.0, x))
+        #    self.get_logger().info(f"search node {nod},nearest_node {nearest_node[0]},steer point:{x,y,z}")
+        #    if nearest_node[0] is None:
+        #        return True
+        #    else:
+        #        self.get_logger().info(f"too close nearest_node and distance {nearest_node},steer point:{x,y,z}")
+        #        return False
 
 
         #key = self.occupancy_map.coordToKey(np.array(point))
@@ -451,7 +473,7 @@ class HitbotController(Node):
             point = Point()
             point.x, point.y, point.z = x, y, z
             marker.points.append(point)
-            self.robot.movej_xyz(z*1000,-x*1000,0,-63,50,1)
+            self.robot.movej_xyz(x*1000,y*1000,0,-67,50,1)
 
         self.path_publisher.publish(marker)
         self.get_logger().info("Published RRT path.")

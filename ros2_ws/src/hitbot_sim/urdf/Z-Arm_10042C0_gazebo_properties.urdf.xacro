@@ -11,7 +11,7 @@
   <xacro:include filename="$(find hitbot_sim)/urdf/Z-Arm_10042C0_gazebo.urdf" />
 
   <!-- IntelRealsense D435 (Plugin) -->
-  <xacro:sensor_d455 parent="link1" name="camera_1" use_nominal_extrinsics="$(arg use_nominal_extrinsics)">
+  <xacro:sensor_d455 parent="link1" name="camera_link_d435" use_nominal_extrinsics="$(arg use_nominal_extrinsics)">
     <xacro:insert_block name="camera_1_pose" />
   </xacro:sensor_d455>
   

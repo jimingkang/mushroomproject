@@ -1,4 +1,4 @@
 trajectory_execution:
   allowed_execution_duration_scaling: 2.0  # Increase execution time scaling
-  allowed_goal_duration_margin: 1.0  # Extra time margin for goal execution
+  allowed_goal_duration_margin: 3.0  # Extra time margin for goal execution
   allowed_start_tolerance: 0.2  # Increase tolerance
