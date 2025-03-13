@@ -29,37 +29,50 @@ def generate_launch_description():
         ),
 
         Node(
-            # Configure the TF of the robot 
             package='tf2_ros',
             executable='static_transform_publisher',
             output='screen',
-            arguments=['0.0', '0.0', '0.0', '0.0', '0.0', '0.0', 'world', 'base_link']
-        ),
+            arguments=['0.0', '0.0', '0.0', '0.0', '0.0', '0.0', 'world', 'map']
+            ),
         Node(
             package='tf2_ros',
             executable='static_transform_publisher',
             output='screen',
-            arguments=['0.0', '0.0', '0.0', '0.0', '0.0', '0.0', 'map', 'odom']
+            arguments=['0.0', '0.0', '0.0', '0.0', '0.0', '0.0',  'world','odom']
             ),
         Node(
             # Configure the TF of the robot 
             package='tf2_ros',
             executable='static_transform_publisher',
             output='screen',
-            arguments=['0.0', '0.0', '0.0', '0.0', '0.0', '0.0', 'odom', 'base_link']
+            arguments=['0.0', '0.6', '0.0',  '1.57', '-1.57','0.0', 'world', 'base_link']
         ),
+        Node(
+            # Configure the TF of the robot 
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            output='screen',
+            arguments=['0.0', '0.0', '0.0', '0.0', '0.0', '0.0', 'base_link', 'camera_link_d435']
+        ),
+        #Node(
+        #    # Configure the TF of the robot 
+        #    package='tf2_ros',
+        #    executable='static_transform_publisher',
+        #    output='screen',
+        #    arguments=['0.0', '0.0', '0.0', '0.0', '0.0', '0.0', 'odom', 'base_link']
+        #),
         Node(
             package='tf2_ros',
             executable='static_transform_publisher',
             output='screen',
-            arguments=['0.0', '0.0', '0.0', '0.0', '-1.5708', '0.0', 'base_link', 'camera_d435_link']
+            arguments=['0.0', '0.0', '0.6', '-1.57','0.0', '-1.57', 'world', 'camera_link_d435']
             ),
         Node(
             package='tf2_ros',
             executable='static_transform_publisher',
             output='screen',
          #   arguments=['0.0', '0.025', '0.03', '-1.5708', '0.0', '-1.5708', 'base_link', 'camera_d435_link']
-            arguments=['0.0', '0.0', '0.0', '0.0', '0.0', '0.0', 'base_link', 'camera_link_d435_pcl']
+            arguments=['0.0', '0.0', '0.6', '-1.57', '0.0', '-1.57', 'base_link', 'camera_link_d435_pcl']
 
             ),
             

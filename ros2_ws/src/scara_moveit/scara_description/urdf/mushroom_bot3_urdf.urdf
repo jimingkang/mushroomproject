@@ -6,8 +6,8 @@
 <robot
 	name="scara_description">
 	  <link name="world"/>
-  <joint name="base_joint" type="fixed">
-  	<origin xyz="0 0 0" rpy="1.57 0 1.57" />
+ <joint name="base_joint" type="fixed">
+ 	<origin xyz="0 0.6 0.0" rpy="1.57 -1.57 0.0" />
     <parent link="world"/>
     <child link="base_link"/>
   </joint>
@@ -161,7 +161,7 @@
     <child
       link="link2" />
     <axis
-      xyz="0 0 -1" />
+      xyz="0 0 1" />
     <limit
       lower="-2.87"
       upper="2.87"
@@ -219,7 +219,7 @@
     <child
       link="link3" />
     <axis
-      xyz="0 0 -1" />
+      xyz="0 0 1" />
     <limit
       lower="-3.1415"
       upper="3.1415"

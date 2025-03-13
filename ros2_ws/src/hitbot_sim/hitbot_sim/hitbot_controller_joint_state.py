@@ -101,7 +101,7 @@ class HitbotController(Node):
         [1, 0, 0]    #        [0,0,1]
         ])
 
-        self.subscription = self.create_subscription(Octomap,'/rtabmap/octomap_binary',self.octomap_callback,10)
+        #self.subscription = self.create_subscription(Octomap,'/rtabmap/octomap_binary',self.octomap_callback,10)
 
         # Publisher for RRT Path Visualization
         self.path_publisher = self.create_publisher(Marker, 'rrt_path', 10)
@@ -537,7 +537,7 @@ class HitbotController(Node):
                 self.get_logger().info(f"i={i},waypoints : {waypoints}")
                 #for j in range(0, len(waypoints)):
                   #positions=waypoints[j].positions
-                self.robot.new_movej_angle(waypoints[1]*180/3.14, waypoints[2]*180/3.14, waypoints[0], waypoints[3]*180/3.14, 50, 1)
+                self.robot.new_movej_angle(waypoints[1]*180/3.14, waypoints[2]*180/3.14, waypoints[0], (waypoints[3]*180/3.14)-67.0, 50, 1)
                 #
             self.robot.wait_stop()
 
