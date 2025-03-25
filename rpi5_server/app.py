@@ -99,13 +99,7 @@ class MovePublisher(Node):
         #frame = self.bridge.imgmsg_to_cv2(msg,"bgr8")
         #self.latest_message = msg.data
         #frame = msg.data
-    def gripper_hold_callback(self, msg):
-	#    print(f'hold cb received: {msg.data}')
-        pwm.set_pwm(0, 0, 480)
-        pwm.set_pwm(1, 0, 480)
-        pwm.set_pwm(2, 0, 480)
-        time.sleep(1)
-        #print("servo_tmp={},{:>5}\t{:>5.3f}".format(servo_tmp,chan.value, chan.voltage))
+
 
     def gripper_detected_move_callback(self, msg):
     
@@ -131,7 +125,13 @@ class MovePublisher(Node):
             adjust_msg = String()
             adjust_msg.data = 'no,%d,%d,%d' %(int(5),int(5),hi.z) 
             self._adjust_publisher.publish(adjust_msg)
-
+    def gripper_hold_callback(self, msg):
+        print(f'open cb received: {msg.data}')
+        pwm.set_pwm(0, 0, 480)
+        pwm.set_pwm(1, 0, 480)
+        pwm.set_pwm(2, 0, 480)
+        time.sleep(1)
+        #print("servo_tmp={},{:>5}\t{:>5.3f}".format(servo_tmp,chan.value, chan.voltage))
 
     def gripper_open_callback(self, msg):
         global servo_min
