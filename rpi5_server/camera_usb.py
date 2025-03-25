@@ -51,33 +51,7 @@ class Camera(BaseCamera):
                 ret, img = video.read()
                 frame=img
 
-                if 1:# r.get("mode")=="adjust_camera_init" or r.get("mode")=="adjust_camera_done" :
-                    detect_res=model(img,conf=0.8)
-                    
-                    frame=detect_res[0].plot()
-                    boxes = detect_res[0].boxes.cpu().numpy()
-                    xyxy = boxes.xyxy
-                    classes = boxes.cls
-                    confs = boxes.conf
-                    #print(detect_res)
-                    line_color=(255, 0, 255)
-                    label_color=(255, 255, 255)
-                    line_thickness=2
-                    for (x1, y1, x2, y2), conf, class_id in zip(xyxy,confs,classes):
-                        print(x1,y1,x2,y2)
-                        left, top, right, bottom = int(x1), int(y1), int(x2), int(y2)
-                        r.set("adjust_gripper_center",str(int((right + left-640) / 2))+","+str(int((top + bottom-640) / 2)))
-
-                        width = right - left
-                        height = bottom - top
-                        center = (left + int((right - left) / 2), top + int((bottom - top) / 2))
-                        label = "mushroom"
-                        confidence = conf
-                        label= label+",center:"+str(int((right + left) / 2))+","+str(int((top + bottom) / 2))
-                            #if(label=="laptop"):
-                        cv2.rectangle(img, (left, top), (right, bottom), (255, 0, 0), 2)
-                        cv2.putText(img, label, center, cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 1, cv2.LINE_AA)
-                        break
+                
 
                     #shape_res=model2(img)
                     #logger.info(shape_res)

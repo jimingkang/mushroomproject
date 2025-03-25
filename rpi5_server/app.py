@@ -35,6 +35,7 @@ pwm = Adafruit_PCA9685.PCA9685(address=0x40, busnum=1)
 
 
 from camera_usb import Camera
+#from camera_pi import Camera
 import cv2
 #from picamera2 import Picamera2
 
@@ -55,7 +56,8 @@ pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,
 r = redis.Redis(connection_pool=pool)
 
 # Load YOLOv11
-model = YOLO("/home/pi/yolomodel/yolo11s_ncnn_model")
+model = YOLO("/home/pi/yolomodel/yolo11n_mushroom_ncnn_model")
+model2 = YOLO("/home/pi/yolomodel/shape_yolo11_ncnn_model")
 
 
 
@@ -63,9 +65,9 @@ model = YOLO("/home/pi/yolomodel/yolo11s_ncnn_model")
 
 
 # Configure min and max servo pulse lengths
-servo_min = 350  # Min pulse length out of 4096
+servo_min = 300  # Min pulse length out of 4096
 servo_inc=50
-servo_max = 500  # Max pulse length out of 4096
+servo_max = 550  # Max pulse length out of 4096
 frame=None
 boxing_img=None
 class MovePublisher(Node):
@@ -99,9 +101,9 @@ class MovePublisher(Node):
         #frame = msg.data
     def gripper_hold_callback(self, msg):
 	#    print(f'hold cb received: {msg.data}')
-        pwm.set_pwm(0, 0, 500)
-        pwm.set_pwm(1, 0, 500)
-        pwm.set_pwm(2, 0, 500)
+        pwm.set_pwm(0, 0, 480)
+        pwm.set_pwm(1, 0, 480)
+        pwm.set_pwm(2, 0, 480)
         time.sleep(1)
         #print("servo_tmp={},{:>5}\t{:>5.3f}".format(servo_tmp,chan.value, chan.voltage))
 
@@ -160,10 +162,50 @@ class MovePublisher(Node):
             #ogsimg=cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
             #logger.info(frame.type)
-            #jpg_as_np = np.frombuffer(frame, dtype=np.uint8)
-            #img = cv2.imdecode(jpg_as_np, flags=1)
-            #img_pub = self.bridge.cv2_to_imgmsg(img,"bgr8")
-            #self.pub_rpi5_raw_img.publish(img_pub)
+            jpg_as_np = np.frombuffer(frame, dtype=np.uint8)
+            img = cv2.imdecode(jpg_as_np, flags=1)
+            detect_res=model(img,conf=0.8)
+            logger.info(detect_res!=None)
+            if detect_res!=None and( r.get("mode")=="adjust_camera_init" or r.get("mode")=="adjust_camera_done" ):
+                #detect_res=model(img,conf=0.8)    
+                #frame=detect_res[0].plot()
+                
+                boxes = detect_res[0].boxes.cpu().numpy()
+                xyxy = boxes.xyxy
+                classes = boxes.cls
+                confs = boxes.conf
+                    #print(detect_res)
+                line_color=(255, 0, 255)
+                label_color=(255, 255, 255)
+                line_thickness=2
+                for (x1, y1, x2, y2), conf, class_id in zip(xyxy,confs,classes):
+                    print(x1,y1,x2,y2)
+                    left, top, right, bottom = int(x1), int(y1), int(x2), int(y2)
+                    adjust_gripper_center=str(int((right + left-640) / 2))+","+str(int((top + bottom-640) / 2))
+                    logger.info("adjust_gripper_center:{},{}".format(int((right + left-640) / 2),int((top + bottom-640) / 2)))
+                    if(abs(int((right + left-640) / 2))>50 or abs(int((top + bottom-640) / 2))>50 ):
+                        r.set("adjust_gripper_center",str(int((right + left-640) / 2))+","+str(int((top + bottom-640) / 2)))
+                    else:
+                         r.set("adjust_gripper_center","")
+
+                    gripper_msg2 = String()
+                    gripper_msg2.data = adjust_gripper_center
+                    self.gripper_adjust_pub.publish(gripper_msg2)
+
+                    width = right - left
+                    height = bottom - top
+                    center = (left + int((right - left) / 2), top + int((bottom - top) / 2))
+                    label = "mushroom"
+                    confidence = conf
+                    label= label+",center:"+str(int((right + left) / 2))+","+str(int((top + bottom) / 2))
+                        #if(label=="laptop"):
+                    cv2.rectangle(img, (left, top), (right, bottom), (255, 0, 0), 2)
+                    cv2.putText(img, label, center, cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 1, cv2.LINE_AA)
+                    break
+            else:
+                r.set("adjust_gripper_center","")
+                
+            frame=cv2.imencode('.jpg', img)[1].tobytes()
             yield b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n'
             frame=None
 
