@@ -62,6 +62,9 @@ class HitbotController(Node):
         self.camera_xyz_publisher = self.create_publisher(String, '/camera_xyz', 10)
         
         self.xyz_sub = self.create_subscription(String,"/hitbot_end_xyz",self.hitbot_end_xyzr_callback,10)
+
+        self.gripper_open_pub= self.create_publisher(String,'/yolox/gripper_open',10)
+        self.gripper_hold_pub = self.create_publisher(String,'/yolox/gripper_hold',10)
         
         # Joint State Publisher
         self.joint_state_pub = self.create_publisher(JointState, "/hitbot/joint_states", 10)
@@ -825,6 +828,14 @@ class HitbotController(Node):
                     self.robot.z =self.robot.z+20  # up (strafe if holonomic)
                 if keys[pygame.K_x]:
                     self.robot.z =self.robot.z-20  # Down (strafe if holonomic)
+                if keys[pygame.K_f]:
+                    open=String()
+                    open.data="400"
+                    self.gripper_open_pub.publish(open)
+                if keys[pygame.K_g]:
+                    hold=String()
+                    hold.data="300"
+                    self.gripper_hold_pub.publish(hold)
                 
                 ret=self.robot.movel_xyz(self.robot.x,self.robot.y,self.robot.z,self.robot.r,50)
                 self.robot.wait_stop()
