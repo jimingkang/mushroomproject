@@ -23,7 +23,7 @@ from scipy.spatial import KDTree
 import fcl
 from ikpy.chain import Chain
 
-
+import pygame
 
 # Load the URDF file and create the chain
 
@@ -53,7 +53,7 @@ class HitbotController(Node):
         self.hitbot_x = 0
         self.hitbot_y = 0
         self.hitbot_z = 0
-        self.hitbot_r = 0
+        self.hitbot_r = -67
 
         self.hitbot_x_publisher = self.create_publisher(String, '/hitbot_x', 10)
         self.hitbot_y_publisher = self.create_publisher(String, '/hitbot_y', 10)
@@ -92,6 +92,9 @@ class HitbotController(Node):
         self.robot = HitbotInterface(self.robot_id)
 
         self.init_robot()
+        pygame.init()
+        pygame.display.set_mode((100, 100))  # Small invisible window
+        pygame.display.set_caption("ROS2 Keyboard Control")
 
         self.urdf_file = "/mushroomproject/ros2_ws/src/hitbot_sim/hitbot_sim/scara_ik.xml"
         self.scara_arm = Chain.from_urdf_file(self.urdf_file)
@@ -491,7 +494,7 @@ class HitbotController(Node):
     def publish_joint_states(self):
         # Get real joint positions from HitBot API (Replace this with actual API calls)
         self.robot.get_scara_param()
-        joint_positions = [self.robot.z,self.robot.angle1*3.14/180,self.robot.angle2*3.14/180,self.robot.r*3.14/180]
+        joint_positions = [self.robot.z,self.robot.angle1*3.14/180,self.robot.angle2*3.14/180,(self.robot.r-67)*3.14/180]
 
         # Create JointState message
         joint_state_msg = JointState()
@@ -510,7 +513,7 @@ class HitbotController(Node):
         self.publish_hitbot_x(str(int(self.robot.x)))
         self.publish_hitbot_y(str(int(self.robot.y)))
         self.publish_hitbot_z(str(int(self.robot.z)))
-        self.publish_hitbot_r(str(int(self.robot.r)))
+        self.publish_hitbot_r(str(int(self.robot.r-67)))
         camera_xyz=String()
         camera_xyz.data=str(self.robot.x)+","+str(self.robot.y)
         self.camera_xyz_publisher.publish(camera_xyz)
@@ -800,17 +803,50 @@ class HitbotController(Node):
 
     def run(self):
         print("hello hibot")
-
-        while rclpy.ok():
-            try:
+        running = True
+        try:
+            while running and rclpy.ok():
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        running = False
+                # Get pressed keys
+                keys = pygame.key.get_pressed()
+                self.robot.get_scara_param()
+                # Translation controls (WASD)
+                if keys[pygame.K_w]:
+                    self.robot.x =self.robot.x+20  # Forward
+                if keys[pygame.K_s]:
+                    self.robot.x =self.robot.x-20  # Backward
+                if keys[pygame.K_a]:
+                    self.robot.y =self.robot.y+20  # Left (strafe if holonomic)
+                if keys[pygame.K_d]:
+                    self.robot.y =self.robot.y-20  # Right (strafe if holonomic)
+                if keys[pygame.K_z]:
+                    self.robot.z =self.robot.z+20  # up (strafe if holonomic)
+                if keys[pygame.K_x]:
+                    self.robot.z =self.robot.z-20  # Down (strafe if holonomic)
+                
+                ret=self.robot.movel_xyz(self.robot.x,self.robot.y,self.robot.z,self.robot.r,50)
+                self.robot.wait_stop()
+                self.robot.get_scara_param()
+                self.robot.wait_stop()
+                #self.get_logger().info(f"ret:{ret}")
+                
+                # Quit on Q
+                if keys[pygame.K_q]:
+                    running = False
+                
+                pygame.time.delay(10)
                 rclpy.spin_once(self)
-            except ValueError as e:
-                print("Error:", str(e))
-            except RuntimeError as e:
-                print("Error:", str(e))
+        except ValueError as e:
+            print("Error:", str(e))
+        except RuntimeError as e:
+            print("Error:", str(e))
+        finally:
+            pygame.quit()
+            
 
-        self.destroy_node()
-        rclpy.shutdown()
+
 
 def main(args=None):
     rclpy.init(args=args)
