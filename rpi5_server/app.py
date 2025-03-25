@@ -66,8 +66,7 @@ model2 = YOLO("/home/pi/yolomodel/shape_yolo11_ncnn_model")
 
 # Configure min and max servo pulse lengths
 servo_min = 300  # Min pulse length out of 4096
-servo_inc=50
-servo_max = 550  # Max pulse length out of 4096
+servo_max = 480  # Max pulse length out of 4096
 frame=None
 boxing_img=None
 class MovePublisher(Node):
@@ -126,10 +125,11 @@ class MovePublisher(Node):
             adjust_msg.data = 'no,%d,%d,%d' %(int(5),int(5),hi.z) 
             self._adjust_publisher.publish(adjust_msg)
     def gripper_hold_callback(self, msg):
-        print(f'open cb received: {msg.data}')
-        pwm.set_pwm(0, 0, 480)
-        pwm.set_pwm(1, 0, 480)
-        pwm.set_pwm(2, 0, 480)
+        global servo_max
+        print(f'hold cb received: {msg.data}')
+        pwm.set_pwm(0, 0, servo_max)
+        pwm.set_pwm(1, 0, servo_max)
+        pwm.set_pwm(2, 0, servo_max)
         time.sleep(1)
         #print("servo_tmp={},{:>5}\t{:>5.3f}".format(servo_tmp,chan.value, chan.voltage))
 
