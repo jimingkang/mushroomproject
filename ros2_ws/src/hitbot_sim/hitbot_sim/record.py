@@ -81,6 +81,7 @@ class SCARA_ACT_Recorder(Node):
             return
         try:
             cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+            self.get_logger().info(f"cv_image:{cv_image}")
             self.buffer['observations']['images'].append(cv_image)
         except Exception as e:
             rclpy.logerr(e)
@@ -120,7 +121,7 @@ class SCARA_ACT_Recorder(Node):
         
         # Save to HDF5
         timestamp = time.strftime("%Y%m%d_%H%M%S")
-        filename = os.path.join(self.dataset_dir, f"episode_{self.episode_count:06d}_{timestamp}.hdf5")
+        filename = os.path.join(self.dataset_dir, f"episode_{self.episode_count:2d}.hdf5")
         
         with h5py.File(filename, 'w') as f:
             # Create observations group
@@ -153,16 +154,39 @@ class SCARA_ACT_Recorder(Node):
             
         self.episode_count += 1
         self.get_logger().info(f"Saved episode {filename}")
+    def run(self):
+        print("hello hibot")
+
+        while rclpy.ok():
+            try:
+                input()
+                self.start_recording()
+                print("Recording... Press Enter to stop")
+                input()
+                self.stop_and_save()
+                rclpy.spin_once(self)
+            except ValueError as e:
+                print("Error:", str(e))
+            except RuntimeError as e:
+                print("Error:", str(e))
+            finally:
+                recorder.destroy_node()
+                rclpy.shutdown()
+
+        #self.destroy_node()
+        #rclpy.shutdown()
 
 def main(args=None):
     rclpy.init(args=args)
     recorder = SCARA_ACT_Recorder("scara_act_dataset")
     try:
-        input()
-        recorder.start_recording()
-        print("Recording... Press Enter to stop")
-        input()
-        recorder.stop_and_save()
+        recorder.run()
+        #input()
+        #recorder.start_recording()
+        #print("Recording... Press Enter to stop")
+        ##input()
+        #recorder.stop_and_save()
+        #rclpy.spin_once(self)
     except KeyboardInterrupt:
         print("KeyboardInterrupt")
     finally:

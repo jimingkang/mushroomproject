@@ -1,13 +1,15 @@
 import io
 import math
+import pickle
 import subprocess
 import sys
 import os
 import rclpy
 import time
 from rclpy.node import Node
+from .policy import ACTPolicy
 from std_msgs.msg import Int64,String
-from sensor_msgs.msg import JointState
+from sensor_msgs.msg import JointState,Image
 from hitbot_msgs.srv import *
 from trajectory_msgs.msg import JointTrajectory
 from std_msgs.msg import Float64MultiArray
@@ -22,13 +24,17 @@ import octomap
 from scipy.spatial import KDTree
 import fcl
 from ikpy.chain import Chain
-
+import h5py
+from collections import deque
+from cv_bridge import CvBridge
+import cv2
 import pygame
+import torch
 
 # Load the URDF file and create the chain
 
 
-redis_server='172.27.34.62'
+redis_server='172.17.84.54'#'172.27.34.62'
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
 
@@ -40,6 +46,37 @@ from .HitbotInterface import HitbotInterface
 class HitbotController(Node):
     def __init__(self):
         super().__init__('hitbot_controller')
+        self.config = {
+        'ckpt_dir': './',
+        'ckpt_name': 'policy_best.ckpt',
+        'policy_class': 'ACT',
+        'policy_config': {
+                        'num_queries': 5,
+                         'lr':1e-5,# args['lr'],
+                         'num_queries':100,# args['chunk_size'],
+                         'kl_weight':10,# args['kl_weight'],
+                         'hidden_dim': 512,#args['hidden_dim'],
+                         'dim_feedforward':3200,# args['dim_feedforward'],
+                         'lr_backbone': 1e-5,
+                         'backbone': 'resnet18',
+                         'enc_layers': 4,
+                         'dec_layers': 7,
+                         'nheads': 8,
+                         'camera_names': 'top',
+        },
+        'state_dim': 4,
+        'camera_topic': '/camera/image_raw',
+        'joint_topic': '/joint_states',
+        'command_topic': '/joint_commands',
+        'reset_position': np.array([0.0, 0.0, 0.0, 0.0]),
+        'control_freq': 10.0,  # Hz
+        'success_threshold': 1.0,
+        }
+        self.policy = self.load_policy()
+        self.stats = self.load_stats()
+        # Pre/post-processing functions
+        self.pre_process = lambda s: (s - self.stats['qpos_mean']) / self.stats['qpos_std']
+        self.post_process = lambda a: a * self.stats['action_std'] + self.stats['action_mean']
 
         self.SetGPIO_srv = self.create_service(SetGPIO, 'set_gpio', self.set_gpio_callback)
         self.GetGPIOOut_srv = self.create_service(GetGPIOOut, 'get_gpio_out', self.get_gpio_out_callback)
@@ -70,7 +107,7 @@ class HitbotController(Node):
         self.joint_state_pub = self.create_publisher(JointState, "/hitbot/joint_states", 10)
 
         # Timer to publish joint states at 50Hz (20ms)
-        self.timer = self.create_timer(0.1, self.publish_joint_states)
+        self.timer = self.create_timer(0.5, self.publish_joint_states)
 
         # Define joint names (Modify according to your HitBot model)
         self.joint_names = ["joint1", "joint2", "joint3", "joint4"]
@@ -95,9 +132,9 @@ class HitbotController(Node):
         self.robot = HitbotInterface(self.robot_id)
 
         self.init_robot()
-        pygame.init()
-        pygame.display.set_mode((100, 100))  # Small invisible window
-        pygame.display.set_caption("ROS2 Keyboard Control")
+        #pygame.init()
+        #pygame.display.set_mode((100, 100))  # Small invisible window
+        #pygame.display.set_caption("ROS2 Keyboard Control")
 
         self.urdf_file = "/mushroomproject/ros2_ws/src/hitbot_sim/hitbot_sim/scara_ik.xml"
         self.scara_arm = Chain.from_urdf_file(self.urdf_file)
@@ -114,6 +151,210 @@ class HitbotController(Node):
         self.fcl_octree = None  # FCL Octree for collision checking
         self.occupancy_map = None  # Store Octomap for collision checking
         self.bounds = (-2.0, 2.0, -2.0, 2.0, -2.0, 2.0)  # Workspace bounds (xmin, xmax, ymin, ymax, zmin, zmax)
+
+
+        #self.dataset_dir = "dataset_dir"
+        #os.makedirs(self.dataset_dir, exist_ok=True)
+        
+        # SCARA configuration
+        self.joint_names = ['joint1', 'joint2', 'joint3', 'joint4']
+        self.gripper_joint = 'joint4'  # Assuming last joint controls gripper
+        
+        # Data buffers
+        self.buffer = {
+            'observations': {
+                'images': deque(maxlen=1000),
+                'qpos': deque(maxlen=1000),
+                'cartesian_pos': deque(maxlen=1000),
+                'gripper': deque(maxlen=1000)
+            },
+            'action': deque(maxlen=1000),
+            'timestamps': deque(maxlen=1000)
+        }
+        
+        # ROS setup
+        self.bridge = CvBridge()
+        #self.joints_sub=self.create_subscription( JointState,"/hitbot/joint_states", self.joint_state_cb,10)
+        self.image_sub=self.create_subscription(Image,"/camera/camera/color/image_rect_raw",  self.image_cb,10)
+        
+        self.recording = False
+        self.episode_count = 0
+        self.last_qpos = None
+
+        self.latest_image=None
+        self.latest_qpos=None
+
+        self.mean = torch.tensor([0.485, 0.456, 0.406]).cuda().view(3, 1, 1)
+        self.std = torch.tensor([0.229, 0.224, 0.225]).cuda().view(3, 1, 1)
+
+    def joint_state_cb(self, msg):
+        if not self.recording:
+            return
+            
+        # Extract joint positions in correct order
+        qpos = np.zeros(4)
+        for i, name in enumerate(self.joint_names):
+            idx = msg.name.index(name)
+            qpos[i] = msg.position[idx]
+        
+        # Compute cartesian position (forward kinematics)
+        cartesian_pos = self.forward_kinematics(qpos)
+        #self.get_logger().info(f"cartesian_pos:{cartesian_pos}")
+
+        
+        # Compute action (delta from last position)
+        if self.last_qpos is not None:
+            action = qpos - self.last_qpos
+            self.buffer['action'].append(action)
+        
+        # Store observations
+        self.buffer['observations']['qpos'].append(qpos)
+        self.buffer['observations']['cartesian_pos'].append(cartesian_pos)
+        self.buffer['observations']['gripper'].append(qpos[-1])  # Last joint is gripper
+        self.buffer['timestamps'].append(msg.header.stamp.to_sec())
+        
+        self.last_qpos = qpos
+    def prepare_act_input(self, cv_image):
+        #self.get_logger().info(f"cv_image:{cv_image.shape}")
+        """Convert OpenCV image to ACT policy input tensor"""
+        # 1. Ensure 3-channel RGB
+        if len(cv_image.shape) == 2:  # Grayscale
+            cv_image = cv2.cvtColor(cv_image, cv2.COLOR_GRAY2RGB)
+        elif cv_image.shape[2] == 4:  # RGBA
+            cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGBA2RGB)
+        elif cv_image.shape[2] == 3:  # Check if BGR
+            cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
+        
+        # 2. Resize to expected dimensions (typically 224x224)
+        cv_image = cv2.resize(cv_image, (224, 224))
+        
+        # 3. Convert to float32 and normalize [0,1]
+        cv_image = cv_image.astype(np.float32) / 255.0
+        
+        # 4. Convert HWC to CHW and to tensor
+        tensor = torch.from_numpy(cv_image.transpose(2, 0, 1)).float()
+        
+        # 5. Normalize with ImageNet stats
+        tensor = (tensor.cuda() - self.mean) / self.std
+        
+        # 6. Add batch dimension [1, 3, 224, 224]
+        return tensor.unsqueeze(0)
+    def image_cb(self, msg):
+        cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+        self.get_logger().info(f"cv_image:{cv_image.shape}")
+        act_tensor = self.prepare_act_input(cv_image)
+        self.latest_image=act_tensor#cv_image
+        self.get_logger().info(f"latest_image:{self.latest_image.shape}")
+        if not self.recording:
+            return
+        try:
+            # Extract joint positions in correct order
+
+  
+            #for i, name in enumerate(self.joint_names):
+            #    idx = msg.name.index(name)
+            #    qpos[i] = msg.position[idx]
+
+            qpos = np.zeros(4)
+            qpos[0]=self.robot.angle1*3.14/180
+            qpos[1]=self.robot.angle2*3.14/180
+            qpos[2]=self.robot.z/1000
+            qpos[3]=(self.robot.r+67)*3.14/180
+            
+            # Compute cartesian position (forward kinematics)
+            cartesian_pos = self.forward_kinematics(qpos)
+            #self.get_logger().info(f"cartesian_pos:{cartesian_pos}")
+            
+            # Compute action (delta from last position)
+            if self.last_qpos is not None:
+                action = qpos - self.last_qpos
+                self.buffer['action'].append(action)
+            
+            # Store observations
+            self.buffer['observations']['qpos'].append(qpos)
+            self.buffer['observations']['cartesian_pos'].append(cartesian_pos)
+            self.buffer['observations']['gripper'].append(qpos[-1])  # Last joint is gripper
+            self.buffer['timestamps'].append( msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9)
+            
+            self.last_qpos = qpos
+
+
+            #self.get_logger().info(f"cv_image:{cv_image}")
+            self.buffer['observations']['images'].append(cv_image)
+
+            
+        except Exception as e:
+            self.get_logger().error(e)
+
+    def forward_kinematics(self, qpos):
+        """Simple SCARA forward kinematics"""
+        θ1, θ2, d, θ4 = qpos
+        x = 0.325 * np.cos(θ1) + 0.275 * np.cos(θ2)+0.17 * np.cos(θ4)  # Modify with your arm's lengths
+        y = 0.325 * np.sin(θ1) + 0.275 * np.sin(θ2)+0.17 * np.sin(θ4)
+        z = d  # Prismatic joint
+        rz = θ1 + θ2 + θ4  # Total rotation
+        return np.array([x, y, z, rz])
+
+    def start_recording(self):
+        self.recording = True
+        self.last_qpos = None
+        self.buffer = {k: {sk: deque(maxlen=1000) for sk in v} if isinstance(v, dict) else deque(maxlen=1000) 
+                     for k, v in self.buffer.items()}
+        self.get_logger().info("Started recording new episode")
+
+    def stop_and_save(self):
+        if not self.recording:
+            return
+            
+        self.recording = False
+        
+        # Ensure all buffers have same length
+        min_length = min(len(self.buffer['observations']['images']),
+                        len(self.buffer['observations']['qpos']),
+                        len(self.buffer['action']))
+        
+        # Trim buffers
+        for k in self.buffer['observations']:
+            self.buffer['observations'][k] = list(self.buffer['observations'][k])[:min_length]
+        self.buffer['action'] = list(self.buffer['action'])[:min_length]
+        self.buffer['timestamps'] = list(self.buffer['timestamps'])[:min_length]
+        
+        # Save to HDF5
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        filename = os.path.join("/home/a/Downloads/mushroomproject/ros2_ws/", f"episode_{self.episode_count}.hdf5")
+        self.episode_count=self.episode_count+1
+        
+        with h5py.File(filename, 'w') as f:
+            # Create observations group
+            obs_group = f.create_group('observations')
+            obs_group.create_dataset('images0', 
+                                  data=np.array(self.buffer['observations']['images']),
+                                  compression='gzip')
+            obs_group.create_dataset('qpos',
+                                  data=np.array(self.buffer['observations']['qpos']),
+                                  compression='gzip')
+            obs_group.create_dataset('cartesian_pos',
+                                  data=np.array(self.buffer['observations']['cartesian_pos']),
+                                  compression='gzip')
+            obs_group.create_dataset('gripper',
+                                  data=np.array(self.buffer['observations']['gripper']),
+                                  compression='gzip')
+            
+            # Save actions and timestamps
+            f.create_dataset('action',
+                           data=np.array(self.buffer['action']),
+                           compression='gzip')
+            f.create_dataset('timestamps',
+                           data=np.array(self.buffer['timestamps']),
+                           compression='gzip')
+            
+            # Metadata
+            f.attrs['robot_type'] = 'SCARA'
+            f.attrs['joint_names'] = self.joint_names
+            f.attrs['episode_id'] = self.episode_count
+            
+        self.episode_count += 1
+        self.get_logger().info(f"Saved episode {filename}")
 
     def get_occupied_voxels(self,octree):
         self.occupied_voxels = set()  # Use a set for faster lookups
@@ -242,49 +483,6 @@ class HitbotController(Node):
             return
 
         occupied_voxels= []  # Clear old objects
-
-        #for node in self.occupancy_map.begin_leafs():
-            #if self.occupancy_map.isNodeOccupied(node):  # ? Only process occupied nodes
-                #occupied_voxels.append([node.getX(),node.getY(),node.getZ()])
-                #key = node.getKey()
-                #x, y, z = self.occupancy_map.keyToCoord(key)  # ? Convert key to world coordinates
-        #        # ? Convert each occupied node to an FCL Box (representing the voxel)
-                #size = node.getSize()
-                #self.get_logger().info(f"Node geteX{node.getX()}")
-                #box = fcl.Box(size, size, size)  # ? Box matching Octomap voxel size
-                #box_tf = fcl.Transform([x, y, z])  # ? Box position
-                #occupied_voxels.append(fcl.CollisionObject(box, box_tf))
-
-
-                # ? Define a simple bounding volume for each voxel (Cube)
-                #vertices = [
-                #    (x - size / 2, y - size / 2, z - size / 2),
-                  #  (x + size / 2, y - size / 2, z - size / 2),
-                 #   (x + size / 2, y + size / 2, z - size / 2),
-                  #  (x - size / 2, y + size / 2, z - size / 2),
-                   # (x - size / 2, y - size / 2, z + size / 2),
-                  #  (x + size / 2, y - size / 2, z + size / 2),
-                  #  (x + size / 2, y + size / 2, z + size / 2),
-                  #  (x - size / 2, y + size / 2, z + size / 2),
-               # ]
-
-                #triangles = [
-                #    (0, 1, 2), (2, 3, 0), (4, 5, 6), (6, 7, 4),
-                #    (0, 1, 5), (5, 4, 0), (2, 3, 7), (7, 6, 2),
-                #    (1, 2, 6), (6, 5, 1), (3, 0, 4), (4, 7, 3)
-                #]
-                #convex = fcl.Convex(vertices, triangles)
-                #collision_object = fcl.CollisionObject(convex)
-
-                # ? Create an FCL BVHModel (Bounding Volume Hierarchy)
-                #bvh = fcl.BVHModel()
-                #bvh.beginModel(len(vertices), len(triangles))
-                #bvh.addSubModel(vertices, triangles)
-                #bvh.endModel()
-                #collision_object = fcl.CollisionObject(bvh)
-                #self.fcl_octree.append(collision_object)
-        #occupied_voxels=np.array(occupied_voxels,dtype=np.float32)
-        #self.fcl_octree = fcl.OcTree(occupied_voxels,0.05)
         self.get_logger().info(f"? Converted {len(self.fcl_octree)} occupied nodes into FCL objects!")
 
     def is_collision_free2(self,point):
@@ -380,31 +578,7 @@ class HitbotController(Node):
             return False
         else:
             return True
-        #point=(-y, 0.0, x)
-        #nod = self.occupancy_map.search(point)
-        ##if nod is None :
-        #    return True
-        #else:
-        #    nearest_node=self.find_nearest_node((-y, 0.0, x))
-        #    self.get_logger().info(f"search node {nod},nearest_node {nearest_node[0]},steer point:{x,y,z}")
-        #    if nearest_node[0] is None:
-        #        return True
-        #    else:
-        #        self.get_logger().info(f"too close nearest_node and distance {nearest_node},steer point:{x,y,z}")
-        #        return False
 
-
-        #key = self.occupancy_map.coordToKey(np.array(point))
-        #node_coords = self.occupancy_map.keyToCoord(key)
-        #self.get_logger().info(f"node_coords,point: {node_coords},{x,y,z}")
-        #try:
-        #if nod is not None:
-        #    ret=self.occupancy_map.isNodeOccupied(nod)
-        #    #self.get_logger().info(f"node: {node_coords},ret occuped:{ret}")
-        #    return ret
-        #except Exception as e:
-        #    self.get_logger().error(f"Failed to process isNodeOccupied: {e}")
-        #    return False
 
 
     def rrt_planning(self, start, goal, max_iter=1000, step_size=0.05):
@@ -521,6 +695,32 @@ class HitbotController(Node):
         camera_xyz.data=str(self.robot.x)+","+str(self.robot.y)
         self.camera_xyz_publisher.publish(camera_xyz)
         r.set("global_camera_xy",camera_xyz.data)
+
+
+        qpos = np.zeros(4)
+        qpos[0]=self.robot.angle1*3.14/180
+        qpos[1]=self.robot.angle2*3.14/180
+        qpos[2]=self.robot.z/1000
+        qpos[3]=(self.robot.r+67)*3.14/180
+        self.latest_qpos=qpos
+        if(self.latest_image is not None):
+            obs={'image': self.latest_image,'qpos': self.latest_qpos}
+            self.get_logger().info(f"latest_qpos:{self.latest_qpos}")
+            qpos = self.pre_process(obs['qpos'][:4])
+            self.get_logger().info(f"pre_process:{qpos}")
+            qpos_tensor = torch.from_numpy(qpos).float().cuda().unsqueeze(0)
+            self.get_logger().info(f"qpos_tensor:{qpos_tensor}")  
+            # Convert image
+            image_tensor =self.latest_image #torch.from_numpy(obs['image'].transpose(2, 0, 1)).float().cuda().unsqueeze(0)
+            self.get_logger().info(f"image_tensor:")            
+                        # Get action from policy
+            with torch.no_grad():
+                action = self.policy(qpos_tensor, image_tensor)
+                self.get_logger().info(f"action:{action}")   
+            # Postprocess and send command
+            action = action.cpu().numpy().squeeze()
+            target_joints = self.post_process(action)
+            self.get_logger().info(f"target_joints:{target_joints}")
         
         #self.get_logger().info(f"Published joint states: {joint_state_msg}")
     def joint_command_callback(self, msg):
@@ -794,17 +994,32 @@ class HitbotController(Node):
         print('unlock Robot')
         self.robot.unlock_position()
         print('Robot position initialized.')
-        ret=self.robot.movel_xyz(600,0,0,-63,20)
+        #ret=self.robot.movel_xyz(600,0,0,-63,20)
     	#ret=self.robot.new_movej_xyz_lr(hi.x-100,hi.y,0,-63,20,0,1)
         #ret=self.robot.movej_angle(0,30,0,0,20,0)
-        self.robot.wait_stop()
+        #self.robot.wait_stop()
         print('Robot I/O output initialized.')
         for i in range(12):
             self.robot.set_digital_out(i, False)
         time.sleep(1)
         print('Robot initialized.')
+    def load_stats(self):
+        """Load dataset statistics"""
+        stats_path = os.path.join("/home/a/Downloads/mushroomproject/ros2_ws/", 'dataset_stats.pkl')
+        with open(stats_path, 'rb') as f:
+            stats = pickle.load(f)
+        return stats
+    def load_policy(self) :
+        """Load trained policy model"""
+        policy =ACTPolicy(self.config['policy_config'])
 
-    def run(self):
+        ckpt_path = os.path.join("/home/a/Downloads/mushroomproject/ros2_ws/", self.config['ckpt_name'])
+        policy.load_state_dict(torch.load(ckpt_path)) # type: ignore
+        policy.cuda()
+        policy.eval()
+        self.get_logger().info(f"Loaded policy from {ckpt_path}")
+        return policy
+    def run2(self):
         print("hello hibot")
         running = True
         try:
@@ -836,7 +1051,12 @@ class HitbotController(Node):
                     hold=String()
                     hold.data="300"
                     self.gripper_hold_pub.publish(hold)
-                
+                if keys[pygame.K_r]:
+                    self.start_recording()
+                if keys[pygame.K_t]:
+                    self.stop_and_save()
+
+
                 ret=self.robot.movel_xyz(self.robot.x,self.robot.y,self.robot.z,self.robot.r,50)
                 self.robot.wait_stop()
                 self.robot.get_scara_param()
@@ -856,7 +1076,19 @@ class HitbotController(Node):
         finally:
             pygame.quit()
             
+    def run(self):
+        print("hello hibot")
 
+        while rclpy.ok():
+            try:
+                rclpy.spin_once(self)
+            except ValueError as e:
+                print("Error:", str(e))
+            except RuntimeError as e:
+                print("Error:", str(e))
+
+        self.destroy_node()
+        rclpy.shutdown()
 
 
 def main(args=None):
