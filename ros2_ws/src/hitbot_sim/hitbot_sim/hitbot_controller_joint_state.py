@@ -7,7 +7,7 @@ import os
 import rclpy
 import time
 from rclpy.node import Node
-from .policy import ACTPolicy
+#from .policy import ACTPolicy
 from std_msgs.msg import Int64,String
 from sensor_msgs.msg import JointState,Image
 from hitbot_msgs.srv import *
@@ -29,10 +29,10 @@ from collections import deque
 from cv_bridge import CvBridge
 import cv2
 import pygame
-import torch
+#import torch
 import threading
 # Load the URDF file and create the chain
-
+from example_interfaces.srv import Trigger
 
 redis_server='localhost'#'172.27.34.62'
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
@@ -43,6 +43,25 @@ os.chdir(os.path.expanduser('~'))
 #from .hitbot_interface import HitbotInterface
 from .HitbotInterface import HitbotInterface
 
+class ServiceClient(Node):
+    def __init__(self):
+        super().__init__('service_client')
+        self.client = self.create_client(Trigger, 'close_gripper_service')  # Service type and name
+       
+        # Wait for service to be available
+        while not self.client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('service not available, waiting again...')
+       
+        self.request = Trigger.Request()
+   
+    def send_request(self ):
+        #self.request.a = a
+        #self.request.b = b
+        self.future = self.client.call_async(self.request)
+        rclpy.spin_until_future_complete(self, self.future)
+        return self.future.result()
+
+
 class HitbotController(Node):
     def __init__(self):
         super().__init__('hitbot_controller')
@@ -52,7 +71,7 @@ class HitbotController(Node):
         'policy_class': 'ACT',
         'policy_config': {
                         'num_queries': 5,
-                         'lr':1e-5,# args['lr'],
+ 'lr':1e-5,# args['lr'],
                          'num_queries':100,# args['chunk_size'],
                          'kl_weight':10,# args['kl_weight'],
                          'hidden_dim': 512,#args['hidden_dim'],
@@ -75,8 +94,12 @@ class HitbotController(Node):
         #self.policy = self.load_policy()
         #self.stats = self.load_stats()
         # Pre/post-processing functions
-        self.pre_process = lambda s: (s - self.stats['qpos_mean']) / self.stats['qpos_std']
-        self.post_process = lambda a: a * self.stats['action_std'] + self.stats['action_mean']
+        #self.pre_process = lambda s: (s - self.stats['qpos_mean']) / self.stats['qpos_std']
+        #self.post_process = lambda a: a * self.stats['action_std'] + self.stats['action_mean']
+        r.set("mode","camera_ready")
+
+        self.client_node = ServiceClient()
+
 
         self.SetGPIO_srv = self.create_service(SetGPIO, 'set_gpio', self.set_gpio_callback)
         self.GetGPIOOut_srv = self.create_service(GetGPIOOut, 'get_gpio_out', self.get_gpio_out_callback)
@@ -97,11 +120,12 @@ class HitbotController(Node):
         self.hitbot_z_publisher = self.create_publisher(String, '/hitbot_z', 10)
         self.hitbot_r_publisher = self.create_publisher(String, '/hitbot_r', 10)
         self.camera_xyz_publisher = self.create_publisher(String, '/camera_xyz', 10)
-        
+
 
         self.bounding_boxes_sub = self.create_subscription(String,"/yolox/bounding_boxes",self.bounding_boxes_callback, 10)
         self.xyz_sub = self.create_subscription(String,"/hitbot_end_xyz",self.hitbot_end_xyzr_callback,10)
         self.angle_sub = self.create_subscription(String,"/hitbot_end_angle",self.hitbot_end_angle_callback,10)
+        
 
         self.gripper_open_pub= self.create_publisher(String,'/yolox/gripper_open',10)
         self.gripper_hold_pub = self.create_publisher(String,'/yolox/gripper_hold',10)
@@ -135,9 +159,9 @@ class HitbotController(Node):
         self.robot = HitbotInterface(self.robot_id)
 
         self.init_robot()
-        pygame.init()
-        pygame.display.set_mode((100, 100))  # Small invisible window
-        pygame.display.set_caption("ROS2 Keyboard Control")
+        #pygame.init()
+        #pygame.display.set_mode((100, 100))  # Small invisible window
+        #pygame.display.set_caption("ROS2 Keyboard Control")
 
         self.urdf_file = "/mushroomproject/ros2_ws/src/hitbot_sim/hitbot_sim/scara_ik.xml"
         self.scara_arm = Chain.from_urdf_file(self.urdf_file)
@@ -178,7 +202,7 @@ class HitbotController(Node):
         # ROS setup
         self.bridge = CvBridge()
         #self.joints_sub=self.create_subscription( JointState,"/hitbot/joint_states", self.joint_state_cb,10)
-        self.image_sub=self.create_subscription(Image,"/camera/color/image_rect_raw",  self.image_cb,10)  #/yolox/boxes_image
+        #self.image_sub=self.create_subscription(Image,"/camera/color/image_rect_raw",  self.image_cb,10)  #/yolox/boxes_image
         
         self.recording = False
         self.episode_count = 0
@@ -188,15 +212,32 @@ class HitbotController(Node):
         self.latest_image=None
         self.latest_qpos=None
 
-        self.mean = torch.tensor([0.485, 0.456, 0.406]).cuda().view(3, 1, 1)
-        self.std = torch.tensor([0.229, 0.224, 0.225]).cuda().view(3, 1, 1)
+        #self.mean = torch.tensor([0.485, 0.456, 0.406]).cuda().view(3, 1, 1)
+        #self.std = torch.tensor([0.229, 0.224, 0.225]).cuda().view(3, 1, 1)
     def bounding_boxes_callback(self, msg):
+        r.set("mode","pickup_ready")
         mushroom_xyz=msg.data
         mushroom_xyz=msg.data.split(",");
         self.get_logger().info(f"get mushroom_xyz:{mushroom_xyz}")
-        ret=self.robot.movej_xyz(int(float(mushroom_xyz[2].strip())),int(float(mushroom_xyz[0].strip())),0,-67,50,1)
+        ret=self.robot.movej_xyz(int(float(mushroom_xyz[2].strip())-230),int(float(mushroom_xyz[0].strip())),0,-67,50,1)
         self.get_logger().info(f"ret :{ret}")
         self.robot.wait_stop()
+        self.robot.get_scara_param()
+        self.robot.wait_stop()
+        ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-60,-67,50,1)
+        self.robot.wait_stop()
+
+        response = self.client_node.send_request()
+        if response is not None:
+            self.client_node.get_logger().info(f'Result of add_two_ints: for {response}')
+        else:
+            self.get_logger().error('Service call failed %r' % (self.client_node.future.exception(),))
+        self.get_logger().info(f"move in -z, ret :{ret}")
+
+        ret=self.robot.movej_xyz(self.robot.x,self.robot.y,0,-67,50,1)
+        self.robot.wait_stop()
+
+        r.set("mode","camera_ready")
     def joint_state_cb(self, msg):
         if not self.recording:
             return
@@ -248,8 +289,8 @@ class HitbotController(Node):
         return tensor.unsqueeze(0)
     def image_cb(self, msg):
         cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-        act_tensor = self.prepare_act_input(cv_image)
-        self.latest_image=act_tensor#cv_image
+        #act_tensor = self.prepare_act_input(cv_image)
+        self.latest_image=cv_image #act_tensor
         if not self.recording:
             return
         try:
@@ -468,29 +509,7 @@ class HitbotController(Node):
         occupied_voxels= []  # Clear old objects
         self.get_logger().info(f"? Converted {len(self.fcl_octree)} occupied nodes into FCL objects!")
 
-    def is_collision_free2(self,point):
-        self.get_logger().warn(f" inside is_collision_free")
-        if(self.fcl_octree is None):
-            return True
-        octree_object = fcl.CollisionObject(self.fcl_octree)
-        self.get_logger().warn(f" generate octree_object {octree_object}")
-        # ? Define a moving sphere (radius = 0.1m)
-        sphere = fcl.Sphere(0.1)
-        x, y, z = point
-        print(point)
-        sphere_tf = fcl.Transform([x,y,z])  # Position of the sphere
-        sphere_object = fcl.CollisionObject(sphere, sphere_tf)
 
-        # ? Perform collision checking
-        request = fcl.CollisionRequest()
-        result = fcl.CollisionResult()
-        collision = fcl.collide(octree_object, sphere_object, request, result)
-        if collision:
-            self.get_logger().warn(f" Collision detected between Octomap and point{x,y,z}!")
-            return False
-        else:
-            self.get_logger().info("? No collision detected.")
-            return True
 
 
 
@@ -637,6 +656,7 @@ class HitbotController(Node):
         self.get_logger().info(f"movel_xyz ret: {ret}")
         self.robot.wait_stop()
     def hitbot_end_angle_callback(self,msg):
+        self.get_logger().info(f'hitbot_end_angle_callback:{msg}')
         angles=msg.data.split(",");
         self.get_logger().info(f'hitbot_end_angle_callback:{msg},{angles}')
         angle1=int(angles[0])
@@ -687,7 +707,7 @@ class HitbotController(Node):
         self.latest_qpos=qpos
 
         max_timesteps = 16
-        temporal_agg = True
+        temporal_agg = False
         query_frequency = 10
         if temporal_agg:
             num_queries = 100#policy_config['num_queries']
