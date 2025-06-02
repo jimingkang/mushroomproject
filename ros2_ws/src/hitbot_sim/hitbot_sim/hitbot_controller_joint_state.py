@@ -12,7 +12,7 @@ from std_msgs.msg import Int64,String
 from sensor_msgs.msg import JointState,Image
 from hitbot_msgs.srv import *
 from trajectory_msgs.msg import JointTrajectory
-from std_msgs.msg import Float64MultiArray
+from std_msgs.msg import Float64MultiArray,Int32
 from moveit_msgs.msg import DisplayTrajectory
 import redis
 from octomap_msgs.msg import Octomap
@@ -24,6 +24,7 @@ import octomap
 from scipy.spatial import KDTree
 import fcl
 from ikpy.chain import Chain
+from ikpy.link import URDFLink
 import h5py
 from collections import deque
 from cv_bridge import CvBridge
@@ -33,6 +34,7 @@ import pygame
 import threading
 # Load the URDF file and create the chain
 from example_interfaces.srv import Trigger
+
 
 redis_server='localhost'#'172.27.34.62'
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
@@ -47,17 +49,27 @@ class ServiceClient(Node):
     def __init__(self):
         super().__init__('service_client')
         self.client = self.create_client(Trigger, 'close_gripper_service')  # Service type and name
+        self.open_client = self.create_client(Trigger, 'open_gripper_service')  # Service type and name
        
         # Wait for service to be available
         while not self.client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('service not available, waiting again...')
+            self.get_logger().info('close service not available, waiting again...')
+        while not self.open_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('open service not available, waiting again...')
        
         self.request = Trigger.Request()
+        self.open_request = Trigger.Request()
    
     def send_request(self ):
         #self.request.a = a
         #self.request.b = b
         self.future = self.client.call_async(self.request)
+        rclpy.spin_until_future_complete(self, self.future)
+        return self.future.result()
+    def open_send_request(self ):
+        #self.request.a = a
+        #self.request.b = b
+        self.future = self.open_client.call_async(self.open_request)
         rclpy.spin_until_future_complete(self, self.future)
         return self.future.result()
 
@@ -113,7 +125,12 @@ class HitbotController(Node):
         self.hitbot_x = 0
         self.hitbot_y = 0
         self.hitbot_z = 0
-        self.hitbot_r = -67
+        self.hitbot_r = -48
+
+        self.hitbot_t1_publisher = self.create_subscription(Int32, '/hitbot_theta1',self.hitbot_theta1_callback, 10)
+        self.hitbot_t2_publisher = self.create_subscription(Int32, '/hitbot_theta2',self.hitbot_theta2_callback, 10)
+        self.hitbot_t2_publisher = self.create_subscription(Int32, '/hitbot_theta3',self.hitbot_theta3_callback,10)
+        #self.hitbot_t3_publisher = self.create_subscription(String, '/hitbot_theta3', self.hitbot_theta4_callback,10)
 
         self.hitbot_x_publisher = self.create_publisher(String, '/hitbot_x', 10)
         self.hitbot_y_publisher = self.create_publisher(String, '/hitbot_y', 10)
@@ -134,7 +151,7 @@ class HitbotController(Node):
         self.joint_state_pub = self.create_publisher(JointState, "/hitbot/joint_states", 10)
 
         # Timer to publish joint states at 50Hz (20ms)
-        self.timer = self.create_timer(0.1, self.publish_joint_states)
+        self.timer = self.create_timer(0.5, self.publish_joint_states)
 
         # Define joint names (Modify according to your HitBot model)
         self.joint_names = ["joint1", "joint2", "joint3", "joint4"]
@@ -163,7 +180,7 @@ class HitbotController(Node):
         #pygame.display.set_mode((100, 100))  # Small invisible window
         #pygame.display.set_caption("ROS2 Keyboard Control")
 
-        self.urdf_file = "/mushroomproject/ros2_ws/src/hitbot_sim/hitbot_sim/scara_ik.xml"
+        self.urdf_file = "/home/a/Downloads/mushroomproject/ros2_ws/build/hitbot_sim/hitbot_sim/scara_ik.xml"
         self.scara_arm = Chain.from_urdf_file(self.urdf_file)
         self.R = np.array([
         [0, -1, 0], #[1,0,0]
@@ -211,31 +228,111 @@ class HitbotController(Node):
 
         self.latest_image=None
         self.latest_qpos=None
+        self.link_lengths=[np.float64(0.325), np.float64(0.275), np.float64(0.26)]
+        self.ik_solver=self.chain_bulider(self.link_lengths)
 
         #self.mean = torch.tensor([0.485, 0.456, 0.406]).cuda().view(3, 1, 1)
         #self.std = torch.tensor([0.229, 0.224, 0.225]).cuda().view(3, 1, 1)
+    def chain_bulider(self,link_lengths= [np.float64(0.325), np.float64(0.275), np.float64(0.26)]):
+        scara_chain = Chain(name='RRR_SCARA', links=[
+            URDFLink(
+                name="base",
+                origin_translation=[0, 0, 0],
+                origin_orientation=[0, 0, 0],  # roll, pitch, yaw
+                rotation=[0, 0, 1],  # rotate around Z
+                joint_type='revolute'
+            ),
+            URDFLink(
+                name="link1",
+                origin_translation=[link_lengths[0], 0, 0],
+                origin_orientation=[0, 0, 0],
+                rotation=[0, 0, 1],
+                joint_type='revolute'
+            ),
+            URDFLink(
+                name="link2",
+                origin_translation=[link_lengths[1], 0, 0],
+                origin_orientation=[0, 0, 0],
+                rotation=[0, 0, 1],
+                joint_type='revolute'
+            ),
+            URDFLink(
+                name="end_effector",
+                origin_translation=[link_lengths[2], 0, 0],
+                origin_orientation=[0, 0, 0],
+                rotation=None,  # fixed segment
+                joint_type='fixed'
+            )
+        ])
+
+        return scara_chain
+    def hitbot_theta1_callback(self,msg):
+        theta1=msg.data
+        theta1=int(theta1)
+        self.get_logger().info(f"get theta1:{theta1}")
+        self.robot.movej_angle(theta1,self.robot.angle2,self.robot.z,self.robot.r,50,1)
+    def hitbot_theta2_callback(self,msg):
+        theta2=msg.data
+        theta2=int(theta2)
+        self.get_logger().info(f"get theta2:{theta2}")
+        self.robot.movej_angle(self.robot.angle1,theta2,self.robot.z,self.robot.r,50,1)
+    def hitbot_theta3_callback(self,msg):
+        theta3=msg.data
+        theta3=int(theta3)
+        self.get_logger().info(f"get theta3:{theta3}")
+        self.robot.movej_angle(self.robot.angle1,self.robot.angle2,self.robot.z,theta3,50,1)
+    def forward_kinematics_from_angles(self,theta):
+        theta1, theta2, theta3 = theta[:3]
+        x = self.link_lengths[0] * np.cos(theta1) + self.link_lengths[1] * np.cos(theta1 + theta2) + self.link_lengths[2] * np.cos(theta1 + theta2 + theta3)
+        y = self.link_lengths[0] * np.sin(theta1) + self.link_lengths[1] * np.sin(theta1 + theta2) + self.link_lengths[2] * np.sin(theta1 + theta2 + theta3)
+        #x = self.link_lengths[0] * np.cos(theta1) + self.link_lengths[1] * np.cos(theta1 + theta2) + self.link_lengths[2] * np.cos(theta1 + theta2 + theta3)
+        #y = self.link_lengths[0] * np.sin(theta1) + self.link_lengths[1] * np.sin(theta1 + theta2) + self.link_lengths[2] * np.sin(theta1 + theta2 + theta3)
+        return np.array([x, y])
     def bounding_boxes_callback(self, msg):
         r.set("mode","pickup_ready")
         mushroom_xyz=msg.data
         mushroom_xyz=msg.data.split(",");
         self.get_logger().info(f"get mushroom_xyz:{mushroom_xyz}")
-        ret=self.robot.movej_xyz(int(float(mushroom_xyz[2].strip())-230),int(float(mushroom_xyz[0].strip())),0,-67,50,1)
+        goal=[int(float(mushroom_xyz[2].strip()))+40,0-int(float(mushroom_xyz[0].strip())),0]
+        self.get_logger().info(f"target get goal:{goal}")
+        angles=self.ik_solver.inverse_kinematics([goal[0]/1000,goal[1]/1000,0])
+        self.get_logger().info(f"Computed   angle:{angles}")
+        computed_pos=self.forward_kinematics_from_angles(angles[:3])
+        self.get_logger().info(f"Computed   position:{computed_pos}")
+        if (abs(angles[2]))*180/3.14>100:
+            r.set("mode","camera_ready")
+            self.get_logger().info(f"self collide")
+            #return
+
+        #ret=self.robot.movej_angle(angles[0]*180/3.14,angles[1]*180/3.14,0,angles[2]*180/3.14,100,1) 
+        ret=self.robot.movej_xyz(int(float(mushroom_xyz[2].strip())-230),0-int(float(mushroom_xyz[0].strip())),0,-48,200,1)
         self.get_logger().info(f"ret :{ret}")
         self.robot.wait_stop()
-        self.robot.get_scara_param()
-        self.robot.wait_stop()
-        ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-60,-67,50,1)
-        self.robot.wait_stop()
 
-        response = self.client_node.send_request()
+
+        response = self.client_node.open_send_request()
         if response is not None:
-            self.client_node.get_logger().info(f'Result of add_two_ints: for {response}')
+            self.robot.get_scara_param()
+            self.robot.wait_stop()
+            ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-110,-48,200,1)
+            self.robot.wait_stop()
+            self.client_node.get_logger().info(f'open for {response}')
+            response = self.client_node.send_request()
+            if response is not None:
+                time.sleep(3)
+                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,0,-48,200,1)
+                self.robot.wait_stop()
+                time.sleep(1)
+                ret=self.robot.movej_xyz(0,-400,0,-48-230,200,1)
+                self.robot.wait_stop()
+                response = self.client_node.open_send_request()
+
+
         else:
             self.get_logger().error('Service call failed %r' % (self.client_node.future.exception(),))
         self.get_logger().info(f"move in -z, ret :{ret}")
 
-        ret=self.robot.movej_xyz(self.robot.x,self.robot.y,0,-67,50,1)
-        self.robot.wait_stop()
+
 
         r.set("mode","camera_ready")
     def joint_state_cb(self, msg):
@@ -299,7 +396,7 @@ class HitbotController(Node):
             qpos[0]=self.robot.x  #.x
             qpos[1]=self.robot.y  #.y
             qpos[2]=self.robot.z
-            qpos[3]=0#(self.robot.r+67)
+            qpos[3]=0#(self.robot.r+48)
             
             # Compute cartesian position (forward kinematics)
             cartesian_pos = self.forward_kinematics(qpos)
@@ -644,7 +741,7 @@ class HitbotController(Node):
             point = Point()
             point.x, point.y, point.z = x, y, z
             marker.points.append(point)
-            self.robot.movej_xyz(x*1000,y*1000,0,-67,50,1)
+            self.robot.movej_xyz(x*1000,y*1000,0,-48,50,1)
 
         self.path_publisher.publish(marker)
         self.get_logger().info("Published RRT path.")
@@ -652,7 +749,7 @@ class HitbotController(Node):
     def hitbot_end_xyzr_callback(self,msg):
         xyzr=msg.data.split(",");
         self.get_logger().info(f'hitbot_end_xyzr_callback:{msg},{xyzr}')
-        ret=self.robot.movel_xyz(int(xyzr[0]),int(xyzr[1]),int(xyzr[2]),int(xyzr[3]),80)
+        ret=self.robot.movel_xyz(int(xyzr[0]),int(xyzr[1]),int(xyzr[2]),int(xyzr[3]),100)
         self.get_logger().info(f"movel_xyz ret: {ret}")
         self.robot.wait_stop()
     def hitbot_end_angle_callback(self,msg):
@@ -673,7 +770,7 @@ class HitbotController(Node):
     def publish_joint_states(self):
         # Get real joint positions from HitBot API (Replace this with actual API calls)
         self.robot.get_scara_param()
-        joint_positions = [self.robot.z,self.robot.angle1*3.14/180,self.robot.angle2*3.14/180,(self.robot.r-67)*3.14/180]
+        joint_positions = [self.robot.z,self.robot.angle1*3.14/180,self.robot.angle2*3.14/180,(self.robot.r-48)*3.14/180]
 
         # Create JointState message
         joint_state_msg = JointState()
@@ -689,10 +786,14 @@ class HitbotController(Node):
         # Publish the joint states
         self.joint_state_pub.publish(joint_state_msg)
 
+       
+
+      
+
         self.publish_hitbot_x(str(int(self.robot.x)))
         self.publish_hitbot_y(str(int(self.robot.y)))
         self.publish_hitbot_z(str(int(self.robot.z)))
-        self.publish_hitbot_r(str(int(self.robot.r-67)))
+        self.publish_hitbot_r(str(int(self.robot.r-48)))
         camera_xyz=String()
         camera_xyz.data=str(self.robot.x)+","+str(self.robot.y)
         self.camera_xyz_publisher.publish(camera_xyz)
@@ -703,7 +804,7 @@ class HitbotController(Node):
         qpos[0]=self.robot.x
         qpos[1]=self.robot.y
         qpos[2]=self.robot.z
-        qpos[3]=0#(self.robot.r+67)
+        qpos[3]=0#(self.robot.r+48)
         self.latest_qpos=qpos
 
         max_timesteps = 16
@@ -747,8 +848,8 @@ class HitbotController(Node):
             #self.get_logger().info(f"total_joints:{self.robot.angle1+(target_joints[0])},{self.robot.angle2+(target_joints[1])},{self.robot.z+target_joints[2]},{self.robot.r+target_joints[3]}")            
             self.robot.get_scara_param()
             self.robot.wait_stop()
-            ret=self.robot.movel_xyz((target_joints[0]),(target_joints[1]),target_joints[2],-67.0,20)            
-            #ret=self.robot.new_movej_angle(self.robot.angle1+(target_joints[0]),self.robot.angle2+(target_joints[1]),0,target_joints[3]-67.0,50,1)
+            ret=self.robot.movel_xyz((target_joints[0]),(target_joints[1]),target_joints[2],-48.0,20)            
+            #ret=self.robot.new_movej_angle(self.robot.angle1+(target_joints[0]),self.robot.angle2+(target_joints[1]),0,target_joints[3]-48.0,50,1)
             
             print(f"ret:{ret}")
             self.robot.wait_stop()
@@ -777,7 +878,7 @@ class HitbotController(Node):
                 self.get_logger().info(f"i={i},waypoints : {waypoints}")
                 #for j in range(0, len(waypoints)):
                   #positions=waypoints[j].positions
-                self.robot.new_movej_angle(waypoints[1]*180/3.14, waypoints[2]*180/3.14, waypoints[0], (waypoints[3]*180/3.14)-67.0, 50, 1)
+                self.robot.new_movej_angle(waypoints[1]*180/3.14, waypoints[2]*180/3.14, waypoints[0], (waypoints[3]*180/3.14)-48.0, 50, 1)
                 #
             self.robot.wait_stop()
 

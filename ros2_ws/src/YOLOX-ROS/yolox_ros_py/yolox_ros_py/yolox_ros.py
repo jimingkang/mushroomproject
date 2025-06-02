@@ -179,10 +179,12 @@ class yolox_ros(yolox_py):
         self.intrinsics = None
         self.pix = None
         self.pix_grade = None
+        self.pre_mushroom=[0,0,0]
+        self.pre_pix=(0,0)
 
 
 
-        qos_profile_subscriber = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,history=HistoryPolicy.KEEP_LAST,depth=10)
+        qos_profile_subscriber = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,history=HistoryPolicy.KEEP_LAST,depth=1)
         self.sub_depth_image = Subscriber(self,Image, depth_image_topic)
         #if (self.sensor_qos_mode):
         self.sub = Subscriber(self,Image,raw_image_topic, qos_profile=qos_profile_subscriber)
@@ -304,7 +306,7 @@ class yolox_ros(yolox_py):
             outputs, img_info = self.predictor.inference(img_rgb)
             try:
                 logger.info("mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
-                if  (outputs is not None) and r.get("mode")=="camera_ready":# and r.get("scan")=="start" :#
+                if  (outputs is not None): #and r.get("mode")=="camera_ready":# and r.get("scan")=="start" :#
                     result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
 
                 if result_img_rgb is not None:
@@ -321,16 +323,22 @@ class yolox_ros(yolox_py):
 
                 for box,score in zip(bboxes,scores):
                     pix = (int((box[0]+box[2])/2),int((box[1]+box[3])/2))
-                    logger.info("pix: {}".format(pix))
-                    if(score>0.3 and self.intrinsics and abs(int((box[0]-box[2])/2))<50 and abs(int((box[1]-box[3])/2))<50):
+                    #self.diff_pix=abs(self.pre_pix[0]-pix[0])+abs(self.pre_pix[1]-pix[1])
+                    logger.info("pix: {},box pix:{}".format(pix,box))
+                    if( score>0.3 and self.intrinsics and abs(int((box[0]-box[2])))>10 and  abs(int((box[0]-box[2])))<50 and abs(int((box[1]-box[3])))>10 and abs(int((box[1]-box[3])))<50):
                         depth = cv_image[pix[1], pix[0]]
                         result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth)
                         line = f'{result[0]},{result[1]},{result[2]}'
                         logger.info("xyz in side camera: {}".format(line))
                         bbox=String()
                         bbox.data=line
-                        logger.info("box:{}".format(bbox.data))
-                        self.pub_bounding_boxes.publish(bbox)
+
+                        #diff=abs(self.pre_mushroom[0]-result[0])+abs(self.pre_mushroom[2]-result[2])
+                        #logger.info("box:{},".format(bbox.data))
+                        if   int(result[1])<100 and r.get("mode")=="camera_ready":
+                            self.pre_mushroom=result
+                            self.pre_pix=pix
+                            self.pub_bounding_boxes.publish(bbox)
                         break
 
 
