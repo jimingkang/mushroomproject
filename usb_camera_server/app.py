@@ -30,7 +30,7 @@ from camera_usb import Camera
 import cv2
 
 
-from ultralytics import YOLO
+#from ultralytics import YOLO
 import numpy as np
 from cv_bridge import CvBridge,CvBridgeError
 
