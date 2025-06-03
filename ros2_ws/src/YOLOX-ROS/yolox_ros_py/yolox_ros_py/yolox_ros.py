@@ -157,8 +157,8 @@ global_points_xyz_rgb_list=np.asarray([()])
 i=0
 class yolox_ros(yolox_py):
     def __init__(self) -> None:
-        raw_image_topic = '/camera/color/image_rect_raw'
-        depth_image_topic = '/camera/depth/image_rect_raw'
+        raw_image_topic = '/camera/color/image_raw'
+        depth_image_topic = '/camera/aligned_depth_to_color/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
         depth_info_topic = '/camera/depth/camera_info'
         move_x="/move/x"
 
@@ -167,7 +167,7 @@ class yolox_ros(yolox_py):
 
         self.setting_yolox_exp()
         self.bridge = CvBridge()
-        self.pub_bounding_boxes = self.create_publisher(String,"/yolox/bounding_boxes", 10)
+        self.pub_bounding_boxes = self.create_publisher(String,"/yolox/bounding_boxes", 1)
         self.pub_bounding_boxes_cords = self.create_publisher(BoundingBoxesCords,"/yolox/bounding_boxes_cords", 1)
         self.pub_boxes_img = self.create_publisher(Image,"/yolox/boxes_image", 10)
         self.pub_pointclouds = self.create_publisher(PointCloud2,'/yolox/pointclouds', 10)
@@ -319,15 +319,21 @@ class yolox_ros(yolox_py):
                 cv_image = self.bridge.imgmsg_to_cv2(data, data.encoding)
                 global_camera_xy=r.get("global_camera_xy")
                 camera_xy=global_camera_xy.split(",")
-                logger.info("in  imageDepthCallback camera_xy:{}, {}".format(camera_xy[0],camera_xy[1]))
+                logger.info("in  imageDepthCallback camera_xy:{},bboxes:{},scores:{},data.encoding{}".format(camera_xy,bboxes,scores,data.encoding))
 
                 for box,score in zip(bboxes,scores):
+                    logger.info("box[0]:{},{},{},{}".format(box[0],box[2],box[1],box[3]))                
+                
                     pix = (int((box[0]+box[2])/2),int((box[1]+box[3])/2))
                     #self.diff_pix=abs(self.pre_pix[0]-pix[0])+abs(self.pre_pix[1]-pix[1])
-                    logger.info("pix: {},box pix:{}".format(pix,box))
-                    if( score>0.3 and self.intrinsics and abs(int((box[0]-box[2])))>10 and  abs(int((box[0]-box[2])))<50 and abs(int((box[1]-box[3])))>10 and abs(int((box[1]-box[3])))<50):
+                    logger.info("pix: {},box:{},score:{}".format(pix,box,score))
+                    if( score>0.3 and self.intrinsics and abs(int((box[0]-box[2])))>10 and  abs(int((box[0]-box[2])))<120 and abs(int((box[1]-box[3])))>10 and abs(int((box[1]-box[3])))<120):
                         depth = cv_image[pix[1], pix[0]]
+                        logger.info("before  rs2_deproject_pixel_to_point depth:{}".format(depth))
                         result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth)
+                        logger.info("after  rs2_deproject_pixel_to_point depth:{}".format(depth))
+                        #depth_val = cv_image.get_distance(pix[0], pix[1])  # Meters
+                        #xyz = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth_val)
                         line = f'{result[0]},{result[1]},{result[2]}'
                         logger.info("xyz in side camera: {}".format(line))
                         bbox=String()
@@ -335,7 +341,7 @@ class yolox_ros(yolox_py):
 
                         #diff=abs(self.pre_mushroom[0]-result[0])+abs(self.pre_mushroom[2]-result[2])
                         #logger.info("box:{},".format(bbox.data))
-                        if   int(result[1])<100 and r.get("mode")=="camera_ready":
+                        if   r.get("mode")=="camera_ready": # int(result[1])<100 and
                             self.pre_mushroom=result
                             self.pre_pix=pix
                             self.pub_bounding_boxes.publish(bbox)

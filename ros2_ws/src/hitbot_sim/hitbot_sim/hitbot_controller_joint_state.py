@@ -293,7 +293,7 @@ class HitbotController(Node):
         mushroom_xyz=msg.data
         mushroom_xyz=msg.data.split(",");
         self.get_logger().info(f"get mushroom_xyz:{mushroom_xyz}")
-        goal=[int(float(mushroom_xyz[2].strip()))+40,0-int(float(mushroom_xyz[0].strip())),0]
+        goal=[int(float(mushroom_xyz[2].strip())),0-int(float(mushroom_xyz[0].strip())),0]
         self.get_logger().info(f"target get goal:{goal}")
         angles=self.ik_solver.inverse_kinematics([goal[0]/1000,goal[1]/1000,0])
         self.get_logger().info(f"Computed   angle:{angles}")
@@ -305,7 +305,7 @@ class HitbotController(Node):
             #return
 
         #ret=self.robot.movej_angle(angles[0]*180/3.14,angles[1]*180/3.14,0,angles[2]*180/3.14,100,1) 
-        ret=self.robot.movej_xyz(int(float(mushroom_xyz[2].strip())-230),0-int(float(mushroom_xyz[0].strip())),0,-48,200,1)
+        ret=self.robot.movej_xyz(int(float(mushroom_xyz[2].strip())-230),100-int(float(mushroom_xyz[0].strip())),0,-48,100,1)
         self.get_logger().info(f"ret :{ret}")
         self.robot.wait_stop()
 
@@ -314,16 +314,16 @@ class HitbotController(Node):
         if response is not None:
             self.robot.get_scara_param()
             self.robot.wait_stop()
-            ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-110,-48,200,1)
+            ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-110,-48,100,1)
             self.robot.wait_stop()
             self.client_node.get_logger().info(f'open for {response}')
             response = self.client_node.send_request()
             if response is not None:
                 time.sleep(3)
-                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,0,-48,200,1)
+                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,0,-48,100,1)
                 self.robot.wait_stop()
                 time.sleep(1)
-                ret=self.robot.movej_xyz(0,-400,0,-48-230,200,1)
+                ret=self.robot.movej_xyz(0,-400,0,-48-230,100,1)
                 self.robot.wait_stop()
                 response = self.client_node.open_send_request()
 
