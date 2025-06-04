@@ -45,6 +45,132 @@ os.chdir(os.path.expanduser('~'))
 #from .hitbot_interface import HitbotInterface
 from .HitbotInterface import HitbotInterface
 
+
+import numpy as np
+from scipy.optimize import root
+from matplotlib import pyplot as plt
+
+class Solver:
+    def __init__(self,link_lengths=np.array([0.325, 0.275, 0.260])):
+        self.link_lengths = link_lengths
+
+    def forward_kinematics_from_angles(self,theta):
+        theta1, theta2, theta3 = theta
+        x = self.link_lengths[0] * np.cos(theta1) + self.link_lengths[1] * np.cos(theta1 + theta2) + self.link_lengths[2] * np.cos(theta1 + theta2 + theta3)
+        y = self.link_lengths[0] * np.sin(theta1) + self.link_lengths[1] * np.sin(theta1 + theta2) + self.link_lengths[2] * np.sin(theta1 + theta2 + theta3)
+        return np.array([x, y])
+
+    def forward_kinematics_from_angles_all(self,theta):
+        theta1, theta2, theta3 = theta
+        x1 = self.link_lengths[0] * np.cos(theta1)
+        y1 = self.link_lengths[0] * np.sin(theta1)
+        x2 = x1 + self.link_lengths[1] * np.cos(theta1 + theta2)
+        y2 = y1 + self.link_lengths[1] * np.sin(theta1 + theta2)
+        x3 = x2 + self.link_lengths[2] * np.cos(theta1 + theta2 + theta3)
+        y3 = y2 + self.link_lengths[2] * np.sin(theta1 + theta2 + theta3)
+        return np.array([[x1, y1], [x2, y2], [x3, y3]])
+
+    def error_function(self,theta):
+        x,y=self.target-self.forward_kinematics_from_angles(theta)
+        dx=x*0.001
+        dy=y*0.001
+        return np.array([self.compute_dtheta1(dx, dy, theta[0], theta[1], theta[2]),self.compute_dtheta2(dx, dy, theta[0], theta[1], theta[2]),self.compute_dtheta3(dx, dy, theta[0], theta[1], theta[2])])
+
+    def compute_dtheta1(self,dx, dy, theta1, theta2, theta3):
+        r1,r2,r3=self.link_lengths
+        jx = -r1 * np.sin(theta1) - r2 * np.sin(theta1 + theta2) - r3 * np.sin(theta1 + theta2 + theta3)
+        jy =  r1 * np.cos(theta1) + r2 * np.cos(theta1 + theta2) + r3 * np.cos(theta1 + theta2 + theta3)
+        J_theta1 = np.array([jx, jy])
+        delta_p = np.array([dx, dy])
+        dtheta1 = np.dot(J_theta1, delta_p) / np.dot(J_theta1, J_theta1)
+        return dtheta1
+
+    def compute_dtheta2(self,dx, dy, theta1, theta2, theta3):
+        r1,r2,r3=self.link_lengths
+        jx = - r2 * np.sin(theta1 + theta2) - r3 * np.sin(theta1 + theta2 + theta3)
+        jy = r2 * np.cos(theta1 + theta2) + r3 * np.cos(theta1 + theta2 + theta3)
+        J_theta1 = np.array([jx, jy])
+        delta_p = np.array([dx, dy])
+        dtheta1 = np.dot(J_theta1, delta_p) / np.dot(J_theta1, J_theta1)
+        return dtheta1
+
+    def compute_dtheta3(self,dx, dy, theta1, theta2, theta3):
+        r1,r2,r3=self.link_lengths
+        jx = - r3 * np.sin(theta1 + theta2 + theta3)
+        jy = r3 * np.cos(theta1 + theta2 + theta3)
+        J_theta1 = np.array([jx, jy])
+        delta_p = np.array([dx, dy])
+        dtheta1 = np.dot(J_theta1, delta_p) / np.dot(J_theta1, J_theta1)
+        return dtheta1
+
+    def cost(self, ik_success, current_angle):
+        ik_success = np.array(ik_success)
+        current_value = self.forward_kinematics_from_angles_all(current_angle)
+        angle_costs=[]
+        # weights = np.array([[2.0,2.0],[ 1.0,1.0], [1,1]])
+        # weights2 = np.array([[1.5,1.5],[ 1.0,1.0], [1,1]])
+
+        for i in ik_success:
+            #values=self.forward_kinematics_from_angles_all(i)
+            val1=abs(i[0]-current_angle[0])*100 if i[0]>0 else abs(i[0]-current_angle[0])*80
+            val2=abs(i[1]-current_angle[1]) *1000
+            val3=abs(i[2]-current_angle[2])*8 if i[2]>0  else abs(i[2]-current_angle[2])*10
+            angle_costs.append(np.linalg.norm(val1+val2+val3))
+
+        return np.array(angle_costs)
+
+    def solve(self,target,current_angle):
+        self.target= np.array(target)
+        limits=[[-np.pi/2,np.pi/2],[-np.pi/1.3,np.pi/1.3],[-np.pi/2,np.pi/2]]
+        initial_guesses=[[np.random.uniform(*limits[i]) for i in range(3)] for i in range(0,100)]
+        ik_success=[]
+        for guess in initial_guesses:
+            sol=root(self.error_function, guess, method='hybr')
+            if sol.success:
+                error = np.linalg.norm(self.target-self.forward_kinematics_from_angles(sol.x))
+                x = sol.x
+
+                within_limits = all(
+                    limits[i][0] <= x[i] <= limits[i][1]
+                    for i in range(3)
+                )
+
+                if error < 0.01 and within_limits:
+                    ik_success.append(x)
+        if len(ik_success):
+            ik_success=np.array(ik_success)
+            angle_cost=self.cost(ik_success, current_angle)
+            return ik_success,angle_cost
+        else:
+            return target,current_angle
+
+    def get_angle_to_target(self, target, current_angle):
+        """
+        Computes the optimal joint configuration (angle) required to reach a given target from the current angle.
+
+        This function uses the `solve` method to calculate possible solutions and their associated angle costs,
+        then selects and returns the configuration with the minimum cost.
+
+        Parameters:
+        ----------
+        target : array-like
+            The desired position or state that the system should reach.
+        current_angle : array-like or float
+            The current angle or joint configuration of the system.
+
+        Returns:
+        -------
+        array-like or float
+            The angle configuration from the list of solutions that has the minimum associated cost.
+        """
+        solved, angle_cost = self.solve(target, current_angle)
+        min_config = np.argmin(angle_cost)
+        return solved[min_config]
+    def get_robot_angle_in_degree(self, target, current_angle=[0,0,0]):
+        ans=self.get_angle_to_target(target, current_angle)
+        return [round(ans[0]*180/3.1415,0),round(ans[1]*180/3.1415,0),round((ans[0]+ans[1]+ans[2])*180/3.1415,0)]
+
+
 class ServiceClient(Node):
     def __init__(self):
         super().__init__('service_client')
@@ -52,10 +178,10 @@ class ServiceClient(Node):
         self.open_client = self.create_client(Trigger, 'open_gripper_service')  # Service type and name
        
         # Wait for service to be available
-        while not self.client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('close service not available, waiting again...')
-        while not self.open_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('open service not available, waiting again...')
+        #while not self.client.wait_for_service(timeout_sec=1.0):
+        #    self.get_logger().info('close service not available, waiting again...')
+        #while not self.open_client.wait_for_service(timeout_sec=1.0):
+        #    self.get_logger().info('open service not available, waiting again...')
        
         self.request = Trigger.Request()
         self.open_request = Trigger.Request()
@@ -111,6 +237,7 @@ class HitbotController(Node):
         r.set("mode","camera_ready")
 
         self.client_node = ServiceClient()
+        self.solver=Solver()
 
 
         self.SetGPIO_srv = self.create_service(SetGPIO, 'set_gpio', self.set_gpio_callback)
@@ -293,9 +420,11 @@ class HitbotController(Node):
         mushroom_xyz=msg.data
         mushroom_xyz=msg.data.split(",");
         self.get_logger().info(f"get mushroom_xyz:{mushroom_xyz}")
-        goal=[int(float(mushroom_xyz[2].strip())),0-int(float(mushroom_xyz[0].strip())),0]
+        goal=[int(float(mushroom_xyz[2].strip()))/1000,0-int(float(mushroom_xyz[0].strip()))/1000]
         self.get_logger().info(f"target get goal:{goal}")
-        angles=self.ik_solver.inverse_kinematics([goal[0]/1000,goal[1]/1000,0])
+        current_angle=[self.robot.angle1 *3.1415/180,self.robot.angle2*3.1415/180,self.robot.r*3.1415/180]
+        angles=self.solver.get_robot_angle_in_degree(goal,current_angle)
+        #angles=self.ik_solver.inverse_kinematics([goal[0]/1000,goal[1]/1000,0])
         self.get_logger().info(f"Computed   angle:{angles}")
         computed_pos=self.forward_kinematics_from_angles(angles[:3])
         self.get_logger().info(f"Computed   position:{computed_pos}")
@@ -304,14 +433,14 @@ class HitbotController(Node):
             self.get_logger().info(f"self collide")
             #return
 
-        #ret=self.robot.movej_angle(angles[0]*180/3.14,angles[1]*180/3.14,0,angles[2]*180/3.14,100,1) 
-        ret=self.robot.movej_xyz(int(float(mushroom_xyz[2].strip())-230),100-int(float(mushroom_xyz[0].strip())),0,-48,100,1)
+        ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-20,100,1) 
+        #ret=self.robot.movej_xyz(int(float(mushroom_xyz[2].strip())-230),100-int(float(mushroom_xyz[0].strip())),0,-48,100,1)
         self.get_logger().info(f"ret :{ret}")
         self.robot.wait_stop()
 
 
-        response = self.client_node.open_send_request()
-        if response is not None:
+        #response = self.client_node.open_send_request()
+        if 0:#response is not None:
             self.robot.get_scara_param()
             self.robot.wait_stop()
             ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-110,-48,100,1)
@@ -328,8 +457,8 @@ class HitbotController(Node):
                 response = self.client_node.open_send_request()
 
 
-        else:
-            self.get_logger().error('Service call failed %r' % (self.client_node.future.exception(),))
+        #else:
+        #    self.get_logger().error('Service call failed %r' % (self.client_node.future.exception(),))
         self.get_logger().info(f"move in -z, ret :{ret}")
 
 
