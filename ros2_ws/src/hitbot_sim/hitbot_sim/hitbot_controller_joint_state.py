@@ -178,10 +178,10 @@ class ServiceClient(Node):
         self.open_client = self.create_client(Trigger, 'open_gripper_service')  # Service type and name
        
         # Wait for service to be available
-        #while not self.client.wait_for_service(timeout_sec=1.0):
-        #    self.get_logger().info('close service not available, waiting again...')
-        #while not self.open_client.wait_for_service(timeout_sec=1.0):
-        #    self.get_logger().info('open service not available, waiting again...')
+        while not self.client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('close service not available, waiting again...')
+        while not self.open_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('open service not available, waiting again...')
        
         self.request = Trigger.Request()
         self.open_request = Trigger.Request()
@@ -257,7 +257,7 @@ class HitbotController(Node):
         self.hitbot_t1_publisher = self.create_subscription(Int32, '/hitbot_theta1',self.hitbot_theta1_callback, 10)
         self.hitbot_t2_publisher = self.create_subscription(Int32, '/hitbot_theta2',self.hitbot_theta2_callback, 10)
         self.hitbot_t2_publisher = self.create_subscription(Int32, '/hitbot_theta3',self.hitbot_theta3_callback,10)
-        #self.hitbot_t3_publisher = self.create_subscription(String, '/hitbot_theta3', self.hitbot_theta4_callback,10)
+        self.hitbot_t3_publisher = self.create_subscription(Int32, '/hitbot_move_z', self.hitbot_move_z_callback,10)
 
         self.hitbot_x_publisher = self.create_publisher(String, '/hitbot_x', 10)
         self.hitbot_y_publisher = self.create_publisher(String, '/hitbot_y', 10)
@@ -439,17 +439,17 @@ class HitbotController(Node):
         self.robot.wait_stop()
 
 
-        #response = self.client_node.open_send_request()
-        if 0:#response is not None:
+        response = self.client_node.open_send_request()
+        if response is not None:
             self.robot.get_scara_param()
             self.robot.wait_stop()
-            ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-110,-48,100,1)
+            ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-110,self.robot.r,100,1)
             self.robot.wait_stop()
             self.client_node.get_logger().info(f'open for {response}')
             response = self.client_node.send_request()
             if response is not None:
                 time.sleep(3)
-                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,0,-48,100,1)
+                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,0,self.robot.r,100,1)
                 self.robot.wait_stop()
                 time.sleep(1)
                 ret=self.robot.movej_xyz(0,-400,0,-48-230,100,1)
@@ -457,8 +457,8 @@ class HitbotController(Node):
                 response = self.client_node.open_send_request()
 
 
-        #else:
-        #    self.get_logger().error('Service call failed %r' % (self.client_node.future.exception(),))
+        else:
+            self.get_logger().error('Service call failed %r' % (self.client_node.future.exception(),))
         self.get_logger().info(f"move in -z, ret :{ret}")
 
 
@@ -892,7 +892,15 @@ class HitbotController(Node):
         ret=self.robot.movej_angle(angle1,angle2,z,r,50,1)
         self.get_logger().info(f"movel_xyz ret: {ret}")
         self.robot.wait_stop()
+        
+    def hitbot_move_z_callback(self,msg):
+        self.get_logger().info(f'hitbot_move_z_callback:{msg}')
+        z=msg.data
+        self.get_logger().info(f'hitbot_move_z_callback:{msg}')
+        ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-z,self.robot.r,100,1)
 
+        self.get_logger().info(f"hitbot_move_z_callback ret: {ret}")
+        self.robot.wait_stop()
     
     
 
@@ -922,7 +930,8 @@ class HitbotController(Node):
         self.publish_hitbot_x(str(int(self.robot.x)))
         self.publish_hitbot_y(str(int(self.robot.y)))
         self.publish_hitbot_z(str(int(self.robot.z)))
-        self.publish_hitbot_r(str(int(self.robot.r-48)))
+        #self.get_logger().info(f"publish_joint_states str(int(self.robot.z)) {str(int(self.robot.z))}")
+        #self.publish_hitbot_r(str(int(self.robot.r-48)))
         camera_xyz=String()
         camera_xyz.data=str(self.robot.x)+","+str(self.robot.y)
         self.camera_xyz_publisher.publish(camera_xyz)

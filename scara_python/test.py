@@ -16,14 +16,14 @@ ret = hi.initial(1, 210);  # // I add you on wechat
 hi.is_connect()
 hi.is_collision()
 hi.unlock_position()
-ret=hi.movel_xyz(600,0,0,-20,50)
+ret=hi.movel_xyz(600,0,-20,-70,50)
 hi.wait_stop()
 #ret=hi.movel_xyz(500,-200,0,-48,50)
 #hi.wait_stop()
 #ret=hi.movej_angle(50,-104,0,-20-60,30,1)
 #hi.wait_stop()
-ret=hi.movej_angle(50,40,0,-20,30,1)
-hi.wait_stop()
+#ret=hi.movej_angle(50,40,0,-20,30,1)
+#hi.wait_stop()
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 
