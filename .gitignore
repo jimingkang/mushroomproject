@@ -107,7 +107,8 @@ WebUI/typings
 # System files
 WebUI/.DS_Store
 WebUI/Thumbs.db
-
+*.pt
+*/*.pt
 ros2_ws/install
 ros2_ws/build
 ros2_ws/log
@@ -117,8 +118,6 @@ ros2_ws/src/YOLOX_ROS/weights
 ros2_ws/src/realsense_ros/meshes
 YOLOX-main/YOLOX_outputs/yolox_voc_s/yolox_x_mushroom.engine
 YOLOX-main/YOLOX_outputs/yolox_voc_s/yolox_x_mushroom.pth
-*.pt
-*/*.pt
 abdollah/*.pt
 abdollah/*.engine
 abdollah/*.onnx

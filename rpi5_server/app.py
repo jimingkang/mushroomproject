@@ -31,7 +31,7 @@ frame=None
 
 import time
 import Adafruit_PCA9685
-pwm = Adafruit_PCA9685.PCA9685(address=0x40, busnum=1)
+#pwm = Adafruit_PCA9685.PCA9685(address=0x40, busnum=1)
 
 
 from camera_usb import Camera
@@ -39,16 +39,8 @@ from camera_usb import Camera
 import cv2
 #from picamera2 import Picamera2
 
-from ultralytics import YOLO
+#from ultralytics import YOLO
 import numpy as np
-from cv_bridge import CvBridge,CvBridgeError
-# Set up the camera with Picam
-#picam2 = Picamera2()
-#picam2.preview_configuration.main.size = (1280, 1280)
-#picam2.preview_configuration.main.format = "RGB888"
-#picam2.preview_configuration.align()
-#picam2.configure("preview")
-#picam2.start()
 
 
 redis_server='172.27.34.62'
@@ -56,8 +48,7 @@ pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,
 r = redis.Redis(connection_pool=pool)
 
 # Load YOLOv11
-model = YOLO("/home/pi/yolomodel/yolo11n_mushroom_ncnn_model")
-model2 = YOLO("/home/pi/yolomodel/shape_yolo11_ncnn_model")
+#model = YOLO("/home/pi/yolomodel/yolo11n_mushroom_ncnn_model")
 
 
 
@@ -73,31 +64,24 @@ class MovePublisher(Node):
     def __init__(self):
         super().__init__('test_publisher')
         self.pub_rpi5_raw_img = self.create_publisher(Image,"/yolox/rpi5/raw_image", 10)
-        self.sub_boxing_img = self.create_subscription(Image,"/yolox/rpi5/boxing_image",self.imageflow_callback, 10)
+        #self.sub_boxing_img = self.create_subscription(Image,"/yolox/rpi5/boxing_image",self.imageflow_callback, 10)
         self.gripper_adjust_pub= self.create_publisher(String, '/yolox/move/adjust/xy', 1)
-        #self.subscription = self.create_subscription(Image,'/yolox/boxes_image',self.chatter_callback,10)
         self.gripper_open_subs= self.create_subscription(String,'/yolox/gripper_open',self.gripper_open_callback,10)
         self.gripper_hold_subs = self.create_subscription(String,'/yolox/gripper_hold',self.gripper_hold_callback,10)
         #self.gripper_hold_subs = self.create_subscription(String,'/yolox/move/detected',self.gripper_detected_move_callback,10)
 
         self.latest_message = None
-        self.bridge = CvBridge()
+        #self.bridge = CvBridge()
     
-    def imageflow_callback(self,msg:Image) -> None:
-            global frame,boxing_img
-            boxing_img = self.bridge.imgmsg_to_cv2(msg,"bgr8")
-            frame=cv2.imencode('.jpg', boxing_img)[1].tobytes()
-            boxing_img=None
+    #def imageflow_callback(self,msg:Image) -> None:
+    #        global frame,boxing_img
+    #        boxing_img = self.bridge.imgmsg_to_cv2(msg,"bgr8")
+    #        frame=cv2.imencode('.jpg', boxing_img)[1].tobytes()
+    #        boxing_img=None
 
 
                 
 
-    def chatter_callback(self, msg):
-        global frame
-        #print(f'chatter cb received: {msg.data}')
-        #frame = self.bridge.imgmsg_to_cv2(msg,"bgr8")
-        #self.latest_message = msg.data
-        #frame = msg.data
 
 
     def gripper_detected_move_callback(self, msg):
@@ -152,21 +136,13 @@ class MovePublisher(Node):
         yield b'--frame\r\n'
         while True:
             frame = camera.get_frame()
-            #adjust_gripper_center=r.get("adjust_gripper_center")
-            #logger.info(adjust_gripper_center)
-            #if(adjust_gripper_center!=None):
-            ##    gripper_msg2 = String()
-            #    gripper_msg2.data = adjust_gripper_center
-            #    self.gripper_adjust_pub.publish(gripper_msg2)
-            #nparr = np.fromstring(frame, np.uint8)
-            #ogsimg=cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
             #logger.info(frame.type)
-            jpg_as_np = np.frombuffer(frame, dtype=np.uint8)
-            img = cv2.imdecode(jpg_as_np, flags=1)
-            detect_res=model(img,conf=0.8)
-            logger.info(detect_res!=None)
-            if detect_res!=None and( r.get("mode")=="adjust_camera_init" or r.get("mode")=="adjust_camera_done" ):
+            #jpg_as_np = np.frombuffer(frame, dtype=np.uint8)
+            #img = cv2.imdecode(jpg_as_np, flags=1)
+            #detect_res=model(img,conf=0.8)
+            #logger.info(detect_res!=None)
+            if 0:# detect_res!=None and( r.get("mode")=="adjust_camera_init" or r.get("mode")=="adjust_camera_done" ):
                 #detect_res=model(img,conf=0.8)    
                 #frame=detect_res[0].plot()
                 
@@ -202,10 +178,11 @@ class MovePublisher(Node):
                     cv2.rectangle(img, (left, top), (right, bottom), (255, 0, 0), 2)
                     cv2.putText(img, label, center, cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 1, cv2.LINE_AA)
                     break
-            else:
-                r.set("adjust_gripper_center","")
+            #else:
+            #    r.set("adjust_gripper_center","")
                 
-            frame=cv2.imencode('.jpg', img)[1].tobytes()
+            #frame=cv2.imencode('.jpg', img)[1].tobytes()
+            frame=cv2.imencode('.jpg', frame)[1].tobytes()
             yield b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n'
             frame=None
 
