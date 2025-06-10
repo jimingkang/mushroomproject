@@ -1,0 +1,37 @@
+WARNING ⚠️ Unable to automatically guess model task, assuming 'task=detect'. Explicitly define task for your model, i.e. 'task=detect', 'segment', 'classify','pose' or 'obb'.
+entering ros2 thread
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on http://172.27.34.62:5005
+Press CTRL+C to quit
+172.27.34.62 - - [10/Jun/2025 10:34:45] "GET / HTTP/1.1" 200 -
+172.27.34.62 - - [10/Jun/2025 10:34:45] "GET /static/jquery.min.js HTTP/1.1" 404 -
+172.27.34.62 - - [10/Jun/2025 10:34:45] "GET /static/echarts.min.js HTTP/1.1" 404 -
+172.27.34.62 - - [10/Jun/2025 10:34:46] "GET /video_feed HTTP/1.1" 200 -
+Starting camera thread.
+Loading /home/a/Downloads/mushroomproject/usb_camera_server/yolo11_x_mushroom_jimmy100_ncnn_model for NCNN inference...
+Error on request:
+Traceback (most recent call last):
+  File "/home/a/.local/lib/python3.8/site-packages/werkzeug/serving.py", line 363, in run_wsgi
+    execute(self.server.app)
+  File "/home/a/.local/lib/python3.8/site-packages/werkzeug/serving.py", line 326, in execute
+    for data in application_iter:
+  File "/home/a/.local/lib/python3.8/site-packages/werkzeug/wsgi.py", line 256, in __next__
+    return self._next()
+  File "/home/a/.local/lib/python3.8/site-packages/werkzeug/wrappers/response.py", line 32, in _iter_encoded
+    for item in iterable:
+  File "/home/a/Downloads/mushroomproject/usb_camera_server/app.py", line 95, in gen
+    detect_res=model(img,conf=0.5)
+  File "/home/a/.local/lib/python3.8/site-packages/ultralytics/engine/model.py", line 182, in __call__
+    return self.predict(source, stream, **kwargs)
+  File "/home/a/.local/lib/python3.8/site-packages/ultralytics/engine/model.py", line 543, in predict
+    self.predictor.setup_model(model=self.model, verbose=is_cli)
+  File "/home/a/.local/lib/python3.8/site-packages/ultralytics/engine/predictor.py", line 380, in setup_model
+    self.model = AutoBackend(
+  File "/home/a/.local/lib/python3.8/site-packages/torch/utils/_contextlib.py", line 115, in decorate_context
+    return func(*args, **kwargs)
+  File "/home/a/.local/lib/python3.8/site-packages/ultralytics/nn/autobackend.py", line 483, in __init__
+    import ncnn as pyncnn
+  File "/home/a/.local/lib/python3.8/site-packages/ncnn/__init__.py", line 15, in <module>
+    from .ncnn import *
+ImportError: /home/a/.local/lib/python3.8/site-packages/ncnn/../ncnn.libs/libgomp-d22c30c5.so.1.0.0: cannot allocate memory in static TLS block

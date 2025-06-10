@@ -66,7 +66,6 @@ class MovePublisher(Node):
         self.pub_rpi5_raw_img = self.create_publisher(Image,"/yolox/rpi5/raw_image", 10)
         #self.sub_boxing_img = self.create_subscription(Image,"/yolox/rpi5/boxing_image",self.imageflow_callback, 10)
         self.gripper_adjust_pub= self.create_publisher(String, '/yolox/move/adjust/xy', 1)
-        #self.subscription = self.create_subscription(Image,'/yolox/boxes_image',self.chatter_callback,10)
         self.gripper_open_subs= self.create_subscription(String,'/yolox/gripper_open',self.gripper_open_callback,10)
         self.gripper_hold_subs = self.create_subscription(String,'/yolox/gripper_hold',self.gripper_hold_callback,10)
         #self.gripper_hold_subs = self.create_subscription(String,'/yolox/move/detected',self.gripper_detected_move_callback,10)
@@ -83,12 +82,6 @@ class MovePublisher(Node):
 
                 
 
-    def chatter_callback(self, msg):
-        global frame
-        #print(f'chatter cb received: {msg.data}')
-        #frame = self.bridge.imgmsg_to_cv2(msg,"bgr8")
-        #self.latest_message = msg.data
-        #frame = msg.data
 
 
     def gripper_detected_move_callback(self, msg):

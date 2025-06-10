@@ -4,7 +4,7 @@ import select
 import cv2
 #import v4l2capture
 from base_camera import BaseCamera
-#from ultralytics import YOLO
+from ultralytics import YOLO
 #from yolov8 import YOLOv8
 
 
@@ -26,7 +26,7 @@ r = redis.Redis(connection_pool=pool)
 
 
 #model = YOLO("/home/pi/yolomodel/yolo11n_ncnn_model")
-#model = YOLO("/home/pi/yolomodel/yolo11n_mushroom_ncnn_model")
+model = YOLO("/home/pi/yolomodel/yolo11n_mushroom_ncnn_model")
 #yolov8_detector = YOLOv8(model_path, conf_thres=0.5, iou_thres=0.5)
 class Camera(BaseCamera):
     """Requires python-v4l2capture module: https://github.com/gebart/python-v4l2capture"""
@@ -51,12 +51,6 @@ class Camera(BaseCamera):
                 frame=img
 
                 
-
-                    #shape_res=model2(img)
-                    #logger.info(shape_res)
-                    #frame=shape_res[0].plot()
-
-                #print(img)
                 #cv2.imwrite("buf.jpg",img)
                 if not ret:
                     break
