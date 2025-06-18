@@ -52,7 +52,7 @@ class MovePublisher(Node):
         super().__init__('test_publisher')
         self.pub_rpi5_raw_img = self.create_publisher(Image,"/yolox/rpi5/raw_image", 10)
         self.sub_boxing_img = self.create_subscription(Image,"/yolox/rpi5/boxing_image",self.imageflow_callback, 10)
-        self.gripper_adjust_pub = self.create_publisher(String, '/yolox/rpi5/adjust/xy', 1)
+        self.gripper_adjust_pub = self.create_publisher(String, '/yolox/rpi5/adjust/xy_pixel', 1)
         #self.subscription = self.create_subscription(Image,'/yolox/boxes_image',self.chatter_callback,10)
         #self.gripper_open_subs= self.create_subscription(String,'/yolox/gripper_open',self.gripper_open_callback,10)
         #self.gripper_hold_subs = self.create_subscription(String,'/yolox/gripper_hold',self.gripper_hold_callback,10)
@@ -110,7 +110,7 @@ class MovePublisher(Node):
                     left, top, right, bottom = int(x1), int(y1), int(x2), int(y2)
                     adjust_gripper_center=str(int((right + left-640) / 2))+","+str(int((top + bottom-640) / 2))
                     logger.info("adjust_gripper_center:{},{}".format(int((right + left-640) / 2),int((top + bottom-480) / 2)))
-                    if(abs(int((right + left-640) / 2))>50 or abs(int((top + bottom-480) / 2))>50 ):
+                    if(abs(int((right + left-640) / 2))>100 or abs(int((top + bottom-480) / 2))>100 ):
                         r.set("adjust_gripper_center",str(int((right + left-640) / 2))+","+str(int((top + bottom-480) / 2)))
                     else:
                          r.set("adjust_gripper_center","")

@@ -269,6 +269,8 @@ class HitbotController(Node):
         self.bounding_boxes_sub = self.create_subscription(String,"/yolox/bounding_boxes",self.bounding_boxes_callback, 10)
         self.xyz_sub = self.create_subscription(String,"/hitbot_end_xyz",self.hitbot_end_xyzr_callback,10)
         self.angle_sub = self.create_subscription(String,"/hitbot_end_angle",self.hitbot_end_angle_callback,10)
+        self.gripper_adjust_sub = self.create_subscription(String,"/yolox/rpi5/adjust/xy_pixel",self.hitbot_gripper_adjust_callback,10)
+        
         
 
         self.gripper_open_pub= self.create_publisher(String,'/yolox/gripper_open',10)
@@ -357,7 +359,7 @@ class HitbotController(Node):
         self.latest_qpos=None
         self.link_lengths=[np.float64(0.325), np.float64(0.275), np.float64(0.26)]
         self.ik_solver=self.chain_bulider(self.link_lengths)
-
+    
         #self.mean = torch.tensor([0.485, 0.456, 0.406]).cuda().view(3, 1, 1)
         #self.std = torch.tensor([0.229, 0.224, 0.225]).cuda().view(3, 1, 1)
     def chain_bulider(self,link_lengths= [np.float64(0.325), np.float64(0.275), np.float64(0.26)]):
@@ -464,6 +466,10 @@ class HitbotController(Node):
 
 
         r.set("mode","camera_ready")
+    def hitbot_gripper_adjust_callback(self, msg):
+    	xy=msg.data.split(",")
+    	#self.get_logger().info("xy pixel offset:{}".format(xy))
+    
     def joint_state_cb(self, msg):
         if not self.recording:
             return

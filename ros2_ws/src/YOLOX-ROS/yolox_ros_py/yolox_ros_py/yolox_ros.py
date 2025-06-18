@@ -87,7 +87,7 @@ i = 0
 
 
 broker="172.27.34.62"
-redis_server="172.27.34.62"
+redis_server="127.0.0.1"
 
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True, password='jimmy')
