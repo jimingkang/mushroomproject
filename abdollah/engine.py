@@ -6,7 +6,8 @@ import argparse
 # make sure `models/` is on PYTHONPATH
 ROOT = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, ROOT)  
-
+os.environ["LD_PRELOAD"] = "/usr/lib/aarch64-linux-gnu/libgomp.so.1"
+# export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libgomp.so.1
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
@@ -41,9 +42,9 @@ class RealTimeInferenceEngine:
 
         # Load & optimize segmentation model
         self.seg_model = YOLO(seg_weights)
-        self.seg_model.model.fuse().to(self.device)
-        if self.use_half:
-            self.seg_model.model.half()
+        # self.seg_model.model.fuse().to(self.device)
+        # if self.use_half:
+        #     self.seg_model.model.half()
 
         # Load & prepare 3D pose model
         self.pose_model = (
@@ -114,7 +115,7 @@ class RealTimeInferenceEngine:
             task="segment",
             device=self.device,
             verbose=False,
-            half=self.use_half
+            save=True,
         )
         det = results[0]
         raw_masks = det.masks.data if det.masks is not None else []
