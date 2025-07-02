@@ -97,7 +97,7 @@ class MovePublisher(Node):
             self.pub_rpi5_raw_img.publish(img_pub)
             detect_res=model(img,conf=0.5)
             logger.info("box image:{}".format(boxing_img))
-            if detect_res!=None :#and( r.get("mode")=="adjust_camera_init" or r.get("mode")=="adjust_camera_done" ):                
+            if detect_res!=None and  r.get("mode")=="ready_to_adjust": #and( r.get("mode")=="adjust_camera_init" or r.get("mode")=="adjust_camera_done" ):                
                 boxes = detect_res[0].boxes.cpu().numpy()
                 xyxy = boxes.xyxy
                 classes = boxes.cls
@@ -115,6 +115,8 @@ class MovePublisher(Node):
                         r.set("adjust_gripper_center",str(int((right + left-640) / 2))+","+str(int((top + bottom-480) / 2)))
                     else:
                          r.set("adjust_gripper_center","")
+                        
+
 
                     gripper_msg2 = String()
                     gripper_msg2.data = adjust_gripper_center
