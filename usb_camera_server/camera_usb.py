@@ -36,7 +36,7 @@ class Camera(BaseCamera):
 
     @staticmethod
     def frames():
-        video = cv2.VideoCapture(6)
+        video = cv2.VideoCapture(0)
         #video = v4l2capture.Video_device(Camera.video_source)
         # Suggest an image size. The device may choose and return another if unsupported
         size_x =640

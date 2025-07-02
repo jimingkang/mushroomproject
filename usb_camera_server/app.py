@@ -46,7 +46,8 @@ boxing_img=None
 redis_server='172.27.34.62'
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
-model = YOLO("/home/a/Downloads/mushroomproject/usb_camera_server/yolo11n_mushroom.pt")  #yolo11n_mushroom_ncnn_model
+model = YOLO("/home/cot/mushroomproject/yolo11n_mushroom.pt")  #yolo11n_mushroom_ncnn_model
+#model = YOLO("/home/a/Downloads/mushroomproject/usb_camera_server/yolo11n_mushroom.pt")  #yolo11n_mushroom_ncnn_model
 class MovePublisher(Node):
     def __init__(self):
         super().__init__('test_publisher')
