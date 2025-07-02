@@ -49,6 +49,7 @@ from .HitbotInterface import HitbotInterface
 import numpy as np
 from scipy.optimize import root
 from matplotlib import pyplot as plt
+from .transform_calc import RobotTransform
 
 class Solver:
     def __init__(self,link_lengths=np.array([0.325, 0.275, 0.260])):
@@ -175,8 +176,8 @@ class Solver:
     def get_robot_angle_in_degree(self, target, current_angle=[0,0,0]):
         ans=self.get_angle_to_target(target, current_angle)
         if ans is None:  # Check if IK failed
-            print("ERROR: No valid joint angles (IK failed)!")
-            return [0.0, 0.0, 0.0]  # Default safe value (or raise an exception)
+            print(f"ERROR: No valid joint angles (IK failed)! current_angle={current_angle}")
+            ans= current_angle #[0.0, 0.0, 0.0]  # Default safe value (or raise an exception)
         return [round(ans[0]*180/3.1415,0),round(ans[1]*180/3.1415,0),round((ans[0]+ans[1]+ans[2])*180/3.1415,0)]
 
 
@@ -256,8 +257,8 @@ class HitbotController(Node):
         self.JointHome_srv = self.create_service(JointHome, 'joint_home', self.joint_home_callback)
         self.NewMovejXYZ_srv = self.create_service(NewMovejXYZ, 'new_movej_xyz_lr', self.new_movej_xyz_lr_callback)
         self.NewMovejAngle_srv = self.create_service(NewMovejAngle, 'new_movej_angle', self.new_movej_angle_callback)
-
-
+        self.link_lengths=np.array([0.325, 0.275, 0.260])
+        self.rt=RobotTransform(self.link_lengths)
         self.hitbot_x = 0
         self.hitbot_y = 0
         self.hitbot_z = 0
@@ -449,33 +450,36 @@ class HitbotController(Node):
         #ret=self.robot.movej_xyz(int(float(mushroom_xyz[2].strip())-230),100-int(float(mushroom_xyz[0].strip())),0,-48,100,1)
         self.get_logger().info(f"ret :{ret}")
         self.robot.wait_stop()
-
-
-        response = self.client_node.open_send_request()
-        if response is not None:
-            self.robot.get_scara_param()
-            self.robot.wait_stop()
-            ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-110,self.robot.r,100,1)
-            self.robot.wait_stop()
-            self.client_node.get_logger().info(f'open for {response}')
-            response = self.client_node.send_request()
+        r.set("mode","ready_to_adjust")
+        time.sleep(2)
+        if r.get("mode")=="adjust_done":
+            response = self.client_node.open_send_request()
             if response is not None:
-                time.sleep(3)
-                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,0,self.robot.r,100,1)
+                self.robot.get_scara_param()
                 self.robot.wait_stop()
-                time.sleep(1)
-                ret=self.robot.movej_xyz(0,-400,0,-48-230,100,1)
+                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-110,self.robot.r,100,1)
                 self.robot.wait_stop()
-                response = self.client_node.open_send_request()
-
-
-        else:
-            self.get_logger().error('Service call failed %r' % (self.client_node.future.exception(),))
+                self.client_node.get_logger().info(f'open for {response}')
+                response = self.client_node.send_request()
+                if response is not None:
+                    time.sleep(3)
+                    ret=self.robot.movej_xyz(self.robot.x,self.robot.y,0,self.robot.r,100,1)
+                    self.robot.wait_stop()
+                    time.sleep(1)
+                    ret=self.robot.movej_xyz(0,-400,0,-48-230,100,1)
+                    self.robot.wait_stop()
+                    response = self.client_node.open_send_request()
+            else:
+                self.get_logger().error('Service call failed %r' % (self.client_node.future.exception(),))
         self.get_logger().info(f"move in -z, ret :{ret}")
         r.set("mode","camera_ready")
     def hitbot_gripper_adjust_callback(self, msg):
         xy=msg.data.split(",")
-        self.get_logger().info(f'{xy}')
+        x_0,y_0,_,_=self.rt.tranform_point3_0([int(xy[0])-0.5,0.5-int(xy[1])],[self.robot.angle1*3.14/180,self.robot.angle2*3.14/180,self.robot.r*3.14/180])
+        self.get_logger().info(f'xy={xy},tranform_point3_0 xy={x_0},{y_0}')
+        ret=self.robot.movej_xyz((x_0-self.robot.x)/10,(y_0-self.robot.y)/10,self.robot.z,self.robot.r-20,100,1)
+        self.robot.wait_stop()
+        r.set("mode","adjust_done")
         #xy=[int(xy[0]),int(xy[1])];
     	#diff=xy-self.rpi5_adj_xy_pixel;
         #self.get_logger().info(f'{xy}')
