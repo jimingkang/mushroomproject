@@ -95,7 +95,7 @@ class MovePublisher(Node):
             img_pub = self.bridge.cv2_to_imgmsg(img,"bgr8")
             self.pub_rpi5_raw_img.publish(img_pub)
             detect_res=model(img,conf=0.5)
-            logger.info("box image:{}".format(boxing_img))
+            logger.info("box image:{},mode==ready_to_adjust:{}".format(boxing_img,r.get("mode")=="ready_to_adjust"))
             if detect_res!=None and  r.get("mode")=="ready_to_adjust": #and( r.get("mode")=="adjust_camera_init" or r.get("mode")=="adjust_camera_done" ):                
                 boxes = detect_res[0].boxes.cpu().numpy()
                 xyxy = boxes.xyxy
@@ -114,6 +114,7 @@ class MovePublisher(Node):
                         r.set("adjust_gripper_center",str(int((right + left-640) / 2))+","+str(int((top + bottom-480) / 2)))
                     else:
                          r.set("adjust_gripper_center","")
+                         r.set("mode","adjust_done")
                         
 
 
@@ -131,6 +132,8 @@ class MovePublisher(Node):
                     cv2.rectangle(img, (left, top), (right, bottom), (255, 0, 0), 2)
                     cv2.putText(img, label, center, cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 1, cv2.LINE_AA)
                     break
+            else:
+                r.set("mode","adjust_done")
             frame=cv2.imencode('.jpg', img)[1].tobytes()
             #frame=cv2.imencode('.jpg', frame)[1].tobytes()
             yield b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n'               
