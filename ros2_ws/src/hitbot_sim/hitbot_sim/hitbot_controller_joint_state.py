@@ -34,11 +34,15 @@ import pygame
 import threading
 # Load the URDF file and create the chain
 from example_interfaces.srv import Trigger
+from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.executors import MultiThreadedExecutor
 
 
 redis_server='localhost'#'172.27.34.62'
+
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
+
 
 os.chdir(os.path.expanduser('~'))
 #sys.path.append("./ws_moveit/src/hitbot")  ## get import pass: hitbot_interface.py
@@ -213,41 +217,14 @@ class ServiceClient(Node):
 class HitbotController(Node):
     def __init__(self):
         super().__init__('hitbot_controller')
-        self.config = {
-        'ckpt_dir': './',
-        'ckpt_name': 'policy_best.ckpt',
-        'policy_class': 'ACT',
-        'policy_config': {
-                        'num_queries': 5,
- 'lr':1e-5,# args['lr'],
-                         'num_queries':100,# args['chunk_size'],
-                         'kl_weight':10,# args['kl_weight'],
-                         'hidden_dim': 512,#args['hidden_dim'],
-                         'dim_feedforward':3200,# args['dim_feedforward'],
-                         'lr_backbone': 1e-5,
-                         'backbone': 'resnet18',
-                         'enc_layers': 4,
-                         'dec_layers': 7,
-                         'nheads': 8,
-                         'camera_names': 'top',
-        },
-        'state_dim': 4,
-        'camera_topic': '/camera/image_raw',
-        'joint_topic': '/joint_states',
-        'command_topic': '/joint_commands',
-        'reset_position': np.array([0.0, 0.0, 0.0, 0.0]),
-        'control_freq': 10.0,  #192.168.0.100 Hz
-        'success_threshold': 1.0,
-        }
-        #self.policy = self.load_policy()
-        #self.stats = self.load_stats()
-        # Pre/post-processing functions
-        #self.pre_process = lambda s: (s - self.stats['qpos_mean']) / self.stats['qpos_std']
-        #self.post_process = lambda a: a * self.stats['action_std'] + self.stats['action_mean']
+        # 使用 ReentrantCallbackGroup 允许并发执行
+        self.group1 = ReentrantCallbackGroup()
+        self.group2 = ReentrantCallbackGroup()
         r.set("mode","camera_ready")
 
         self.client_node = ServiceClient()
         self.solver=Solver()
+        self.goal=[0,0]
 
 
         self.SetGPIO_srv = self.create_service(SetGPIO, 'set_gpio', self.set_gpio_callback)
@@ -262,7 +239,7 @@ class HitbotController(Node):
         self.hitbot_x = 0
         self.hitbot_y = 0
         self.hitbot_z = 0
-        self.hitbot_r = -48
+        self.hitbot_r = -160
 
         self.hitbot_t1_publisher = self.create_subscription(Int32, '/hitbot_theta1',self.hitbot_theta1_callback, 10)
         self.hitbot_t2_publisher = self.create_subscription(Int32, '/hitbot_theta2',self.hitbot_theta2_callback, 10)
@@ -276,10 +253,10 @@ class HitbotController(Node):
         self.camera_xyz_publisher = self.create_publisher(String, '/camera_xyz', 10)
 
 
-        self.bounding_boxes_sub = self.create_subscription(String,"/yolox/bounding_boxes",self.bounding_boxes_callback, 10)
+        self.bounding_boxes_sub = self.create_subscription(String,"/yolox/bounding_boxes",self.bounding_boxes_callback, 10,callback_group=self.group2)
         self.xyz_sub = self.create_subscription(String,"/hitbot_end_xyz",self.hitbot_end_xyzr_callback,10)
         self.angle_sub = self.create_subscription(String,"/hitbot_end_angle",self.hitbot_end_angle_callback,10)
-        self.gripper_adjust_sub = self.create_subscription(String,"/yolox/rpi5/adjust/xy_pixel",self.hitbot_gripper_adjust_callback,10)
+        self.gripper_adjust_sub = self.create_subscription(String,"/yolox/rpi5/adjust/xy_pixel",self.hitbot_gripper_adjust_callback,10,callback_group=self.group1)
         self.rpi5_adj_xy_pixel=[0,0]
         
         
@@ -428,45 +405,50 @@ class HitbotController(Node):
         #x = self.link_lengths[0] * np.cos(theta1) + self.link_lengths[1] * np.cos(theta1 + theta2) + self.link_lengths[2] * np.cos(theta1 + theta2 + theta3)
         #y = self.link_lengths[0] * np.sin(theta1) + self.link_lengths[1] * np.sin(theta1 + theta2) + self.link_lengths[2] * np.sin(theta1 + theta2 + theta3)
         return np.array([x, y])
+    
     def bounding_boxes_callback(self, msg):
         r.set("mode","pickup_ready")
         mushroom_xyz=msg.data
         mushroom_xyz=msg.data.split(",");
-        self.get_logger().info(f"get mushroom_xyz:{mushroom_xyz}")
-        goal=[int(float(mushroom_xyz[2].strip()))/1000,0-int(float(mushroom_xyz[0].strip()))/1000]
-        self.get_logger().info(f"target get goal:{goal}")
+        #self.get_logger().info(f"get mushroom_xyz:{mushroom_xyz}")
+        self.goal=[int(float(mushroom_xyz[2].strip()))/1000,0-int(float(mushroom_xyz[0].strip()))/1000]
+        self.get_logger().info(f"target get goal:{self.goal}")
         current_angle=[self.robot.angle1 *3.1415/180,self.robot.angle2*3.1415/180,self.robot.r*3.1415/180]
-        angles=self.solver.get_robot_angle_in_degree(goal,current_angle)
-        #angles=self.ik_solver.inverse_kinematics([goal[0]/1000,goal[1]/1000,0])
+        angles=self.solver.get_robot_angle_in_degree(self.goal,current_angle)
         self.get_logger().info(f"Computed   angle:{angles},current_angle:{current_angle}")
         computed_pos=self.forward_kinematics_from_angles(angles[:3])
-        self.get_logger().info(f"Computed   position:{computed_pos}")
+        #self.get_logger().info(f"Computed   position:{computed_pos}")
         if (abs(angles[2]))*180/3.14>100:
             r.set("mode","camera_ready")
             self.get_logger().info(f"self collide")
             #return
 
-        ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-20,100,1) 
-        #ret=self.robot.movej_xyz(int(float(mushroom_xyz[2].strip())-230),100-int(float(mushroom_xyz[0].strip())),0,-48,100,1)
+        ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-160,100,1) 
+        #ret=self.robot.movej_xyz(int(float(mushroom_xyz[2].strip())-160),100-int(float(mushroom_xyz[0].strip())),0,-48,100,1)
         self.get_logger().info(f"ret :{ret}")
         self.robot.wait_stop()
         r.set("mode","ready_to_adjust")
-        time.sleep(2)
-        if r.get("mode")=="adjust_done":
+        time.sleep(1) 
+        #while True:
+        for _ in range(5):
+            time.sleep(1) 
+            if r.get("mode")=="adjust_done":
+                break;
+        if  r.get("mode")=="adjust_done":
             response = self.client_node.open_send_request()
             if response is not None:
                 self.robot.get_scara_param()
                 self.robot.wait_stop()
-                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-110,self.robot.r,100,1)
+                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-110,self.robot.r,50,1)
                 self.robot.wait_stop()
                 self.client_node.get_logger().info(f'open for {response}')
-                response = self.client_node.send_request()
+                response = self.client_node.send_request() #close request
                 if response is not None:
-                    time.sleep(3)
-                    ret=self.robot.movej_xyz(self.robot.x,self.robot.y,0,self.robot.r,100,1)
+                    time.sleep(1)
+                    ret=self.robot.movej_xyz(self.robot.x,self.robot.y,0,self.robot.r,50,1)
                     self.robot.wait_stop()
                     time.sleep(1)
-                    ret=self.robot.movej_xyz(0,-400,0,-48-230,100,1)
+                    ret=self.robot.movej_xyz(0,-400,0,-160-180,50,1)
                     self.robot.wait_stop()
                     response = self.client_node.open_send_request()
             else:
@@ -475,11 +457,29 @@ class HitbotController(Node):
         r.set("mode","camera_ready")
     def hitbot_gripper_adjust_callback(self, msg):
         xy=msg.data.split(",")
+        mode=r.get("mode")
+
         x_0,y_0,_,_=self.rt.tranform_point3_0([int(xy[0])-0.5,0.5-int(xy[1])],[self.robot.angle1*3.14/180,self.robot.angle2*3.14/180,self.robot.r*3.14/180])
-        self.get_logger().info(f'xy={xy},tranform_point3_0 xy={x_0},{y_0}')
-        ret=self.robot.movej_xyz((x_0-self.robot.x)/10,(y_0-self.robot.y)/10,self.robot.z,self.robot.r-20,100,1)
-        self.robot.wait_stop()
-        r.set("mode","adjust_done")
+        if abs(x_0)>50 or abs(y_0)>50:
+            self.get_logger().info(f'xy={xy},tranform_point3_0 xy={x_0},{y_0},mode={mode}')
+
+            adj_goal=[(self.goal[0]*1000+x_0/30)/1000,(self.goal[1]*1000-y_0/30)/1000]
+            self.get_logger().info(f"adjust,current pos: x={self.goal[0]*1000},y={self.goal[1]*1000},target goal:{adj_goal}")
+            current_angle=[self.robot.angle1 *3.1415/180,self.robot.angle2*3.1415/180,self.robot.r*3.1415/180]
+            angles=self.solver.get_robot_angle_in_degree(adj_goal,current_angle)
+            self.get_logger().info(f"adjust,Computed   angle:{angles},current_angle:{self.robot.angle1},{self.robot.angle2},{self.robot.r}")
+            computed_pos=self.forward_kinematics_from_angles(angles[:3])
+            self.get_logger().info(f"adjust,Computed   position:{computed_pos}")
+            self.robot.get_scara_param()
+            self.robot.wait_stop()
+            ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-160,50,1) 
+            #ret=self.robot.movej_xyz(self.robot.x-x_0/10,self.robot.y-y_0/10,self.robot.z,self.robot.r-160,30,1)
+            self.robot.wait_stop()
+            r.set("mode","ready_to_adjust")
+            time.sleep(1)
+            
+        else:
+            r.set("mode","adjust_done")
         #xy=[int(xy[0]),int(xy[1])];
     	#diff=xy-self.rpi5_adj_xy_pixel;
         #self.get_logger().info(f'{xy}')
@@ -984,8 +984,8 @@ class HitbotController(Node):
         print('unlock Robot')
         self.robot.unlock_position()
         print('Robot position initialized.')
-        ret=self.robot.movel_xyz(600,0,0,-28,50)
-    	#ret=self.robot.new_movej_xyz_lr(hi.x-100,hi.y,0,-63,20,0,1)
+        ret=self.robot.movel_xyz(600,0,0,-160,50)
+    	#ret=self.robot.new_movej_xyz_lr(hi.x-100,hi.y,0,-160,20,0,1)
         #ret=self.robot.movej_angle(0,30,0,0,20,0)
         self.robot.wait_stop()
         print('Robot I/O output initialized.')
@@ -994,23 +994,33 @@ class HitbotController(Node):
         time.sleep(1)
         print('Robot initialized.')
     
-            
     def run(self):
         print("hello hibot")
-        #thread_key=threading.Thread(target=self.keyboard)
-        #thread_key.start()
 
+            # 使用多线程执行器
+        executor = MultiThreadedExecutor(num_threads=1)
+        executor.add_node(self)
 
-        while rclpy.ok():
-            try:
-                rclpy.spin_once(self)
-            except ValueError as e:
-                print("Error:", str(e))
-            except RuntimeError as e:
-                print("Error:", str(e))
+        try:
+            executor.spin()
+        except Exception as e:
+            print("Executor error:", str(e))
+        finally:
+            self.destroy_node()
+            rclpy.shutdown()
+    #def run(self):
+    #    print("hello hibot")
 
-        self.destroy_node()
-        rclpy.shutdown()
+    #    while rclpy.ok():
+    #        try:
+    #            rclpy.spin_once(self)
+    #        except ValueError as e:
+    #            print("Error:", str(e))
+    #        except RuntimeError as e:
+    #            print("Error:", str(e))
+
+    #    self.destroy_node()
+    #    rclpy.shutdown()
 
 def main(args=None):
     rclpy.init(args=args)
