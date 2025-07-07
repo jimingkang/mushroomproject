@@ -218,8 +218,8 @@ class HitbotController(Node):
     def __init__(self):
         super().__init__('hitbot_controller')
         # 使用 ReentrantCallbackGroup 允许并发执行
-        self.group1 = ReentrantCallbackGroup()
-        self.group2 = ReentrantCallbackGroup()
+        #self.group1 = ReentrantCallbackGroup()
+        #self.group2 = ReentrantCallbackGroup()
         r.set("mode","camera_ready")
 
         self.client_node = ServiceClient()
@@ -239,7 +239,7 @@ class HitbotController(Node):
         self.hitbot_x = 0
         self.hitbot_y = 0
         self.hitbot_z = 0
-        self.hitbot_r = -160
+        self.hitbot_r = -180
 
         self.hitbot_t1_publisher = self.create_subscription(Int32, '/hitbot_theta1',self.hitbot_theta1_callback, 10)
         self.hitbot_t2_publisher = self.create_subscription(Int32, '/hitbot_theta2',self.hitbot_theta2_callback, 10)
@@ -253,10 +253,10 @@ class HitbotController(Node):
         self.camera_xyz_publisher = self.create_publisher(String, '/camera_xyz', 10)
 
 
-        self.bounding_boxes_sub = self.create_subscription(String,"/yolox/bounding_boxes",self.bounding_boxes_callback, 10,callback_group=self.group2)
+        self.bounding_boxes_sub = self.create_subscription(String,"/yolox/bounding_boxes",self.bounding_boxes_callback, 10)
         self.xyz_sub = self.create_subscription(String,"/hitbot_end_xyz",self.hitbot_end_xyzr_callback,10)
         self.angle_sub = self.create_subscription(String,"/hitbot_end_angle",self.hitbot_end_angle_callback,10)
-        self.gripper_adjust_sub = self.create_subscription(String,"/yolox/rpi5/adjust/xy_pixel",self.hitbot_gripper_adjust_callback,10,callback_group=self.group1)
+        self.gripper_adjust_sub = self.create_subscription(String,"/yolox/rpi5/adjust/xy_pixel",self.hitbot_gripper_adjust_callback,10)
         self.rpi5_adj_xy_pixel=[0,0]
         
         
@@ -297,8 +297,8 @@ class HitbotController(Node):
         #pygame.display.set_mode((100, 100))  # Small invisible window
         #pygame.display.set_caption("ROS2 Keyboard Control")
 
-        self.urdf_file = "/home/a/Downloads/mushroomproject/ros2_ws/build/hitbot_sim/hitbot_sim/scara_ik.xml"
-        self.scara_arm = Chain.from_urdf_file(self.urdf_file)
+        #self.urdf_file = "/home/a/Downloads/mushroomproject/ros2_ws/build/hitbot_sim/hitbot_sim/scara_ik.xml"
+        #self.scara_arm = Chain.from_urdf_file(self.urdf_file)
         self.R = np.array([
         [0, -1, 0], #[1,0,0]
         [0, 0, -1],  # [0, 1, 0],
@@ -423,8 +423,8 @@ class HitbotController(Node):
             self.get_logger().info(f"self collide")
             #return
 
-        ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-160,100,1) 
-        #ret=self.robot.movej_xyz(int(float(mushroom_xyz[2].strip())-160),100-int(float(mushroom_xyz[0].strip())),0,-48,100,1)
+        ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-180,100,1) 
+        #ret=self.robot.movej_xyz(int(float(mushroom_xyz[2].strip())-180),100-int(float(mushroom_xyz[0].strip())),0,-48,100,1)
         self.get_logger().info(f"ret :{ret}")
         self.robot.wait_stop()
         r.set("mode","ready_to_adjust")
@@ -448,7 +448,7 @@ class HitbotController(Node):
                     ret=self.robot.movej_xyz(self.robot.x,self.robot.y,0,self.robot.r,50,1)
                     self.robot.wait_stop()
                     time.sleep(1)
-                    ret=self.robot.movej_xyz(0,-400,0,-160-180,50,1)
+                    ret=self.robot.movej_xyz(0,-400,0,-180-180,50,1)
                     self.robot.wait_stop()
                     response = self.client_node.open_send_request()
             else:
@@ -472,8 +472,8 @@ class HitbotController(Node):
             self.get_logger().info(f"adjust,Computed   position:{computed_pos}")
             self.robot.get_scara_param()
             self.robot.wait_stop()
-            ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-160,50,1) 
-            #ret=self.robot.movej_xyz(self.robot.x-x_0/10,self.robot.y-y_0/10,self.robot.z,self.robot.r-160,30,1)
+            ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-180,50,1) 
+            #ret=self.robot.movej_xyz(self.robot.x-x_0/10,self.robot.y-y_0/10,self.robot.z,self.robot.r-180,30,1)
             self.robot.wait_stop()
             r.set("mode","ready_to_adjust")
             time.sleep(1)
@@ -656,9 +656,6 @@ class HitbotController(Node):
             else:
                 self.get_logger().warn("No valid path found.")
 
-
-
-  
 
     def hitbot_end_xyzr_callback(self,msg):
         xyzr=msg.data.split(",");
@@ -984,8 +981,8 @@ class HitbotController(Node):
         print('unlock Robot')
         self.robot.unlock_position()
         print('Robot position initialized.')
-        ret=self.robot.movel_xyz(600,0,0,-160,50)
-    	#ret=self.robot.new_movej_xyz_lr(hi.x-100,hi.y,0,-160,20,0,1)
+        ret=self.robot.movel_xyz(600,0,0,-180,50)
+    	#ret=self.robot.new_movej_xyz_lr(hi.x-100,hi.y,0,-180,20,0,1)
         #ret=self.robot.movej_angle(0,30,0,0,20,0)
         self.robot.wait_stop()
         print('Robot I/O output initialized.')
@@ -994,33 +991,32 @@ class HitbotController(Node):
         time.sleep(1)
         print('Robot initialized.')
     
+    #def run(self):
+    #    print("hello hibot")
+    #    # 使用多线程执行器
+    #    executor = MultiThreadedExecutor(num_threads=2)
+    #    executor.add_node(self)
+
+    #    try:
+    #        executor.spin()
+    #    except Exception as e:
+    #        print("Executor error:", str(e))
+    #    finally:
+    #        self.destroy_node()
+    #        rclpy.shutdown()
     def run(self):
         print("hello hibot")
 
-            # 使用多线程执行器
-        executor = MultiThreadedExecutor(num_threads=1)
-        executor.add_node(self)
+        while rclpy.ok():
+            try:
+                rclpy.spin_once(self)
+            except ValueError as e:
+                print("Error:", str(e))
+            except RuntimeError as e:
+                print("Error:", str(e))
 
-        try:
-            executor.spin()
-        except Exception as e:
-            print("Executor error:", str(e))
-        finally:
-            self.destroy_node()
-            rclpy.shutdown()
-    #def run(self):
-    #    print("hello hibot")
-
-    #    while rclpy.ok():
-    #        try:
-    #            rclpy.spin_once(self)
-    #        except ValueError as e:
-    #            print("Error:", str(e))
-    #        except RuntimeError as e:
-    #            print("Error:", str(e))
-
-    #    self.destroy_node()
-    #    rclpy.shutdown()
+        self.destroy_node()
+        rclpy.shutdown()
 
 def main(args=None):
     rclpy.init(args=args)
