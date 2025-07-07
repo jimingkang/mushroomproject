@@ -335,13 +335,13 @@ class yolox_ros(yolox_py):
                         #depth_val = cv_image.get_distance(pix[0], pix[1])  # Meters
                         #xyz = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth_val)
                         line = f'{result[0]},{result[1]},{result[2]}'
-                        logger.info("xyz in side camera: {}".format(line))
+                        logger.info("xyz in side camera: {},mode={}".format(line,r.get("mode")))
                         bbox=String()
                         bbox.data=line
 
                         #diff=abs(self.pre_mushroom[0]-result[0])+abs(self.pre_mushroom[2]-result[2])
                         #logger.info("box:{},".format(bbox.data))
-                        if   r.get("mode")=="camera_ready": # int(result[1])<100 and
+                        if 1:#  r.get("mode")=="camera_ready": # int(result[1])<100 and
                             self.pre_mushroom=result
                             self.pre_pix=pix
                             self.pub_bounding_boxes.publish(bbox)

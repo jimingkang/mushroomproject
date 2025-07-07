@@ -227,10 +227,7 @@ class HitbotController(Node):
         self.goal=[0,0]
 
 
-        self.SetGPIO_srv = self.create_service(SetGPIO, 'set_gpio', self.set_gpio_callback)
-        self.GetGPIOOut_srv = self.create_service(GetGPIOOut, 'get_gpio_out', self.get_gpio_out_callback)
-        self.GetGPIOIn_srv = self.create_service(GetGPIOIn, 'get_gpio_in', self.get_gpio_in_callback)
-        self.SetDragTeach_srv = self.create_service(SetDragTeach, 'set_drag_teach', self.set_drag_teach_callback)
+
         self.JointHome_srv = self.create_service(JointHome, 'joint_home', self.joint_home_callback)
         self.NewMovejXYZ_srv = self.create_service(NewMovejXYZ, 'new_movej_xyz_lr', self.new_movej_xyz_lr_callback)
         self.NewMovejAngle_srv = self.create_service(NewMovejAngle, 'new_movej_angle', self.new_movej_angle_callback)
@@ -256,7 +253,7 @@ class HitbotController(Node):
         self.bounding_boxes_sub = self.create_subscription(String,"/yolox/bounding_boxes",self.bounding_boxes_callback, 10)
         self.xyz_sub = self.create_subscription(String,"/hitbot_end_xyz",self.hitbot_end_xyzr_callback,10)
         self.angle_sub = self.create_subscription(String,"/hitbot_end_angle",self.hitbot_end_angle_callback,10)
-        self.gripper_adjust_sub = self.create_subscription(String,"/yolox/rpi5/adjust/xy_pixel",self.hitbot_gripper_adjust_callback,10)
+        #self.gripper_adjust_sub = self.create_subscription(String,"/yolox/rpi5/adjust/xy_pixel",self.hitbot_gripper_adjust_callback,10)
         self.rpi5_adj_xy_pixel=[0,0]
         
         
@@ -410,31 +407,32 @@ class HitbotController(Node):
         r.set("mode","pickup_ready")
         mushroom_xyz=msg.data
         mushroom_xyz=msg.data.split(",");
+        goal=[int(float(mushroom_xyz[2].strip()))-180,0-int(float(mushroom_xyz[0].strip()))]
         #self.get_logger().info(f"get mushroom_xyz:{mushroom_xyz}")
-        self.goal=[int(float(mushroom_xyz[2].strip()))/1000,0-int(float(mushroom_xyz[0].strip()))/1000]
-        self.get_logger().info(f"target get goal:{self.goal}")
+        #self.goal=[int(float(mushroom_xyz[2].strip()))/1000,0-int(float(mushroom_xyz[0].strip()))/1000]
+        #self.get_logger().info(f"target get goal:{self.goal}")
         current_angle=[self.robot.angle1 *3.1415/180,self.robot.angle2*3.1415/180,self.robot.r*3.1415/180]
-        angles=self.solver.get_robot_angle_in_degree(self.goal,current_angle)
-        self.get_logger().info(f"Computed   angle:{angles},current_angle:{current_angle}")
-        computed_pos=self.forward_kinematics_from_angles(angles[:3])
+        #angles=self.solver.get_robot_angle_in_degree(self.goal,current_angle)
+        #self.get_logger().info(f"Computed   angle:{angles},current_angle:{current_angle}")
+        #computed_pos=self.forward_kinematics_from_angles(angles[:3])
         #self.get_logger().info(f"Computed   position:{computed_pos}")
-        if (abs(angles[2]))*180/3.14>100:
-            r.set("mode","camera_ready")
+        if (abs(current_angle[2]))*180/3.14>100:
+            #r.set("mode","camera_ready")
             self.get_logger().info(f"self collide")
             #return
 
-        ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-180,100,1) 
-        #ret=self.robot.movej_xyz(int(float(mushroom_xyz[2].strip())-180),100-int(float(mushroom_xyz[0].strip())),0,-48,100,1)
+        #ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-180,100,1) 
+        ret=self.robot.movej_xyz(goal[0],goal[1],0,-180,50,1)
         self.get_logger().info(f"ret :{ret}")
         self.robot.wait_stop()
-        r.set("mode","ready_to_adjust")
+        #r.set("mode","ready_to_adjust")
         time.sleep(1) 
         #while True:
-        for _ in range(5):
-            time.sleep(1) 
-            if r.get("mode")=="adjust_done":
-                break;
-        if  r.get("mode")=="adjust_done":
+        #for _ in range(1):
+        #    time.sleep(1) 
+        #    if r.get("mode")=="adjust_done":
+        #        break;
+        if 1:#  r.get("mode")=="adjust_done":
             response = self.client_node.open_send_request()
             if response is not None:
                 self.robot.get_scara_param()
@@ -458,28 +456,31 @@ class HitbotController(Node):
     def hitbot_gripper_adjust_callback(self, msg):
         xy=msg.data.split(",")
         mode=r.get("mode")
+        #adj_xy=[int(float(xy[0])),int(float(xy[0]))]
 
         x_0,y_0,_,_=self.rt.tranform_point3_0([int(xy[0])-0.5,0.5-int(xy[1])],[self.robot.angle1*3.14/180,self.robot.angle2*3.14/180,self.robot.r*3.14/180])
         if abs(x_0)>50 or abs(y_0)>50:
-            self.get_logger().info(f'xy={xy},tranform_point3_0 xy={x_0},{y_0},mode={mode}')
+            self.get_logger().info(f'xy={xy},mode={mode},pixel x_0:{x_0},pixel y0:{y_0}')
+            
 
-            adj_goal=[(self.goal[0]*1000+x_0/30)/1000,(self.goal[1]*1000-y_0/30)/1000]
-            self.get_logger().info(f"adjust,current pos: x={self.goal[0]*1000},y={self.goal[1]*1000},target goal:{adj_goal}")
-            current_angle=[self.robot.angle1 *3.1415/180,self.robot.angle2*3.1415/180,self.robot.r*3.1415/180]
-            angles=self.solver.get_robot_angle_in_degree(adj_goal,current_angle)
-            self.get_logger().info(f"adjust,Computed   angle:{angles},current_angle:{self.robot.angle1},{self.robot.angle2},{self.robot.r}")
-            computed_pos=self.forward_kinematics_from_angles(angles[:3])
-            self.get_logger().info(f"adjust,Computed   position:{computed_pos}")
+
+            #self.get_logger().info(f"adjust,current pos: x={self.goal[0]*1000},y={self.goal[1]*1000},target goal:{adj_goal}")
+            #current_angle=[self.robot.angle1 *3.1415/180,self.robot.angle2*3.1415/180,self.robot.r*3.1415/180]
+            #angles=self.solver.get_robot_angle_in_degree(adj_goal,current_angle)
+            #self.get_logger().info(f"adjust,Computed   angle:{angles},current_angle:{self.robot.angle1},{self.robot.angle2},{self.robot.r}")
+            #computed_pos=self.forward_kinematics_from_angles(angles[:3])
+            #self.get_logger().info(f"adjust,Computed   position:{computed_pos}")
             self.robot.get_scara_param()
             self.robot.wait_stop()
-            ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-180,50,1) 
-            #ret=self.robot.movej_xyz(self.robot.x-x_0/10,self.robot.y-y_0/10,self.robot.z,self.robot.r-180,30,1)
+            #ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-180,50,1)
+            adj_goal=[(self.robot.x+x_0/30),(self.robot.y-y_0/30)] 
+            ret=self.robot.movej_xyz(adj_goal[0],adj_goal[1],self.robot.z,self.robot.r-180,30,1)
             self.robot.wait_stop()
-            r.set("mode","ready_to_adjust")
-            time.sleep(1)
-            
-        else:
-            r.set("mode","adjust_done")
+            #r.set("mode","ready_to_adjust")
+            #time.sleep(1)   
+        #else:
+            #r.set("mode","adjust_done")
+        r.set("mode","camera_ready")
         #xy=[int(xy[0]),int(xy[1])];
     	#diff=xy-self.rpi5_adj_xy_pixel;
         #self.get_logger().info(f'{xy}')
@@ -772,117 +773,7 @@ class HitbotController(Node):
 
 
 
-
-    def set_gpio_callback(self, request, response):
-        max_retries = 3
-        retries = 0
-        
-        while retries < max_retries:
-            try:
-                self.robot.set_digital_out(request.gpio_number, request.set_on)
-                response.success = True
-                self.get_logger().info('GPIO setting successful: gpio_number=%d, set_on=%r' % (request.gpio_number, request.set_on))
-                break
-            except Exception as e:
-                self.get_logger().error('Failed to set GPIO: %s' % str(e))
-                response.success = False
-                retries += 1
-                if retries < max_retries:
-                    self.get_logger().info('Retrying GPIO setting (attempt %d)...' % retries)
-                else:
-                    self.get_logger().error('Max retries exceeded. Failed to set GPIO.')
-                    break
-
-        return response
-    
-    def get_gpio_out_callback(self, request, response):
-        max_retries = 3
-        retries = 0
-        
-        while retries < max_retries:
-            try:
-                self.robot.get_digital_out(request.gpio_number)
-                response.success = True
-                if self.robot.get_digital_out(request.gpio_number) == 1:
-                    self.get_logger().info('GPIO : gpio_number=%d is On' % (request.gpio_number))
-                elif self.robot.get_digital_out(request.gpio_number) == 0:
-                    self.get_logger().info('GPIO : gpio_number=%d is Off' % (request.gpio_number))
-                elif self.robot.get_digital_out(request.gpio_number) == -1:
-                    self.get_logger().info('GPIO number parameter error')
-                elif self.robot.get_digital_out(request.gpio_number) == 3:
-                    self.get_logger().info('GPIO Not initialized.')
-                else:
-                    pass
-                break
-            except Exception as e:
-                self.get_logger().error('Failed to get GPIO: %s' % str(e))
-                response.success = False
-                retries += 1
-                if retries < max_retries:
-                    self.get_logger().info('Retrying GPIO status (attempt %d)...' % retries)
-                else:
-                    self.get_logger().error('Max retries exceeded. Failed to get GPIO.')
-                    break
-
-        return response
-    
-    def get_gpio_in_callback(self, request, response):
-        max_retries = 3
-        retries = 0
-        
-        while retries < max_retries:
-            try:
-                self.robot.get_digital_out(request.gpio_number)
-                response.success = True
-                if self.robot.get_digital_out(request.gpio_number) == 1:
-                    self.get_logger().info('GPIO : gpio_number=%d is triggered' % (request.gpio_number))
-                elif self.robot.get_digital_out(request.gpio_number) == 0:
-                    self.get_logger().info('GPIO : gpio_number=%d is not triggered' % (request.gpio_number))
-                elif self.robot.get_digital_out(request.gpio_number) == -1:
-                    self.get_logger().info('GPIO number parameter error')
-                elif self.robot.get_digital_out(request.gpio_number) == 3:
-                    self.get_logger().info('GPIO Not initialized.')
-                else:
-                    pass
-                break
-            except Exception as e:
-                self.get_logger().error('Failed to get GPIO: %s' % str(e))
-                response.success = False
-                retries += 1
-                if retries < max_retries:
-                    self.get_logger().info('Retrying GPIO status (attempt %d)...' % retries)
-                else:
-                    self.get_logger().error('Max retries exceeded. Failed to get GPIO.')
-                    break
-
-        return response
-
-    def set_drag_teach_callback(self, request, response):
-        max_retries = 3
-        retries = 0
-        
-        while retries < max_retries:
-            try:
-                self.robot.set_drag_teach(request.enable)
-                response.success = True
-                if self.robot.set_drag_teach(request.enable) == True:
-                    self.get_logger().info('Successfully set drag teach')
-                elif self.robot.set_drag_teach(request.enable) == False:
-                    self.get_logger().info('Failed to set drag teach, please check your robot model enable drag teach')
-                else:
-                    pass
-                break
-            except Exception as e:
-                self.get_logger().error('Failed to set drag teach: %s' % str(e))
-                response.success = False
-                retries += 1
-                if retries < max_retries:
-                    self.get_logger().info('Retrying set drag teach (attempt %d)...' % retries)
-                else:
-                    self.get_logger().error('Max retries exceeded. Failed to set drag teach.')
-                    break
-
-        return response
+  
 
     def joint_home_callback(self, request, response):
         max_retries = 3
