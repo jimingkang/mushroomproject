@@ -115,7 +115,7 @@ class MovePublisher(Node):
                         r.set("adjust_gripper_center",str(int((right + left-640) / 2))+","+str(int((top + bottom-480) / 2)))
                     else:
                          r.set("adjust_gripper_center","")
-                         #r.set("mode","adjust_done")
+                         r.set("mode","adjust_done")
                         
 
 
@@ -134,9 +134,9 @@ class MovePublisher(Node):
                     cv2.putText(img, label, center, cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 1, cv2.LINE_AA)
                     break
             else:
-                r.set("mode","adjust_done")
+                r.set("mode","camera_ready")
                 gripper_msg2 = String()
-                gripper_msg2.data = adjust_gripper_center
+                gripper_msg2.data = "done"
                 self.gripper_adjust_pub.publish(gripper_msg2)
             frame=cv2.imencode('.jpg', img)[1].tobytes()
             #frame=cv2.imencode('.jpg', frame)[1].tobytes()

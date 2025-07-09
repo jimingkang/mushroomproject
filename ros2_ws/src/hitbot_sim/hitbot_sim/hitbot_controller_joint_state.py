@@ -472,7 +472,7 @@ class HitbotController(Node):
                 adj_goal=[(self.robot.x-x_0/30),(self.robot.y-y_0/30)] 
                 ret=self.robot.movej_xyz(adj_goal[0],adj_goal[1],self.robot.z,-180,30,1)
                 self.robot.wait_stop()
-                r.set("mode","adjust_done")
+                r.set("mode","ready_to_adjust")
                 time.sleep(1)   
             #else:
 
