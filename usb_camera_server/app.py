@@ -115,7 +115,7 @@ class MovePublisher(Node):
                         r.set("adjust_gripper_center",str(int((right + left-640) / 2))+","+str(int((top + bottom-480) / 2)))
                     else:
                          r.set("adjust_gripper_center","")
-                         r.set("mode","adjust_done")
+                         #r.set("mode","adjust_done")
                         
 
 
@@ -133,8 +133,8 @@ class MovePublisher(Node):
                     cv2.rectangle(img, (left, top), (right, bottom), (255, 0, 0), 2)
                     cv2.putText(img, label, center, cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 1, cv2.LINE_AA)
                     break
-            else:
-                r.set("mode","adjust_done")
+            #else:
+                #r.set("mode","adjust_done")
             frame=cv2.imencode('.jpg', img)[1].tobytes()
             #frame=cv2.imencode('.jpg', frame)[1].tobytes()
             yield b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n'               
