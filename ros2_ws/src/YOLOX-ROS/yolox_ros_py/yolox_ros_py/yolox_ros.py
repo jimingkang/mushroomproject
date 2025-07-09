@@ -87,7 +87,7 @@ i = 0
 
 
 broker="172.27.34.62"
-redis_server="127.0.0.1"
+redis_server="172.27.34.62"
 
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True, password='jimmy')
@@ -181,6 +181,7 @@ class yolox_ros(yolox_py):
         self.pix_grade = None
         self.pre_mushroom=[0,0,0]
         self.pre_pix=(0,0)
+        r.set("mode","camera_ready")
 
 
 
@@ -335,13 +336,13 @@ class yolox_ros(yolox_py):
                         #depth_val = cv_image.get_distance(pix[0], pix[1])  # Meters
                         #xyz = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth_val)
                         line = f'{result[0]},{result[1]},{result[2]}'
-                        logger.info("xyz in side camera: {},mode={}".format(line,r.get("mode")))
+                        logger.info("xyz in side camera: {}".format(line))
                         bbox=String()
                         bbox.data=line
 
                         #diff=abs(self.pre_mushroom[0]-result[0])+abs(self.pre_mushroom[2]-result[2])
                         #logger.info("box:{},".format(bbox.data))
-                        if 1:#  r.get("mode")=="camera_ready": # int(result[1])<100 and
+                        if  1:# r.get("mode")=="camera_ready": # int(result[1])<100 and
                             self.pre_mushroom=result
                             self.pre_pix=pix
                             self.pub_bounding_boxes.publish(bbox)
@@ -351,7 +352,6 @@ class yolox_ros(yolox_py):
             except Exception as e:
                 logger.error(e)
                 pass
-
         
     def MoveXYZCallback(self, data):
         global bboxes_msg

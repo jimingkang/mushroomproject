@@ -38,7 +38,7 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 
 
-redis_server='localhost'#'172.27.34.62'
+redis_server='172.27.34.62'
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
@@ -226,11 +226,6 @@ class HitbotController(Node):
         self.solver=Solver()
         self.goal=[0,0]
 
-
-
-        self.JointHome_srv = self.create_service(JointHome, 'joint_home', self.joint_home_callback)
-        self.NewMovejXYZ_srv = self.create_service(NewMovejXYZ, 'new_movej_xyz_lr', self.new_movej_xyz_lr_callback)
-        self.NewMovejAngle_srv = self.create_service(NewMovejAngle, 'new_movej_angle', self.new_movej_angle_callback)
         self.link_lengths=np.array([0.325, 0.275, 0.260])
         self.rt=RobotTransform(self.link_lengths)
         self.hitbot_x = 0
@@ -253,7 +248,9 @@ class HitbotController(Node):
         self.bounding_boxes_sub = self.create_subscription(String,"/yolox/bounding_boxes",self.bounding_boxes_callback, 10)
         self.xyz_sub = self.create_subscription(String,"/hitbot_end_xyz",self.hitbot_end_xyzr_callback,10)
         self.angle_sub = self.create_subscription(String,"/hitbot_end_angle",self.hitbot_end_angle_callback,10)
-        #self.gripper_adjust_sub = self.create_subscription(String,"/yolox/rpi5/adjust/xy_pixel",self.hitbot_gripper_adjust_callback,10)
+        self.gripper_adjust_sub = self.create_subscription(String,"/yolox/rpi5/adjust/xy_pixel",self.hitbot_gripper_adjust_callback,1)
+        self.gripper_adj_done_sub = self.create_subscription(String,"/yolox/rpi5/adjust/done",self.hitbot_gripper_adjust_done_callback,1)
+        self.gripper_adj_done_pub= self.create_publisher(String,'/yolox/rpi5/adjust/done',1)
         self.rpi5_adj_xy_pixel=[0,0]
         
         
@@ -404,93 +401,90 @@ class HitbotController(Node):
         return np.array([x, y])
     
     def bounding_boxes_callback(self, msg):
-        r.set("mode","pickup_ready")
-        mushroom_xyz=msg.data
-        mushroom_xyz=msg.data.split(",");
-        goal=[int(float(mushroom_xyz[2].strip()))-180,0-int(float(mushroom_xyz[0].strip()))]
-        #self.get_logger().info(f"get mushroom_xyz:{mushroom_xyz}")
-        #self.goal=[int(float(mushroom_xyz[2].strip()))/1000,0-int(float(mushroom_xyz[0].strip()))/1000]
-        #self.get_logger().info(f"target get goal:{self.goal}")
-        current_angle=[self.robot.angle1 *3.1415/180,self.robot.angle2*3.1415/180,self.robot.r*3.1415/180]
-        #angles=self.solver.get_robot_angle_in_degree(self.goal,current_angle)
-        #self.get_logger().info(f"Computed   angle:{angles},current_angle:{current_angle}")
-        #computed_pos=self.forward_kinematics_from_angles(angles[:3])
-        #self.get_logger().info(f"Computed   position:{computed_pos}")
-        if (abs(current_angle[2]))*180/3.14>100:
-            #r.set("mode","camera_ready")
-            self.get_logger().info(f"self collide")
-            #return
+        if r.get("mode")=="camera_ready":
+            mushroom_xyz=msg.data
+            mushroom_xyz=msg.data.split(",");
+            goal=[int(float(mushroom_xyz[2].strip()))-190,0-int(float(mushroom_xyz[0].strip()))]
+            #self.get_logger().info(f"get mushroom_xyz:{mushroom_xyz}")
+            #self.goal=[int(float(mushroom_xyz[2].strip()))/1000,0-int(float(mushroom_xyz[0].strip()))/1000]
+            #self.get_logger().info(f"target get goal:{self.goal}")
+            current_angle=[self.robot.angle1 *3.1415/180,self.robot.angle2*3.1415/180,self.robot.r*3.1415/180]
+            #angles=self.solver.get_robot_angle_in_degree(self.goal,current_angle)
+            #self.get_logger().info(f"Computed   angle:{angles},current_angle:{current_angle}")
+            #computed_pos=self.forward_kinematics_from_angles(angles[:3])
+            #self.get_logger().info(f"Computed   position:{computed_pos}")
+            #if (abs(current_angle[2]))*180/3.14>100:
+                #r.set("mode","camera_ready")
+            #    self.get_logger().info(f"self collide")
+                #return
 
-        #ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-180,100,1) 
-        ret=self.robot.movej_xyz(goal[0],goal[1],0,-180,50,1)
-        self.get_logger().info(f"ret :{ret}")
-        self.robot.wait_stop()
-        #r.set("mode","ready_to_adjust")
-        time.sleep(1) 
-        #while True:
-        #for _ in range(1):
-        #    time.sleep(1) 
-        #    if r.get("mode")=="adjust_done":
-        #        break;
-        if 1:#  r.get("mode")=="adjust_done":
+            #ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-180,100,1) 
+            ret=self.robot.movej_xyz(goal[0],goal[1],0,-180,80,1)
+            self.get_logger().info(f"bounding_boxes_callback ->ret :{ret}")
+            self.robot.wait_stop()
+            r.set("mode","ready_to_adjust")
+
+
+    def hitbot_gripper_adjust_done_callback(self, msg):
+        self.get_logger().info(f"hitbot_gripper_adjust_done_callback:{msg}")
+        if  r.get("mode")=="adjust_done":
             response = self.client_node.open_send_request()
             if response is not None:
                 self.robot.get_scara_param()
                 self.robot.wait_stop()
-                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-110,self.robot.r,50,1)
+                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-110,self.robot.r,80,1)
                 self.robot.wait_stop()
+                self.get_logger().info(f"move in -z, ret :{ret}")
                 self.client_node.get_logger().info(f'open for {response}')
                 response = self.client_node.send_request() #close request
+                time.sleep(2)
                 if response is not None:
-                    time.sleep(1)
-                    ret=self.robot.movej_xyz(self.robot.x,self.robot.y,0,self.robot.r,50,1)
+                    ret=self.robot.movej_xyz(self.robot.x,self.robot.y,0,self.robot.r,80,1)
                     self.robot.wait_stop()
                     time.sleep(1)
-                    ret=self.robot.movej_xyz(0,-400,0,-180-180,50,1)
+                    ret=self.robot.movej_xyz(0,-400,0,-180-180-70,50,1)
                     self.robot.wait_stop()
                     response = self.client_node.open_send_request()
             else:
                 self.get_logger().error('Service call failed %r' % (self.client_node.future.exception(),))
-        self.get_logger().info(f"move in -z, ret :{ret}")
-        r.set("mode","camera_ready")
+
+        r.set("mode","camera_ready") 
+
     def hitbot_gripper_adjust_callback(self, msg):
         xy=msg.data.split(",")
+        leng=len(xy)
+        self.get_logger().info(f'xy={xy},len={leng}')
         mode=r.get("mode")
         #adj_xy=[int(float(xy[0])),int(float(xy[0]))]
+        if len(xy)>1:
+            x_0,y_0,_,_=self.rt.tranform_point3_0([int(xy[0])-0.5,0.5-int(xy[1])],[self.robot.angle1*3.14/180,self.robot.angle2*3.14/180,self.robot.r*3.14/180])
+            if abs(x_0)>100 or abs(y_0)>100:
+                self.get_logger().info(f'xy={xy},mode={mode},pixel x_0:{x_0},pixel y0:{y_0}')
+                #self.get_logger().info(f"adjust,current pos: x={self.goal[0]*1000},y={self.goal[1]*1000},target goal:{adj_goal}")
+                #current_angle=[self.robot.angle1 *3.1415/180,self.robot.angle2*3.1415/180,self.robot.r*3.1415/180]
+                #angles=self.solver.get_robot_angle_in_degree(adj_goal,current_angle)
+                #self.get_logger().info(f"adjust,Computed   angle:{angles},current_angle:{self.robot.angle1},{self.robot.angle2},{self.robot.r}")
+                #computed_pos=self.forward_kinematics_from_angles(angles[:3])
+                #self.get_logger().info(f"adjust,Computed   position:{computed_pos}")
+                self.robot.get_scara_param()
+                self.robot.wait_stop()
+                #ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-180,50,1)
+                adj_goal=[(self.robot.x-x_0/30),(self.robot.y-y_0/30)] 
+                ret=self.robot.movej_xyz(adj_goal[0],adj_goal[1],self.robot.z,-180,30,1)
+                self.robot.wait_stop()
+                r.set("mode","adjust_done")
+                time.sleep(1)   
+            #else:
 
-        x_0,y_0,_,_=self.rt.tranform_point3_0([int(xy[0])-0.5,0.5-int(xy[1])],[self.robot.angle1*3.14/180,self.robot.angle2*3.14/180,self.robot.r*3.14/180])
-        if abs(x_0)>50 or abs(y_0)>50:
-            self.get_logger().info(f'xy={xy},mode={mode},pixel x_0:{x_0},pixel y0:{y_0}')
-            
+        else:
+            r.set("mode","adjust_done")
+            done=String()
+            done.data="done"
+            self.gripper_adj_done_pub.publish(done)
+
+    	#self.get_logger().info("xy pixel offset:{}".format(xy))  
 
 
-            #self.get_logger().info(f"adjust,current pos: x={self.goal[0]*1000},y={self.goal[1]*1000},target goal:{adj_goal}")
-            #current_angle=[self.robot.angle1 *3.1415/180,self.robot.angle2*3.1415/180,self.robot.r*3.1415/180]
-            #angles=self.solver.get_robot_angle_in_degree(adj_goal,current_angle)
-            #self.get_logger().info(f"adjust,Computed   angle:{angles},current_angle:{self.robot.angle1},{self.robot.angle2},{self.robot.r}")
-            #computed_pos=self.forward_kinematics_from_angles(angles[:3])
-            #self.get_logger().info(f"adjust,Computed   position:{computed_pos}")
-            self.robot.get_scara_param()
-            self.robot.wait_stop()
-            #ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-180,50,1)
-            adj_goal=[(self.robot.x+x_0/30),(self.robot.y-y_0/30)] 
-            ret=self.robot.movej_xyz(adj_goal[0],adj_goal[1],self.robot.z,self.robot.r-180,30,1)
-            self.robot.wait_stop()
-            #r.set("mode","ready_to_adjust")
-            #time.sleep(1)   
-        #else:
-            #r.set("mode","adjust_done")
-        r.set("mode","camera_ready")
-        #xy=[int(xy[0]),int(xy[1])];
-    	#diff=xy-self.rpi5_adj_xy_pixel;
-        #self.get_logger().info(f'{xy}')
-        #if (int(xy[0])>100 or int(xy[1])>100):
-        #    self.get_logger().error('Service call failed %r' % (self.client_node.future.exception(),))
-        #    self.robot.get_scara_param()
-        #    ret=self.robot.movej_xyz(self.robot.x-diff[0]/10,self.robot.y-diff[1]/10,self.robot.z-110,self.robot.r,100,1)
-        #    self.robot.wait_stop()
-
-    	#self.get_logger().info("xy pixel offset:{}".format(xy))   
     def joint_state_cb(self, msg):
         if not self.recording:
             return
@@ -876,6 +870,7 @@ class HitbotController(Node):
     	#ret=self.robot.new_movej_xyz_lr(hi.x-100,hi.y,0,-180,20,0,1)
         #ret=self.robot.movej_angle(0,30,0,0,20,0)
         self.robot.wait_stop()
+        r.set("mode","camera_ready") 
         print('Robot I/O output initialized.')
         for i in range(12):
             self.robot.set_digital_out(i, False)
