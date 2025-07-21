@@ -459,7 +459,7 @@ class HitbotController(Node):
         #adj_xy=[int(float(xy[0])),int(float(xy[0]))]
         if len(xy)>1:
             x_0,y_0,_,_=self.rt.tranform_point3_0([int(xy[0])-0.5,0.5-int(xy[1])],[self.robot.angle1*3.14/180,self.robot.angle2*3.14/180,self.robot.r*3.14/180])
-            if abs(x_0)>100 or abs(y_0)>100:
+            if abs(x_0)>50 or abs(y_0)>50:
                 self.get_logger().info(f'xy={xy},mode={mode},pixel x_0:{x_0},pixel y0:{y_0}')
                 #self.get_logger().info(f"adjust,current pos: x={self.goal[0]*1000},y={self.goal[1]*1000},target goal:{adj_goal}")
                 #current_angle=[self.robot.angle1 *3.1415/180,self.robot.angle2*3.1415/180,self.robot.r*3.1415/180]
@@ -470,12 +470,18 @@ class HitbotController(Node):
                 self.robot.get_scara_param()
                 self.robot.wait_stop()
                 #ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-180,50,1)
-                adj_goal=[(self.robot.x+x_0/30),(self.robot.y+y_0/30)] 
+                #adj_goal=[(self.robot.x+x_0/30),(self.robot.y+y_0/30)]
+                adj_goal=[(self.robot.x-int(xy[1])/10),(self.robot.y-int(xy[0])/10)] 
+                
                 ret=self.robot.movej_xyz(adj_goal[0],adj_goal[1],self.robot.z,-180,30,1)
                 self.robot.wait_stop()
                 r.set("mode","ready_to_adjust")
                 time.sleep(1)   
-            #else:
+            else:
+            	r.set("mode","adjust_done")
+            	done=String()
+            	done.data="done"
+            	self.gripper_adj_done_pub.publish(done)            
 
         else:
             r.set("mode","adjust_done")
