@@ -43,7 +43,7 @@ servo_inc=50
 servo_max = 400  # Max pulse length out of 4096
 frame=None
 boxing_img=None
-redis_server='172.27.34.62'
+redis_server='172.23.66.159'
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
 model = YOLO("/home/cot/mushroomproject/yolo11n_mushroom.pt")  #yolo11n_mushroom_ncnn_model
