@@ -18,7 +18,7 @@ class MovePublisher(Node):
     def __init__(self):
         super().__init__('test_publisher')
         self.publisher = self.create_publisher(String, '/move/x', 1)
-        self.subscription = self.create_subscription(Image,'/yolox/boxes_image',self.chatter_callback,10)
+        self.subscription = self.create_subscription(Image,'/camera/color/image_raw',self.chatter_callback,10)
         self.latest_message = None
         self.bridge = CvBridge()
 
@@ -168,8 +168,9 @@ def gen():
     yield b'--frame\r\n'
     while True:
         global frame
-        (flag, encodedImage) = cv2.imencode(".jpg", frame)
-        yield b'Content-Type: image/jpeg\r\n\r\n' + bytearray(encodedImage)  + b'\r\n--frame\r\n'
+        if frame is not None:
+            (flag, encodedImage) = cv2.imencode(".jpg", frame)  
+            yield b'Content-Type: image/jpeg\r\n\r\n' + bytearray(encodedImage)  + b'\r\n--frame\r\n'
 
 
 @app.route('/video_feed')

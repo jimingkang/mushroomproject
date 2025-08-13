@@ -86,8 +86,9 @@ i = 0
 
 
 
-broker="172.27.34.62"
-redis_server="172.27.34.62"
+broker="172.23.66.117"
+redis_server="172.23.66.159"
+#redis_server="192.168.254.36"
 
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True, password='jimmy')
@@ -328,7 +329,7 @@ class yolox_ros(yolox_py):
                     pix = (int((box[0]+box[2])/2),int((box[1]+box[3])/2))
                     #self.diff_pix=abs(self.pre_pix[0]-pix[0])+abs(self.pre_pix[1]-pix[1])
                     logger.info("pix: {},box:{},score:{}".format(pix,box,score))
-                    if( score>0.3 and self.intrinsics and abs(int((box[0]-box[2])))>10 and  abs(int((box[0]-box[2])))<120 and abs(int((box[1]-box[3])))>10 and abs(int((box[1]-box[3])))<120):
+                    if( score>0.4 and self.intrinsics and abs(int((box[0]-box[2])))>10 and  abs(int((box[0]-box[2])))<120 and abs(int((box[1]-box[3])))>10 and abs(int((box[1]-box[3])))<120):
                         depth = cv_image[pix[1], pix[0]]
                         logger.info("before  rs2_deproject_pixel_to_point depth:{}".format(depth))
                         result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth)
@@ -342,7 +343,7 @@ class yolox_ros(yolox_py):
 
                         #diff=abs(self.pre_mushroom[0]-result[0])+abs(self.pre_mushroom[2]-result[2])
                         #logger.info("box:{},".format(bbox.data))
-                        if  1:# r.get("mode")=="camera_ready": # int(result[1])<100 and
+                        if   r.get("mode")=="camera_ready": # int(result[1])<100 and
                             self.pre_mushroom=result
                             self.pre_pix=pix
                             self.pub_bounding_boxes.publish(bbox)

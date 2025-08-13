@@ -38,7 +38,7 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 
 
-redis_server='172.27.34.62'
+redis_server='172.23.66.159'
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
@@ -422,7 +422,11 @@ class HitbotController(Node):
             ret=self.robot.movej_xyz(goal[0],goal[1],0,-180,80,1)
             self.get_logger().info(f"bounding_boxes_callback ->ret :{ret}")
             self.robot.wait_stop()
-            r.set("mode","ready_to_adjust")
+            if ret<2:
+            	r.set("mode","ready_to_adjust") #
+            else:
+            	r.set("mode","camera_ready")
+            
             time.sleep(2)
 
 
@@ -443,7 +447,7 @@ class HitbotController(Node):
                     ret=self.robot.movej_xyz(self.robot.x,self.robot.y,0,self.robot.r,80,1)
                     self.robot.wait_stop()
                     time.sleep(1)
-                    ret=self.robot.movej_xyz(0,-400,0,-180-180-70,50,1)
+                    ret=self.robot.movej_xyz(0,400,0,+20,50,1)
                     self.robot.wait_stop()
                     response = self.client_node.open_send_request()
             else:
@@ -458,7 +462,7 @@ class HitbotController(Node):
         mode=r.get("mode")
         #adj_xy=[int(float(xy[0])),int(float(xy[0]))]
         if len(xy)>1:
-            x_0,y_0,_,_=self.rt.tranform_point3_0([int(xy[0])-0.5,0.5-int(xy[1])],[self.robot.angle1*3.14/180,self.robot.angle2*3.14/180,self.robot.r*3.14/180])
+            #x_0,y_0,_,_=self.rt.tranform_point3_0([int(xy[0])-0.5,0.5-int(xy[1])],[self.robot.angle1*3.14/180,self.robot.angle2*3.14/180,self.robot.r*3.14/180])
             if abs(x_0)>50 or abs(y_0)>50:
                 self.get_logger().info(f'xy={xy},mode={mode},pixel x_0:{x_0},pixel y0:{y_0}')
                 #self.get_logger().info(f"adjust,current pos: x={self.goal[0]*1000},y={self.goal[1]*1000},target goal:{adj_goal}")
@@ -484,10 +488,10 @@ class HitbotController(Node):
             	self.gripper_adj_done_pub.publish(done)            
 
         else:
-            r.set("mode","adjust_done")
-            done=String()
-            done.data="done"
-            self.gripper_adj_done_pub.publish(done)
+            r.set("mode","camera_ready") #adjust_done
+            #done=String()
+            #done.data="done"
+            #self.gripper_adj_done_pub.publish(done)
 
     	#self.get_logger().info("xy pixel offset:{}".format(xy))  
 
