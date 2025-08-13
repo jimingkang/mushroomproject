@@ -462,7 +462,7 @@ class HitbotController(Node):
         mode=r.get("mode")
         #adj_xy=[int(float(xy[0])),int(float(xy[0]))]
         if len(xy)>1:
-            #x_0,y_0,_,_=self.rt.tranform_point3_0([int(xy[0])-0.5,0.5-int(xy[1])],[self.robot.angle1*3.14/180,self.robot.angle2*3.14/180,self.robot.r*3.14/180])
+            x_0,y_0,_,_=self.rt.tranform_point3_0([int(xy[0])-0.5,0.5-int(xy[1])],[self.robot.angle1*3.14/180,self.robot.angle2*3.14/180,self.robot.r*3.14/180])
             if abs(x_0)>50 or abs(y_0)>50:
                 self.get_logger().info(f'xy={xy},mode={mode},pixel x_0:{x_0},pixel y0:{y_0}')
                 #self.get_logger().info(f"adjust,current pos: x={self.goal[0]*1000},y={self.goal[1]*1000},target goal:{adj_goal}")
@@ -488,10 +488,10 @@ class HitbotController(Node):
             	self.gripper_adj_done_pub.publish(done)            
 
         else:
-            r.set("mode","camera_ready") #adjust_done
-            #done=String()
-            #done.data="done"
-            #self.gripper_adj_done_pub.publish(done)
+            r.set("mode","adjust_done") #adjust_done
+            done=String()
+            done.data="done"
+            self.gripper_adj_done_pub.publish(done)
 
     	#self.get_logger().info("xy pixel offset:{}".format(xy))  
 
