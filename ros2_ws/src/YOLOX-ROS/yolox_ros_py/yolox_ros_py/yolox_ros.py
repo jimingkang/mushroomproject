@@ -188,15 +188,18 @@ class yolox_ros(yolox_py):
 
         self.setting_yolox_exp()
         self.bridge = CvBridge()
-        self.pub_bounding_boxes = self.create_publisher(String,"/yolox/bounding_boxes", 1)
-        self.adj_pub_bounding_boxes = self.create_publisher(String,"/yolox/adj_bounding_boxes", 1)
-        #self.pub_bounding_boxes_cords = self.create_publisher(BoundingBoxesCords,"/yolox/bounding_boxes_cords", 1)
-        self.pub_boxes_img = self.create_publisher(Image,"/d435/yolox/boxes_image", 10)
-        self.d405_pub_boxes_img = self.create_publisher(Image,"/d405/yolox/boxes_image", 10)
+
+
+
         self.pub_pointclouds = self.create_publisher(PointCloud2,'/yolox/pointclouds', 10)
-        if self.camera_param=="d435":       
+        if self.camera_param=="d435":
+        	self.pub_bounding_boxes = self.create_publisher(String,"/yolox/bounding_boxes", 1)
+        	self.adj_pub_bounding_boxes = self.create_publisher(String,"/yolox/adj_bounding_boxes", 1)
+        	#self.pub_bounding_boxes_cords = self.create_publisher(BoundingBoxesCords,"/yolox/bounding_boxes_cords", 1)
+        	self.pub_boxes_img = self.create_publisher(Image,"/d435/yolox/boxes_image", 10)     
         	self.sub_info = self.create_subscription(CameraInfo, self.d435_depth_info_topic, self.imageDepthInfoCallback, 1)
         else:
+        	self.d405_pub_boxes_img = self.create_publisher(Image,"/d405/yolox/boxes_image", 10)
         	self.d405_sub_info = self.create_subscription(CameraInfo, self.d405_depth_info_topic, self.d405_imageDepthInfoCallback, 1)
         
         self.sub_move_xy_info = self.create_subscription(String, move_x, self.MoveXYZCallback, 1)
@@ -213,9 +216,6 @@ class yolox_ros(yolox_py):
 
 
         qos_profile_subscriber = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,history=HistoryPolicy.KEEP_LAST,depth=1)
-
-        
-
         
         if self.camera_param=="d435":
         	self.sub_depth_image = Subscriber(self,Image, self.d435_depth_image_topic)
@@ -368,7 +368,7 @@ class yolox_ros(yolox_py):
         bboxes=[]
         scores=[]
         img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
-        img_rgb,tip_xy=self.red_tip(img_rgb)
+        #img_rgb,tip_xy=self.red_tip(img_rgb)
         if img_rgb is not None :
             outputs, img_info = self.predictor.inference(img_rgb)
             try:
@@ -393,10 +393,10 @@ class yolox_ros(yolox_py):
                         depth = cv_image[pix[1], pix[0]]
                         logger.info("before  rs2_deproject_pixel_to_point depth:{}".format(depth))
                         result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth)
-                        tip_result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [tip_xy[0], tip_xy[1]], depth)
-                        logger.info("tip_result-result_mushroom ={},{},{}".format(tip_result[0]-result[0],tip_result[1]-result[1],tip_result[2]-result[2]))
-                        logger.info("after  rs2_deproject_pixel_to_point depth:{}".format(depth))
-                        cv2.line(result_img_rgb, (tip_xy[0], tip_xy[1]), (pix[0], pix[1]), (0, 0, 255), 3)
+                        #tip_result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [tip_xy[0], tip_xy[1]], depth)
+                        #logger.info("tip_result-result_mushroom ={},{},{}".format(tip_result[0]-result[0],tip_result[1]-result[1],tip_result[2]-result[2]))
+                        #logger.info("after  rs2_deproject_pixel_to_point depth:{}".format(depth))
+                        #cv2.line(result_img_rgb, (tip_xy[0], tip_xy[1]), (pix[0], pix[1]), (0, 0, 255), 3)
                         #depth_val = cv_image.get_distance(pix[0], pix[1])  # Meters
                         #xyz = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth_val)
                         line = f'{result[0]},{result[1]},{result[2]}'
@@ -431,7 +431,6 @@ class yolox_ros(yolox_py):
         bboxes=[]
         scores=[]
         d405_img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
-        d405_img_rgb,tip_xy=self.red_tip(img_rgb)
         if d405_img_rgb is not None :
             outputs, img_info = self.predictor.inference(d405_img_rgb)
             try:
@@ -456,10 +455,10 @@ class yolox_ros(yolox_py):
                         depth = cv_image[pix[1], pix[0]]
                         logger.info("before  rs2_deproject_pixel_to_point depth:{}".format(depth))
                         result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth)
-                        tip_result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [tip_xy[0], tip_xy[1]], depth)
-                        logger.info("tip_result-result_mushroom ={},{},{}".format(tip_result[0]-result[0],tip_result[1]-result[1],tip_result[2]-result[2]))
-                        logger.info("after  rs2_deproject_pixel_to_point depth:{}".format(depth))
-                        cv2.line(d405_result_img_rgb, (tip_xy[0], tip_xy[1]), (pix[0], pix[1]), (0, 0, 255), 3)
+                        #tip_result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [tip_xy[0], tip_xy[1]], depth)
+                        #logger.info("tip_result-result_mushroom ={},{},{}".format(tip_result[0]-result[0],tip_result[1]-result[1],tip_result[2]-result[2]))
+                        #logger.info("after  rs2_deproject_pixel_to_point depth:{}".format(depth))
+                        #cv2.line(d405_result_img_rgb, (tip_xy[0], tip_xy[1]), (pix[0], pix[1]), (0, 0, 255), 3)
                         #depth_val = cv_image.get_distance(pix[0], pix[1])  # Meters
                         #xyz = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth_val)
                         line = f'{result[0]},{result[1]},{result[2]}'
@@ -473,7 +472,7 @@ class yolox_ros(yolox_py):
                             self.pre_mushroom=result
                             self.pre_pix=pix
                             self.pub_bounding_boxes.publish(bbox)
-                        if   r.get("mode")=="adjust_ready": # int(result[1])<100 and
+                        if 0:#  r.get("mode")=="adjust_ready": # int(result[1])<100 and
                             adjust_bbox=String()
                             adjust_bbox.data=f'{tip_result[0]-result[0]},{tip_result[1]-result[1]},{tip_result[2]-result[2]}'
                             #self.pre_mushroom=[tip_result[0]-result[0],tip_result[1]-result[1],tip_result[2]-result[2]]
