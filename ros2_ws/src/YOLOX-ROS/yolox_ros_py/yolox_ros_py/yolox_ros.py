@@ -171,7 +171,7 @@ class yolox_ros(yolox_py):
 
         # ROS2 init
         super().__init__('yolox_ros', load_params=False)
-        self.declare_parameter('camera_name', 'd405')
+        self.declare_parameter('camera_name', 'd435')
         self.camera_param= self.get_parameter('camera_name').value
         logger.info("camera_param: {},camera_param=='d405':{}".format(self.camera_param,self.camera_param=="d405"))
         if self.camera_param=="d405":
@@ -194,11 +194,11 @@ class yolox_ros(yolox_py):
         self.pub_pointclouds = self.create_publisher(PointCloud2,'/yolox/pointclouds', 10)
         if self.camera_param=="d435":
         	self.pub_bounding_boxes = self.create_publisher(String,"/yolox/bounding_boxes", 1)
-        	self.adj_pub_bounding_boxes = self.create_publisher(String,"/yolox/adj_bounding_boxes", 1)
         	#self.pub_bounding_boxes_cords = self.create_publisher(BoundingBoxesCords,"/yolox/bounding_boxes_cords", 1)
         	self.pub_boxes_img = self.create_publisher(Image,"/d435/yolox/boxes_image", 10)     
         	self.sub_info = self.create_subscription(CameraInfo, self.d435_depth_info_topic, self.imageDepthInfoCallback, 1)
         else:
+        	self.adj_pub_bounding_boxes = self.create_publisher(String,"/d405/yolox/adj_bounding_boxes", 1)
         	self.d405_pub_boxes_img = self.create_publisher(Image,"/d405/yolox/boxes_image", 10)
         	self.d405_sub_info = self.create_subscription(CameraInfo, self.d405_depth_info_topic, self.d405_imageDepthInfoCallback, 1)
         
@@ -410,12 +410,7 @@ class yolox_ros(yolox_py):
                             self.pre_mushroom=result
                             self.pre_pix=pix
                             self.pub_bounding_boxes.publish(bbox)
-                        if   r.get("mode")=="adjust_ready": # int(result[1])<100 and
-                            adjust_bbox=String()
-                            adjust_bbox.data=f'{tip_result[0]-result[0]},{tip_result[1]-result[1]},{tip_result[2]-result[2]}'
-                            #self.pre_mushroom=[tip_result[0]-result[0],tip_result[1]-result[1],tip_result[2]-result[2]]
-                            #self.pre_pix=pix
-                            self.adj_pub_bounding_boxes.publish(adjust_bbox)
+
                         break
                 if result_img_rgb is not None:
                     img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
@@ -434,7 +429,7 @@ class yolox_ros(yolox_py):
         if d405_img_rgb is not None :
             outputs, img_info = self.predictor.inference(d405_img_rgb)
             try:
-                logger.info("mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
+                logger.info("mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="adjust_ready"))
                 if  (outputs is not None): #and r.get("mode")=="camera_ready":# and r.get("scan")=="start" :#
                     d405_result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
 
@@ -462,21 +457,20 @@ class yolox_ros(yolox_py):
                         #depth_val = cv_image.get_distance(pix[0], pix[1])  # Meters
                         #xyz = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth_val)
                         line = f'{result[0]},{result[1]},{result[2]}'
-                        logger.info("xyz in side camera: {}".format(line))
+                        logger.info("xyz in top camera: {}".format(line))
                         bbox=String()
                         bbox.data=line
 
                         #diff=abs(self.pre_mushroom[0]-result[0])+abs(self.pre_mushroom[2]-result[2])
                         #logger.info("box:{},".format(bbox.data))
-                        if   r.get("mode")=="camera_ready": # int(result[1])<100 and
-                            self.pre_mushroom=result
-                            self.pre_pix=pix
-                            self.pub_bounding_boxes.publish(bbox)
-                        if 0:#  r.get("mode")=="adjust_ready": # int(result[1])<100 and
+                        #if   r.get("mode")=="camera_ready": # int(result[1])<100 and
+                        #    self.pre_mushroom=result
+                        #    self.pre_pix=pix
+                        #    self.pub_bounding_boxes.publish(bbox)
+                        if  r.get("mode")=="adjust_ready": # int(result[1])<100 and
                             adjust_bbox=String()
-                            adjust_bbox.data=f'{tip_result[0]-result[0]},{tip_result[1]-result[1]},{tip_result[2]-result[2]}'
-                            #self.pre_mushroom=[tip_result[0]-result[0],tip_result[1]-result[1],tip_result[2]-result[2]]
-                            #self.pre_pix=pix
+                            #adjust_bbox.data=f'{tip_result[0]-result[0]},{tip_result[1]-result[1]},{tip_result[2]-result[2]}'
+                            adjust_bbox.data=f'{result[0]},{result[1]},{result[2]}'
                             self.adj_pub_bounding_boxes.publish(adjust_bbox)
                         break
                 if d405_result_img_rgb is not None:

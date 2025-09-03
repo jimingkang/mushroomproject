@@ -38,7 +38,7 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 
 #redis_server='10.0.0.21'
-redis_server='172.23.66.229'
+redis_server='172.23.248.34'
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
@@ -246,7 +246,7 @@ class HitbotController(Node):
 
 
         self.bounding_boxes_sub = self.create_subscription(String,"/yolox/bounding_boxes",self.bounding_boxes_callback, 10)
-        self.bounding_boxes_sub = self.create_subscription(String,"/yolox/adj_bounding_boxes",self.adj_bounding_boxes_callback, 10)
+        self.adj_bounding_boxes_sub = self.create_subscription(String,"/d405/yolox/adj_bounding_boxes",self.adj_bounding_boxes_callback, 10)
         self.xyz_sub = self.create_subscription(String,"/hitbot_end_xyz",self.hitbot_end_xyzr_callback,10)
         self.angle_sub = self.create_subscription(String,"/hitbot_end_angle",self.hitbot_end_angle_callback,10)
         self.gripper_adjust_sub = self.create_subscription(String,"/yolox/rpi5/adjust/xy_pixel",self.hitbot_gripper_adjust_callback,1)
@@ -421,7 +421,7 @@ class HitbotController(Node):
 
             #ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-180,100,1) 
             ret=self.robot.movej_xyz(goal[0],goal[1],0,-180,80,1)
-            self.get_logger().info(f"bounding_boxes_callback ->ret :{ret}")
+            self.get_logger().info(f"bounding_boxes_callback : goal={goal},ret :{ret}")
             self.robot.wait_stop()
             if ret<2:
                 r.set("mode","adjust_ready")
