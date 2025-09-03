@@ -1,1 +1,1 @@
-flask run --no-reload --host='172.23.66.117' --port='5002'
+flask run --no-reload --host='10.0.0.21' --port='5002'

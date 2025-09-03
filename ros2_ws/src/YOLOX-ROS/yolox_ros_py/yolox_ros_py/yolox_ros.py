@@ -161,9 +161,12 @@ global_points_xyz_rgb_list=np.asarray([()])
 i=0
 class yolox_ros(yolox_py):
     def __init__(self) -> None:
-        raw_image_topic = '/d435/color/image_raw'
-        depth_image_topic = '/d435/aligned_depth_to_color/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
-        depth_info_topic = '/d435/depth/camera_info'
+        d405_raw_image_topic = '/d405/color/image_rect_raw'
+        d405_depth_image_topic = '/d405/aligned_depth_to_color/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
+        d405_depth_info_topic = '/d405/depth/camera_info'
+        d435_raw_image_topic = '/d435/color/image_raw'
+        d435_depth_image_topic = '/d435/aligned_depth_to_color/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
+        d435_depth_info_topic = '/d435/depth/camera_info'
         move_x="/move/x"
 
         # ROS2 init
@@ -177,11 +180,12 @@ class yolox_ros(yolox_py):
         self.pub_boxes_img = self.create_publisher(Image,"/yolox/boxes_image", 10)
         self.pub_pointclouds = self.create_publisher(PointCloud2,'/yolox/pointclouds', 10)
        
-        self.sub_info = self.create_subscription(CameraInfo, depth_info_topic, self.imageDepthInfoCallback, 1)
+        self.sub_info = self.create_subscription(CameraInfo, d405_depth_info_topic, self.imageDepthInfoCallback, 1)
         self.sub_move_xy_info = self.create_subscription(String, move_x, self.MoveXYZCallback, 1)
 
 
         self.intrinsics = None
+        self.d435_intrinsics = None
         self.pix = None
         self.pix_grade = None
         self.pre_mushroom=[0,0,0]
@@ -191,8 +195,8 @@ class yolox_ros(yolox_py):
 
 
         qos_profile_subscriber = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,history=HistoryPolicy.KEEP_LAST,depth=1)
-        self.sub_depth_image = Subscriber(self,Image, depth_image_topic)
-        self.sub = Subscriber(self,Image,raw_image_topic, qos_profile=qos_profile_subscriber)
+        self.sub_depth_image = Subscriber(self,Image, d405_depth_image_topic)
+        self.sub = Subscriber(self,Image,d405_raw_image_topic, qos_profile=qos_profile_subscriber)
 
 
         ats = ApproximateTimeSynchronizer([ self.sub,self.sub_depth_image], queue_size=1, slop=0.025, allow_headerless=True)
