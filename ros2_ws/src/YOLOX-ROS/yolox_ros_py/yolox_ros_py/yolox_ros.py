@@ -429,7 +429,7 @@ class yolox_ros(yolox_py):
         if d405_img_rgb is not None :
             outputs, img_info = self.predictor.inference(d405_img_rgb)
             try:
-                logger.info("mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="adjust_ready"))
+                logger.info("mode={},mode==adjust_ready,{}".format(r.get("mode"),r.get("mode")=="adjust_ready"))
                 if  (outputs is not None): #and r.get("mode")=="camera_ready":# and r.get("scan")=="start" :#
                     d405_result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
 
@@ -457,7 +457,7 @@ class yolox_ros(yolox_py):
                         #depth_val = cv_image.get_distance(pix[0], pix[1])  # Meters
                         #xyz = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth_val)
                         line = f'{result[0]},{result[1]},{result[2]}'
-                        logger.info("xyz in top camera: {}".format(line))
+                        logger.info("xyz in top camera: {},mode={},mode==adjust_ready?".format(line,r.get("mode"),r.get("mode")=="adjust_ready"))
                         bbox=String()
                         bbox.data=line
 

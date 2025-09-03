@@ -434,7 +434,7 @@ class HitbotController(Node):
         if r.get("mode")=="adjust_ready":
             mushroom_xyz=msg.data
             mushroom_xyz=msg.data.split(",");
-            goal=[int(float(mushroom_xyz[2].strip())),0-int(float(mushroom_xyz[0].strip()))]
+            goal=[int(float(mushroom_xyz[1].strip())),int(float(mushroom_xyz[0].strip()))]
             self.robot.get_scara_param()
             ret=self.robot.movej_xyz(self.robot.x-goal[0],self.robot.y-goal[1],self.robot.z,-180,80,1)
             self.get_logger().info(f"adj bounding_boxes_callback ->adjust :{goal},ret:{ret}")
