@@ -446,7 +446,7 @@ class yolox_ros(yolox_py):
                     pix = (int((box[0]+box[2])/2),int((box[1]+box[3])/2))
                     #self.diff_pix=abs(self.pre_pix[0]-pix[0])+abs(self.pre_pix[1]-pix[1])
                     logger.info("pix: {},box:{},score:{}".format(pix,box,score))
-                    if( score>0.4 and self.intrinsics and abs(int((box[0]-box[2])))>10 and  abs(int((box[0]-box[2])))<120 and abs(int((box[1]-box[3])))>10 and abs(int((box[1]-box[3])))<120):
+                    if( score>0.3 and self.d405_intrinsics and abs(int((box[0]-box[2])))>10 and  abs(int((box[0]-box[2])))<200 and abs(int((box[1]-box[3])))>10 and abs(int((box[1]-box[3])))<200):
                         depth = cv_image[pix[1], pix[0]]
                         logger.info("before  rs2_deproject_pixel_to_point depth:{}".format(depth))
                         result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth)
