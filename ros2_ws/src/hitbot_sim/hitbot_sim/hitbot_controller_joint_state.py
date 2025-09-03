@@ -445,7 +445,7 @@ class HitbotController(Node):
             	#if response is not None:
                 self.robot.get_scara_param()
                 self.robot.wait_stop()
-                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-120,self.robot.r,80,1)
+                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-190,self.robot.r,80,1)
                 self.robot.wait_stop()
                 self.get_logger().info(f"move in -z, ret :{ret}")
                 response = self.client_node.send_request() #close request
