@@ -70,6 +70,8 @@ K = np.array([[F,0,W//2],[0,F,H//2],[0,0,1]])
 #mapp = Mapp(W, H)
 frame=None
 
+d405_frame=None
+
 
 
 # import camera driver
@@ -155,37 +157,53 @@ def video_feed():
 bboxes_msg=None
 result_img_rgb=None
 img_rgb=None
+
+d405_bboxes_msg=None
+d405_result_img_rgb=None
+d405_img_rgb=None
 points_xyz_rgb=np.asarray([[]])
 pointsxyzrgb_total=np.asarray([[0,0,0,0,0,0]])
 global_points_xyz_rgb_list=np.asarray([()])
 i=0
 class yolox_ros(yolox_py):
     def __init__(self) -> None:
-        d405_raw_image_topic = '/d405/color/image_rect_raw'
-        d405_depth_image_topic = '/d405/aligned_depth_to_color/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
-        d405_depth_info_topic = '/d405/depth/camera_info'
-        d435_raw_image_topic = '/d435/color/image_raw'
-        d435_depth_image_topic = '/d435/aligned_depth_to_color/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
-        d435_depth_info_topic = '/d435/depth/camera_info'
-        move_x="/move/x"
+
 
         # ROS2 init
         super().__init__('yolox_ros', load_params=False)
+        self.declare_parameter('camera_name', 'd405')
+        self.camera_param= self.get_parameter('camera_name').value
+        logger.info("camera_param: {},camera_param=='d405':{}".format(self.camera_param,self.camera_param=="d405"))
+        if self.camera_param=="d405":
+        	self.d405_raw_image_topic = '/'+self.camera_param+'/color/image_rect_raw'
+        	self.d405_depth_image_topic = '/'+self.camera_param+'/aligned_depth_to_color/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
+        	self.d405_depth_info_topic = '/'+self.camera_param+'/depth/camera_info'
+        else :
+        	self.d435_raw_image_topic = '/'+self.camera_param+'/color/image_raw'
+        	self.d435_depth_image_topic = '/'+self.camera_param+'/aligned_depth_to_color/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
+        	self.d435_depth_info_topic = '/'+self.camera_param+'/depth/camera_info'
+	       
+
+        move_x="/move/x"
 
         self.setting_yolox_exp()
         self.bridge = CvBridge()
         self.pub_bounding_boxes = self.create_publisher(String,"/yolox/bounding_boxes", 1)
         self.adj_pub_bounding_boxes = self.create_publisher(String,"/yolox/adj_bounding_boxes", 1)
         #self.pub_bounding_boxes_cords = self.create_publisher(BoundingBoxesCords,"/yolox/bounding_boxes_cords", 1)
-        self.pub_boxes_img = self.create_publisher(Image,"/yolox/boxes_image", 10)
+        self.pub_boxes_img = self.create_publisher(Image,"/d435/yolox/boxes_image", 10)
+        self.d405_pub_boxes_img = self.create_publisher(Image,"/d405/yolox/boxes_image", 10)
         self.pub_pointclouds = self.create_publisher(PointCloud2,'/yolox/pointclouds', 10)
-       
-        self.sub_info = self.create_subscription(CameraInfo, d405_depth_info_topic, self.imageDepthInfoCallback, 1)
+        if self.camera_param=="d435":       
+        	self.sub_info = self.create_subscription(CameraInfo, self.d435_depth_info_topic, self.imageDepthInfoCallback, 1)
+        else:
+        	self.d405_sub_info = self.create_subscription(CameraInfo, self.d405_depth_info_topic, self.d405_imageDepthInfoCallback, 1)
+        
         self.sub_move_xy_info = self.create_subscription(String, move_x, self.MoveXYZCallback, 1)
 
-
         self.intrinsics = None
-        self.d435_intrinsics = None
+        self.d405_intrinsics = None
+        
         self.pix = None
         self.pix_grade = None
         self.pre_mushroom=[0,0,0]
@@ -195,13 +213,20 @@ class yolox_ros(yolox_py):
 
 
         qos_profile_subscriber = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,history=HistoryPolicy.KEEP_LAST,depth=1)
-        self.sub_depth_image = Subscriber(self,Image, d405_depth_image_topic)
-        self.sub = Subscriber(self,Image,d405_raw_image_topic, qos_profile=qos_profile_subscriber)
 
+        
 
-        ats = ApproximateTimeSynchronizer([ self.sub,self.sub_depth_image], queue_size=1, slop=0.025, allow_headerless=True)
-        ats.registerCallback(self.callback)
-  
+        
+        if self.camera_param=="d435":
+        	self.sub_depth_image = Subscriber(self,Image, self.d435_depth_image_topic)
+        	self.sub = Subscriber(self,Image,self.d435_raw_image_topic, qos_profile=qos_profile_subscriber)
+        	ats = ApproximateTimeSynchronizer([ self.sub,self.sub_depth_image], queue_size=1, slop=0.025, allow_headerless=True)
+        	ats.registerCallback(self.callback)
+        else:
+        	self.d405_sub_depth_image = Subscriber(self,Image, self.d405_depth_image_topic)
+        	self.d405_sub = Subscriber(self,Image,self.d405_raw_image_topic, qos_profile=qos_profile_subscriber)
+        	ats = ApproximateTimeSynchronizer([ self.d405_sub,self.d405_sub_depth_image], queue_size=1, slop=0.025, allow_headerless=True)
+        	ats.registerCallback(self.d405_callback)  
     def setting_yolox_exp(self) -> None:
 
         WEIGHTS_PATH = '../../weights/yolox_nano.pth'  #for no trt
@@ -352,10 +377,6 @@ class yolox_ros(yolox_py):
                     result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
 
 
-                
-
-
-
         #depth image
                 cv_image = self.bridge.imgmsg_to_cv2(data, data.encoding)
                 global_camera_xy=r.get("global_camera_xy")
@@ -405,7 +426,69 @@ class yolox_ros(yolox_py):
             except Exception as e:
                 logger.error(e)
                 pass
-        
+    def d405_callback(self,msg:Image,data:Image) -> None:
+        global d405_bboxes_msg,d405_result_img_rgb,d405_img_rgb,d405_frame
+        bboxes=[]
+        scores=[]
+        d405_img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
+        d405_img_rgb,tip_xy=self.red_tip(img_rgb)
+        if d405_img_rgb is not None :
+            outputs, img_info = self.predictor.inference(d405_img_rgb)
+            try:
+                logger.info("mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
+                if  (outputs is not None): #and r.get("mode")=="camera_ready":# and r.get("scan")=="start" :#
+                    d405_result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
+
+
+        #depth image
+                cv_image = self.bridge.imgmsg_to_cv2(data, data.encoding)
+                global_camera_xy=r.get("global_camera_xy")
+                camera_xy=global_camera_xy.split(",")
+                logger.info("in  imageDepthCallback camera_xy:{},bboxes:{},scores:{},data.encoding{}".format(camera_xy,bboxes,scores,data.encoding))
+
+                for box,score in zip(bboxes,scores):
+                    logger.info("box[0]:{},{},{},{}".format(box[0],box[2],box[1],box[3]))                
+                
+                    pix = (int((box[0]+box[2])/2),int((box[1]+box[3])/2))
+                    #self.diff_pix=abs(self.pre_pix[0]-pix[0])+abs(self.pre_pix[1]-pix[1])
+                    logger.info("pix: {},box:{},score:{}".format(pix,box,score))
+                    if( score>0.4 and self.intrinsics and abs(int((box[0]-box[2])))>10 and  abs(int((box[0]-box[2])))<120 and abs(int((box[1]-box[3])))>10 and abs(int((box[1]-box[3])))<120):
+                        depth = cv_image[pix[1], pix[0]]
+                        logger.info("before  rs2_deproject_pixel_to_point depth:{}".format(depth))
+                        result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth)
+                        tip_result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [tip_xy[0], tip_xy[1]], depth)
+                        logger.info("tip_result-result_mushroom ={},{},{}".format(tip_result[0]-result[0],tip_result[1]-result[1],tip_result[2]-result[2]))
+                        logger.info("after  rs2_deproject_pixel_to_point depth:{}".format(depth))
+                        cv2.line(d405_result_img_rgb, (tip_xy[0], tip_xy[1]), (pix[0], pix[1]), (0, 0, 255), 3)
+                        #depth_val = cv_image.get_distance(pix[0], pix[1])  # Meters
+                        #xyz = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth_val)
+                        line = f'{result[0]},{result[1]},{result[2]}'
+                        logger.info("xyz in side camera: {}".format(line))
+                        bbox=String()
+                        bbox.data=line
+
+                        #diff=abs(self.pre_mushroom[0]-result[0])+abs(self.pre_mushroom[2]-result[2])
+                        #logger.info("box:{},".format(bbox.data))
+                        if   r.get("mode")=="camera_ready": # int(result[1])<100 and
+                            self.pre_mushroom=result
+                            self.pre_pix=pix
+                            self.pub_bounding_boxes.publish(bbox)
+                        if   r.get("mode")=="adjust_ready": # int(result[1])<100 and
+                            adjust_bbox=String()
+                            adjust_bbox.data=f'{tip_result[0]-result[0]},{tip_result[1]-result[1]},{tip_result[2]-result[2]}'
+                            #self.pre_mushroom=[tip_result[0]-result[0],tip_result[1]-result[1],tip_result[2]-result[2]]
+                            #self.pre_pix=pix
+                            self.adj_pub_bounding_boxes.publish(adjust_bbox)
+                        break
+                if d405_result_img_rgb is not None:
+                    img_rgb_pub = self.bridge.cv2_to_imgmsg(d405_result_img_rgb,"bgr8")
+                else:
+                    img_rgb_pub = self.bridge.cv2_to_imgmsg(d405_img_rgb,"bgr8")
+                self.d405_pub_boxes_img.publish(img_rgb_pub)
+
+            except Exception as e:
+                logger.error(e)
+                pass    
     def MoveXYZCallback(self, data):
         global bboxes_msg
         logger.info("/move/x {}".format(data.data))
@@ -432,7 +515,6 @@ class yolox_ros(yolox_py):
             return
         except ValueError as e:
             return
-    
     def imageDepthInfoCallback(self, cameraInfo):
         try:
             if self.intrinsics:
@@ -449,6 +531,25 @@ class yolox_ros(yolox_py):
             elif cameraInfo.distortion_model == 'equidistant':
                 self.intrinsics.model = rs2.distortion.kannala_brandt4
             self.intrinsics.coeffs = [i for i in cameraInfo.d]
+        except CvBridgeError as e:
+            print(e)
+            return    
+    def d405_imageDepthInfoCallback(self, cameraInfo):
+        try:
+            if self.d405_intrinsics:
+                return
+            self.d405_intrinsics = rs2.intrinsics()
+            self.d405_intrinsics.width = cameraInfo.width
+            self.d405_intrinsics.height = cameraInfo.height
+            self.d405_intrinsics.ppx = cameraInfo.k[2]
+            self.d405_intrinsics.ppy = cameraInfo.k[5]
+            self.d405_intrinsics.fx = cameraInfo.k[0]
+            self.d405_intrinsics.fy = cameraInfo.k[4]
+            if cameraInfo.distortion_model == 'plumb_bob':
+                self.d405_intrinsics.model = rs2.distortion.brown_conrady
+            elif cameraInfo.distortion_model == 'equidistant':
+                self.d405_intrinsics.model = rs2.distortion.kannala_brandt4
+            self.d405_intrinsics.coeffs = [i for i in cameraInfo.d]
         except CvBridgeError as e:
             print(e)
             return
