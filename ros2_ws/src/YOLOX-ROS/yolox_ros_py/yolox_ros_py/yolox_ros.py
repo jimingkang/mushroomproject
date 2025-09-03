@@ -449,8 +449,8 @@ class yolox_ros(yolox_py):
                     if( score>0.3 and self.d405_intrinsics and abs(int((box[0]-box[2])))>10 and  abs(int((box[0]-box[2])))<200 and abs(int((box[1]-box[3])))>10 and abs(int((box[1]-box[3])))<200):
                         depth = cv_image[pix[1], pix[0]]
                         logger.info("before  rs2_deproject_pixel_to_point depth:{}".format(depth))
-                        result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth)
-                        #tip_result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [tip_xy[0], tip_xy[1]], depth)
+                        result = rs2.rs2_deproject_pixel_to_point(self.d405_intrinsics, [pix[0], pix[1]], depth)
+                        #tip_result = rs2.rs2_deproject_pixel_to_point(self.d405_intrinsics, [tip_xy[0], tip_xy[1]], depth)
                         #logger.info("tip_result-result_mushroom ={},{},{}".format(tip_result[0]-result[0],tip_result[1]-result[1],tip_result[2]-result[2]))
                         #logger.info("after  rs2_deproject_pixel_to_point depth:{}".format(depth))
                         #cv2.line(d405_result_img_rgb, (tip_xy[0], tip_xy[1]), (pix[0], pix[1]), (0, 0, 255), 3)
