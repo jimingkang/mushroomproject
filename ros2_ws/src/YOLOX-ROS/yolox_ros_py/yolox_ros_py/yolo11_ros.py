@@ -42,6 +42,9 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 from ultralytics.utils.plotting import Annotator, colors
+from vision_msgs.msg import Detection2DArray, Detection2D, ObjectHypothesisWithPose
+from vision_msgs.msg import BoundingBox2D
+
 
 import pyrealsense2 as pyrs
 from numpy import empty
@@ -64,6 +67,10 @@ from bboxes_ex_msgs.msg import BoundingBox,BoundingBoxCord
 from .yolox_ros_py_utils.utils import yolox_py
 from sensor_msgs.msg import CameraInfo
 from std_msgs.msg import String
+
+from rclpy.qos import QoSProfile
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+from message_filters import Subscriber, ApproximateTimeSynchronizer
 #import orbslam3
 #from slam import Mapp,Frame
 from scipy.spatial.transform import Rotation as R
@@ -90,8 +97,8 @@ i = 0
 
 
 
-broker="172.27.34.62"
-redis_server="172.27.34.62"
+#broker="172.23.66.229"
+redis_server="172.23.66.229"
 
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True, password='jimmy')
@@ -316,35 +323,39 @@ global_points_xyz_rgb_list=np.asarray([()])
 i=0
 class yolox_ros(yolox_py):
     def __init__(self) -> None:
-        raw_image_topic = '/camera/color/image_rect_raw'
-        depth_image_topic = '/camera/depth/image_rect_raw'
+        raw_image_topic = '/camera/color/image_raw'
+        depth_image_topic = '/camera/aligned_depth_to_color/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
         depth_info_topic = '/camera/depth/camera_info'
+    
+
+        #raw_image_topic = '/camera/color/image_rect_raw'
+        #depth_image_topic = '/camera/depth/image_rect_raw'
+        #depth_info_topic = '/camera/depth/camera_info'
         gripper_camera_topic="/camera/gripper/raw_image"
         move_x="/move/x"
-        self.cap = cv2.VideoCapture(6)
-        w, h, fps = (int(self.cap.get(x)) for x in (cv2.CAP_PROP_FRAME_WIDTH, cv2.CAP_PROP_FRAME_HEIGHT, cv2.CAP_PROP_FPS))
 
         # ROS2 init
         super().__init__('yolox_ros', load_params=False)
 
         #self.setting_yolox_exp()
-        self.cap = cv2.VideoCapture(6)
-        w, h, fps = (int(self.cap.get(x)) for x in (cv2.CAP_PROP_FRAME_WIDTH, cv2.CAP_PROP_FRAME_HEIGHT, cv2.CAP_PROP_FPS))
-        self.w=w
-        self.h=h
-        self.fps=fps
-        self.infer_model = YOLO("/home/jimmy/Downloads/mushroomproject/ros2_ws/src/YOLOX-ROS/yolox_ros_py/yolox_ros_py/yolo11_x_mushroom.engine")
+        #self.cap = cv2.VideoCapture(6)
+        #w, h, fps = (int(self.cap.get(x)) for x in (cv2.CAP_PROP_FRAME_WIDTH, cv2.CAP_PROP_FRAME_HEIGHT, cv2.CAP_PROP_FPS))
+        #self.w=w
+        #self.h=h
+        #self.fps=fps
+        self.infer_model = YOLO("/home/a/Downloads/mushroomproject/ros2_ws/src/YOLOX-ROS/yolox_ros_py/yolox_ros_py/yolo11_google_mushroom.pt")
 
 
         self.bridge = CvBridge()
         
-        #self.pub = self.create_publisher(BoundingBoxes,"/yolox/bounding_boxes", 10)
+        #self.pub = self.create_publisher(Detection2DArray,"/yolox/bounding_boxes", 10)
+        self.pub_bounding_boxes = self.create_publisher(Detection2DArray,"/yolox/bounding_boxes", 1)
         self.pub_bounding_boxes_cords = self.create_publisher(BoundingBoxesCords,"/yolox/bounding_boxes_cords", 1)
         self.pub_boxes_img = self.create_publisher(Image,"/yolox/boxes_image", 1)
         self.pub_rpi5_boxes_img = self.create_publisher(Image,"/yolox/rpi5/boxing_image", 1)
         self.sub_rpi_raw_img = self.create_subscription(Image,"/yolox/rpi5/raw_image",self.rpi5_imageflow_callback, 1)
         self.pub_pointclouds = self.create_publisher(PointCloud2,'/yolox/pointclouds', 10)
-        self.sub_depth_image = self.create_subscription(Image, depth_image_topic, self.imageDepthCallback, 1)
+       
         self.sub_info = self.create_subscription(CameraInfo, depth_info_topic, self.imageDepthInfoCallback, 1)
         self.sub_move_xy_info = self.create_subscription(String, move_x, self.MoveXYZCallback, 1)
 
@@ -355,7 +366,76 @@ class yolox_ros(yolox_py):
         #if (self.sensor_qos_mode):
         #    self.sub = self.create_subscription(Image,raw_image_topic,self.imageflow_callback, qos_profile_sensor_data)
         #else:
-        self.sub = self.create_subscription(Image,raw_image_topic,self.imageflow_callback, 10)
+        qos_profile_subscriber = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,history=HistoryPolicy.KEEP_LAST,depth=1)
+        self.sub_depth_image = Subscriber(self,Image, depth_image_topic)
+        self.sub = Subscriber(self,Image,raw_image_topic, qos_profile=qos_profile_subscriber)
+
+
+        ats = ApproximateTimeSynchronizer([ self.sub,self.sub_depth_image], queue_size=1, slop=0.025, allow_headerless=True)
+        ats.registerCallback(self.callback)
+
+
+
+    def yolov11_to_bboxes_msg(self, boxes, confs, classes, header):
+        """
+        boxes.xyxy[i] = [x1,y1,x2,y2], confs[i]=float, classes[i]=int
+        兼容不同 vision_msgs/geometry_msgs 结构的 center 字段。
+        """
+        msg = Detection2DArray()
+        msg.header = header
+
+        for i in range(len(boxes)):
+            x1, y1, x2, y2 = map(float, boxes.xyxy[i])
+            cls_id = int(classes[i])
+            conf   = float(confs[i])
+
+            det = Detection2D()
+            det.header = header
+
+            w = x2 - x1
+            h = y2 - y1
+            cx = x1 + w / 2.0
+            cy = y1 + h / 2.0
+
+            # 确保 bbox 是我们自己新建并可控的
+            det.bbox = BoundingBox2D()
+
+            center = det.bbox.center
+            # 兼容 1：center 直接有 x/y（常见：Pose2D）
+            if hasattr(center, "x") and hasattr(center, "y"):
+                center.x = cx
+                center.y = cy
+                # 有些版本有 theta，有些没有；有就设，没有就忽略
+                if hasattr(center, "theta"):
+                    center.theta = 0.0
+
+            # 兼容 2：center 是 Pose（有 position.x/y）
+            elif hasattr(center, "position") and hasattr(center.position, "x"):
+                center.position.x = cx
+                center.position.y = cy
+                # orientation 留默认
+
+            # 仍然不兼容：直接替换成 Pose2D（如果你的发行版确实是 Pose2D）
+            else:
+                try:
+                    from geometry_msgs.msg import Pose2D
+                    det.bbox.center = Pose2D(x=cx, y=cy, theta=0.0)
+                except Exception:
+                    # 兜底：至少把 size 写进去，中心没法设则记日志
+                    pass
+
+            det.bbox.size_x = w
+            det.bbox.size_y = h
+
+            hypo = ObjectHypothesisWithPose()
+            #hypo.id    = cls_id
+            #hypo.score = conf
+            #det.results.append(hypo)
+
+            msg.detections.append(det)
+
+        return msg
+
 
     def gen(self,camera):
         global frame,boxing_img
@@ -366,28 +446,27 @@ class yolox_ros(yolox_py):
             frame = camera.get_frame()
                         
             if frame is not None:
-                outputs, img_info = self.predictor.inference(img_rgb)
-                logger.info(" geb outputs : {},".format((outputs)))
 
                 try:
-                    logger.info("rpi mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
-                    if  (outputs is not None) and r.get("scan")=="start" :#r.get("mode")=="camera_ready" and
-                        #logger.info("output[0]{},img_info{}".format(outputs[0],img_info))
-                        result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
-                        if  bboxes is not None:
-                            bboxes_msg = self.yolox2bboxes_msgs(bboxes, scores, cls, cls_names,track_ids, msg.header, img_rgb)
+                    detect_res = self.infer_model.predict(img_rgb, conf=0.50, verbose=False)
+                    r = detect_res[0]
+                    boxes = r.boxes.cpu().numpy()
+                    if boxes is not None and len(boxes) > 0:
+                        xyxy   = boxes.xyxy
+                        classes = boxes.cls
+                        confs   = boxes.conf
 
-                    if result_img_rgb is not None:
-                        img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
+                        # 转换为 ROS 消息
+                        bboxes_msg = self.yolov11_to_bboxes_msg(boxes, confs, classes, msg.header)
+                        self.pub_rpi5_boxes.publish(bboxes_msg)
+
+                        # 绘制框图
+                        result_img_rgb = r.plot()  # Ultralytics 自带绘制
+                        img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb, "bgr8")
                     else:
-                        img_rgb_pub = self.bridge.cv2_to_imgmsg(img_rgb,"bgr8")
+                        img_rgb_pub = self.bridge.cv2_to_imgmsg(img_rgb, "bgr8")
 
                     self.pub_rpi5_boxes_img.publish(img_rgb_pub)
-                        #time.sleep(2)
-
-                    #if (self.imshow_isshow):
-                    #    cv2.imshow("YOLOX",result_img_rgb)
-                    #    cv2.waitKey(1)
                 except Exception as e:
                     logger.error(e)
                     pass
@@ -405,11 +484,9 @@ class yolox_ros(yolox_py):
         result_img_rgb=None
         img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
         if img_rgb is not None:
-            detect_res = self.infer_model(img_rgb, conf=0.90)
+            detect_res = self.infer_model.predict(img_rgb, conf=0.90)
             bboxes = detect_res[0].boxes.cpu().numpy()
-            xyxy = bboxes.xyxy
-            classes = bboxes.cls
-            confs = bboxes.conf
+
             try:
                     logger.info("get  rpi5 msg mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
                     #if  (detect_res is not None) and r.get("scan")=="start" :#r.get("mode")=="camera_ready" and
@@ -437,35 +514,27 @@ class yolox_ros(yolox_py):
             img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
             if img_rgb is not None:
 
-                #outputs, img_info = self.predictor.inference(img_rgb)
-                detect_res = self.infer_model(img_rgb, conf=0.90)
-                #logger.info(detect_res)
-                bboxes = detect_res[0].boxes.cpu().numpy()
-                xyxy = bboxes.xyxy
-                classes = bboxes.cls
-                confs = bboxes.conf
-               
-                #cv2.imshow("detect",img_rgb)
-                #cv2.waitKey(1)
-
-                #logger.info("outputs : {},".format((outputs)))
 
                 try:
-                    logger.info("yolo11 mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
-                    if  (detect_res is not None) and r.get("scan")=="start" :#r.get("mode")=="camera_ready" and
-                        #logger.info("output[0]{},img_info{}".format(outputs[0],img_info))
-                        #result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
-                        if  bboxes is not None:
-                            bboxes_msg, result_img_rgb = self.yolox2bboxes_msgs(bboxes, confs, classes, msg.header, img_rgb)
-                            #logger.info("result_img_rgb:{}".format(result_img_rgb))
+                    detect_res = self.infer_model.predict(img_rgb, conf=0.50, verbose=False)
+                    result = detect_res[0]
+                    boxes = result.boxes.cpu().numpy()
+                    if boxes is not None and len(boxes) > 0:
+                        xyxy   = boxes.xyxy
+                        classes = boxes.cls
+                        confs   = boxes.conf
 
-                    if result_img_rgb is not None:
-                        img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
+                        # 转换为 ROS 消息
+                        bboxes_msg = self.yolov11_to_bboxes_msg(boxes, confs, classes, msg.header)
+                        self.pub_bounding_boxes.publish(bboxes_msg)
+
+                        # 绘制框图
+                        result_img_rgb = result.plot()  # Ultralytics 自带绘制
+                        img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb, "bgr8")
                     else:
-                        img_rgb_pub = self.bridge.cv2_to_imgmsg(img_rgb,"bgr8")
+                        img_rgb_pub = self.bridge.cv2_to_imgmsg(img_rgb, "bgr8")
 
                     self.pub_boxes_img.publish(img_rgb_pub)
-
 
                     #if (self.imshow_isshow):
                     #    cv2.imshow("YOLOX",result_img_rgb)
@@ -473,6 +542,69 @@ class yolox_ros(yolox_py):
                 except Exception as e:
                     logger.error(e)
                     pass
+    def callback(self,msg:Image,data:Image) -> None:
+        global bboxes_msg,result_img_rgb,img_rgb,mapp,frame
+        bboxes=[]
+        scores=[]
+        img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
+        if img_rgb is not None :
+            try:
+                detect_res = self.infer_model.predict(img_rgb, conf=0.50, verbose=False)
+                result = detect_res[0]
+                boxes = result.boxes.cpu().numpy()
+                if boxes is not None and len(boxes) > 0:
+                    bboxes   = boxes.xyxy
+                    classes = boxes.cls
+                    scores   = boxes.conf
+
+
+                        # 转换为 ROS 消息
+                    bboxes_msg = self.yolov11_to_bboxes_msg(boxes, scores, classes, msg.header)
+                    self.pub_bounding_boxes.publish(bboxes_msg)
+                        # 绘制框图
+                    result_img_rgb = result.plot()  # Ultralytics 自带绘制
+                    img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb, "bgr8")
+                else:
+                    img_rgb_pub = self.bridge.cv2_to_imgmsg(img_rgb, "bgr8")
+
+                self.pub_boxes_img.publish(img_rgb_pub)
+
+                #depth image
+                cv_image = self.bridge.imgmsg_to_cv2(data, data.encoding)
+                global_camera_xy=r.get("global_camera_xy")
+                camera_xy=global_camera_xy.split(",")
+                logger.info("in  imageDepthCallback camera_xy:{},bboxes:{},scores:{},data.encoding{}".format(camera_xy,bboxes,scores,data.encoding))
+
+                for box,score in zip(bboxes,scores):
+                    logger.info("box[0]:{},{},{},{}".format(box[0],box[2],box[1],box[3]))                
+                
+                    pix = (int((box[0]+box[2])/2),int((box[1]+box[3])/2))
+                    #self.diff_pix=abs(self.pre_pix[0]-pix[0])+abs(self.pre_pix[1]-pix[1])
+                    logger.info("pix: {},box:{},score:{}".format(pix,box,score))
+                    if( score>0.4 and self.intrinsics and abs(int((box[0]-box[2])))>10 and  abs(int((box[0]-box[2])))<120 and abs(int((box[1]-box[3])))>10 and abs(int((box[1]-box[3])))<120):
+                        depth = cv_image[pix[1], pix[0]]
+                        logger.info("before  rs2_deproject_pixel_to_point depth:{}".format(depth))
+                        result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth)
+                        logger.info("after  rs2_deproject_pixel_to_point depth:{}".format(depth))
+                        #depth_val = cv_image.get_distance(pix[0], pix[1])  # Meters
+                        #xyz = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth_val)
+                        line = f'{result[0]},{result[1]},{result[2]}'
+                        logger.info("xyz in side camera: {}".format(line))
+                        bbox=String()
+                        bbox.data=line
+
+                        #diff=abs(self.pre_mushroom[0]-result[0])+abs(self.pre_mushroom[2]-result[2])
+                        #logger.info("box:{},".format(bbox.data))
+                        if   r.get("mode")=="camera_ready": # int(result[1])<100 and
+                            self.pre_mushroom=result
+                            self.pre_pix=pix
+                            self.pub_bounding_boxes.publish(bbox)
+                        break
+
+
+            except Exception as e:
+                logger.error(e)
+                pass
     def my_pose_estimation(self,depth, rgb,box):
         global i,pointsxyzrgb_total
         logger.info("before convertion depth:{}".format(depth.shape))
@@ -783,7 +915,7 @@ class yolox_ros(yolox_py):
             mode=r.get("mode")=="camera_ready"
             logger.info("in  imageDepthCallback camera_xy:{}, {}".format(camera_xy[0],camera_xy[1]))
 
-            if bboxes_msg is not None and len(bboxes_msg.bounding_boxes)>0  and  self.intrinsics is not None:
+            if bboxes_msg is not None and len(bboxes_msg)>0  and  self.intrinsics is not None:
                 #self.pose_estimation(cv_image,result_img_rgb,bboxes_msg.bounding_boxes)
                 if(result_img_rgb is not None):
                     self.my_pose_estimation(cv_image, result_img_rgb,bboxes_msg.bounding_boxes)

@@ -37,8 +37,8 @@ from example_interfaces.srv import Trigger
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 
-
-redis_server='172.23.66.159'
+#redis_server='10.0.0.21'
+redis_server='172.23.66.229'
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
@@ -246,6 +246,7 @@ class HitbotController(Node):
 
 
         self.bounding_boxes_sub = self.create_subscription(String,"/yolox/bounding_boxes",self.bounding_boxes_callback, 10)
+        self.bounding_boxes_sub = self.create_subscription(String,"/yolox/adj_bounding_boxes",self.adj_bounding_boxes_callback, 10)
         self.xyz_sub = self.create_subscription(String,"/hitbot_end_xyz",self.hitbot_end_xyzr_callback,10)
         self.angle_sub = self.create_subscription(String,"/hitbot_end_angle",self.hitbot_end_angle_callback,10)
         self.gripper_adjust_sub = self.create_subscription(String,"/yolox/rpi5/adjust/xy_pixel",self.hitbot_gripper_adjust_callback,1)
@@ -404,7 +405,7 @@ class HitbotController(Node):
         if r.get("mode")=="camera_ready":
             mushroom_xyz=msg.data
             mushroom_xyz=msg.data.split(",");
-            goal=[int(float(mushroom_xyz[2].strip()))-190,0-int(float(mushroom_xyz[0].strip()))]
+            goal=[int(float(mushroom_xyz[2].strip()))-270,0-int(float(mushroom_xyz[0].strip()))]
             #self.get_logger().info(f"get mushroom_xyz:{mushroom_xyz}")
             #self.goal=[int(float(mushroom_xyz[2].strip()))/1000,0-int(float(mushroom_xyz[0].strip()))/1000]
             #self.get_logger().info(f"target get goal:{self.goal}")
@@ -423,12 +424,56 @@ class HitbotController(Node):
             self.get_logger().info(f"bounding_boxes_callback ->ret :{ret}")
             self.robot.wait_stop()
             if ret<2:
-            	r.set("mode","ready_to_adjust") #
+                r.set("mode","adjust_ready")
             else:
             	r.set("mode","camera_ready")
             
             time.sleep(2)
 
+    def adj_bounding_boxes_callback(self, msg):
+        if r.get("mode")=="adjust_ready":
+            mushroom_xyz=msg.data
+            mushroom_xyz=msg.data.split(",");
+            goal=[int(float(mushroom_xyz[2].strip())),0-int(float(mushroom_xyz[0].strip()))]
+            self.robot.get_scara_param()
+            ret=self.robot.movej_xyz(self.robot.x-goal[0],self.robot.y-goal[1],self.robot.z,-180,80,1)
+            self.get_logger().info(f"adj bounding_boxes_callback ->adjust :{goal},ret:{ret}")
+            self.robot.wait_stop()
+            if ret<2:
+                r.set("mode","adjust_done")
+                response = self.client_node.open_send_request()
+            	#if response is not None:
+                self.robot.get_scara_param()
+                self.robot.wait_stop()
+                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-120,self.robot.r,80,1)
+                self.robot.wait_stop()
+                self.get_logger().info(f"move in -z, ret :{ret}")
+                response = self.client_node.send_request() #close request
+                time.sleep(3)
+                self.robot.get_scara_param()
+                self.robot.wait_stop()
+                self.client_node.get_logger().info(f'open 2 for {self.robot.z}')
+                for i in range(3):
+                    ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z,self.robot.r-3,30,1)
+                    self.robot.wait_stop()
+                    self.robot.get_scara_param()
+                    self.robot.wait_stop()
+                    ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z,self.robot.r+3,30,1)
+                    self.robot.wait_stop()
+                    time.sleep(0.5)
+            	
+            	#if response is not None:
+                self.robot.get_scara_param()
+                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,0,self.robot.r,80,1)
+                self.robot.wait_stop()
+                time.sleep(1)
+                ret=self.robot.movej_xyz(0,400,0,+20,50,1)
+                self.robot.wait_stop()
+                response = self.client_node.open_send_request()
+            #else:
+            # 	r.set("mode","camera_ready")
+            r.set("mode","camera_ready")          
+            time.sleep(2)
 
     def hitbot_gripper_adjust_done_callback(self, msg):
         self.get_logger().info(f"hitbot_gripper_adjust_done_callback:{msg}")
@@ -437,7 +482,7 @@ class HitbotController(Node):
             if response is not None:
                 self.robot.get_scara_param()
                 self.robot.wait_stop()
-                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-110,self.robot.r,80,1)
+                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-180,self.robot.r,80,1)
                 self.robot.wait_stop()
                 self.get_logger().info(f"move in -z, ret :{ret}")
                 self.client_node.get_logger().info(f'open for {response}')
@@ -479,7 +524,7 @@ class HitbotController(Node):
                 
                 ret=self.robot.movej_xyz(adj_goal[0],adj_goal[1],self.robot.z,-180,30,1)
                 self.robot.wait_stop()
-                r.set("mode","ready_to_adjust")
+                r.set("mode","ready_to_adjust")#
                 time.sleep(1)   
             else:
             	r.set("mode","adjust_done")
@@ -488,7 +533,7 @@ class HitbotController(Node):
             	self.gripper_adj_done_pub.publish(done)            
 
         else:
-            r.set("mode","adjust_done") #adjust_done
+            r.set("mode","camera_ready") #adjust_done
             done=String()
             done.data="done"
             self.gripper_adj_done_pub.publish(done)

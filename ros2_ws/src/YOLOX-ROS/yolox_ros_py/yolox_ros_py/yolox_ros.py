@@ -87,7 +87,10 @@ i = 0
 
 
 broker="172.23.66.117"
-redis_server="172.23.66.159"
+redis_server='172.23.248.34'
+#redis_server='10.0.0.21'
+
+#redis_server="172.23.66.159"
 #redis_server="192.168.254.36"
 
 
@@ -158,9 +161,9 @@ global_points_xyz_rgb_list=np.asarray([()])
 i=0
 class yolox_ros(yolox_py):
     def __init__(self) -> None:
-        raw_image_topic = '/camera/color/image_raw'
-        depth_image_topic = '/camera/aligned_depth_to_color/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
-        depth_info_topic = '/camera/depth/camera_info'
+        raw_image_topic = '/d435/color/image_raw'
+        depth_image_topic = '/d435/aligned_depth_to_color/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
+        depth_info_topic = '/d435/depth/camera_info'
         move_x="/move/x"
 
         # ROS2 init
@@ -169,7 +172,8 @@ class yolox_ros(yolox_py):
         self.setting_yolox_exp()
         self.bridge = CvBridge()
         self.pub_bounding_boxes = self.create_publisher(String,"/yolox/bounding_boxes", 1)
-        self.pub_bounding_boxes_cords = self.create_publisher(BoundingBoxesCords,"/yolox/bounding_boxes_cords", 1)
+        self.adj_pub_bounding_boxes = self.create_publisher(String,"/yolox/adj_bounding_boxes", 1)
+        #self.pub_bounding_boxes_cords = self.create_publisher(BoundingBoxesCords,"/yolox/bounding_boxes_cords", 1)
         self.pub_boxes_img = self.create_publisher(Image,"/yolox/boxes_image", 10)
         self.pub_pointclouds = self.create_publisher(PointCloud2,'/yolox/pointclouds', 10)
        
@@ -188,12 +192,8 @@ class yolox_ros(yolox_py):
 
         qos_profile_subscriber = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,history=HistoryPolicy.KEEP_LAST,depth=1)
         self.sub_depth_image = Subscriber(self,Image, depth_image_topic)
-        #if (self.sensor_qos_mode):
         self.sub = Subscriber(self,Image,raw_image_topic, qos_profile=qos_profile_subscriber)
-        #else:
-        #    self.sub = Subscriber(self,Image,raw_image_topic, 10)
 
-        #self.sub = self.create_subscription(self,Image,raw_image_topic,qos_profile_sensor_data)
 
         ats = ApproximateTimeSynchronizer([ self.sub,self.sub_depth_image], queue_size=1, slop=0.025, allow_headerless=True)
         ats.registerCallback(self.callback)
@@ -296,6 +296,41 @@ class yolox_ros(yolox_py):
 
 
         self.predictor = Predictor(model, exp, COCO_CLASSES, trt_file, decoder, device, fp16, legacy)
+    
+    def red_tip(self,image):
+        x=0
+        y=0
+        w=0
+        h=0
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        # Define red color range (red is at 0 and 180 in HSV, so two ranges are needed)
+        lower_red1 = np.array([0, 120, 70])
+        upper_red1 = np.array([10, 255, 255])
+
+        lower_red2 = np.array([170, 120, 70])
+        upper_red2 = np.array([180, 255, 255])
+
+        # Threshold the image to get only red colors
+        mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+        mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+        mask = mask1 | mask2
+
+        # Optional: clean noise
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((3,3), np.uint8))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_DILATE, np.ones((3,3), np.uint8))
+
+        # Find contours
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if area > 300:  # filter small areas
+                x, y, w, h = cv2.boundingRect(cnt)
+                cv2.rectangle(image, (x, y), (x+w, y+h), (0, 255, 0), 2)
+                cv2.putText(image, "Red tip", (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 
+                            0.6, (0, 255, 0), 2)
+                break
+        return image,[x+w,y+h]
 
 
 
@@ -304,6 +339,7 @@ class yolox_ros(yolox_py):
         bboxes=[]
         scores=[]
         img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
+        img_rgb,tip_xy=self.red_tip(img_rgb)
         if img_rgb is not None :
             outputs, img_info = self.predictor.inference(img_rgb)
             try:
@@ -311,11 +347,10 @@ class yolox_ros(yolox_py):
                 if  (outputs is not None): #and r.get("mode")=="camera_ready":# and r.get("scan")=="start" :#
                     result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
 
-                if result_img_rgb is not None:
-                    img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
-                else:
-                    img_rgb_pub = self.bridge.cv2_to_imgmsg(img_rgb,"bgr8")
-                self.pub_boxes_img.publish(img_rgb_pub)
+
+                
+
+
 
         #depth image
                 cv_image = self.bridge.imgmsg_to_cv2(data, data.encoding)
@@ -333,7 +368,10 @@ class yolox_ros(yolox_py):
                         depth = cv_image[pix[1], pix[0]]
                         logger.info("before  rs2_deproject_pixel_to_point depth:{}".format(depth))
                         result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth)
+                        tip_result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [tip_xy[0], tip_xy[1]], depth)
+                        logger.info("tip_result-result_mushroom ={},{},{}".format(tip_result[0]-result[0],tip_result[1]-result[1],tip_result[2]-result[2]))
                         logger.info("after  rs2_deproject_pixel_to_point depth:{}".format(depth))
+                        cv2.line(result_img_rgb, (tip_xy[0], tip_xy[1]), (pix[0], pix[1]), (0, 0, 255), 3)
                         #depth_val = cv_image.get_distance(pix[0], pix[1])  # Meters
                         #xyz = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth_val)
                         line = f'{result[0]},{result[1]},{result[2]}'
@@ -347,8 +385,18 @@ class yolox_ros(yolox_py):
                             self.pre_mushroom=result
                             self.pre_pix=pix
                             self.pub_bounding_boxes.publish(bbox)
+                        if   r.get("mode")=="adjust_ready": # int(result[1])<100 and
+                            adjust_bbox=String()
+                            adjust_bbox.data=f'{tip_result[0]-result[0]},{tip_result[1]-result[1]},{tip_result[2]-result[2]}'
+                            #self.pre_mushroom=[tip_result[0]-result[0],tip_result[1]-result[1],tip_result[2]-result[2]]
+                            #self.pre_pix=pix
+                            self.adj_pub_bounding_boxes.publish(adjust_bbox)
                         break
-
+                if result_img_rgb is not None:
+                    img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
+                else:
+                    img_rgb_pub = self.bridge.cv2_to_imgmsg(img_rgb,"bgr8")
+                self.pub_boxes_img.publish(img_rgb_pub)
 
             except Exception as e:
                 logger.error(e)
