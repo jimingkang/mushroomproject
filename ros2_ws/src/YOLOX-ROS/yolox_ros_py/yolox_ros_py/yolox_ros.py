@@ -89,7 +89,7 @@ i = 0
 
 
 broker="172.23.66.117"
-redis_server='172.23.248.34'
+redis_server='172.23.248.56'
 #redis_server='10.0.0.21'
 
 #redis_server="172.23.66.159"
@@ -192,13 +192,14 @@ class yolox_ros(yolox_py):
 
 
         self.pub_pointclouds = self.create_publisher(PointCloud2,'/yolox/pointclouds', 10)
+        self.adj_pub_bounding_boxes = self.create_publisher(String,"/d405/yolox/adj_bounding_boxes", 1)
         if self.camera_param=="d435":
         	self.pub_bounding_boxes = self.create_publisher(String,"/yolox/bounding_boxes", 1)
         	#self.pub_bounding_boxes_cords = self.create_publisher(BoundingBoxesCords,"/yolox/bounding_boxes_cords", 1)
         	self.pub_boxes_img = self.create_publisher(Image,"/d435/yolox/boxes_image", 10)     
         	self.sub_info = self.create_subscription(CameraInfo, self.d435_depth_info_topic, self.imageDepthInfoCallback, 1)
         else:
-        	self.adj_pub_bounding_boxes = self.create_publisher(String,"/d405/yolox/adj_bounding_boxes", 1)
+ 
         	self.d405_pub_boxes_img = self.create_publisher(Image,"/d405/yolox/boxes_image", 10)
         	self.d405_sub_info = self.create_subscription(CameraInfo, self.d405_depth_info_topic, self.d405_imageDepthInfoCallback, 1)
         
@@ -359,7 +360,7 @@ class yolox_ros(yolox_py):
                 cv2.putText(image, "Red tip", (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 
                             0.6, (0, 255, 0), 2)
                 break
-        return image,[x+w,y+h]
+        return image,[x+int(w/2),y+int(h/2)]
 
 
 
@@ -368,7 +369,7 @@ class yolox_ros(yolox_py):
         bboxes=[]
         scores=[]
         img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
-        #img_rgb,tip_xy=self.red_tip(img_rgb)
+        img_rgb,tip_xy=self.red_tip(img_rgb)
         if img_rgb is not None :
             outputs, img_info = self.predictor.inference(img_rgb)
             try:
@@ -391,16 +392,17 @@ class yolox_ros(yolox_py):
                     logger.info("pix: {},box:{},score:{}".format(pix,box,score))
                     if( score>0.4 and self.intrinsics and abs(int((box[0]-box[2])))>10 and  abs(int((box[0]-box[2])))<120 and abs(int((box[1]-box[3])))>10 and abs(int((box[1]-box[3])))<120):
                         depth = cv_image[pix[1], pix[0]]
+                        tip_depth = cv_image[tip_xy[1], tip_xy[0]]
                         logger.info("before  rs2_deproject_pixel_to_point depth:{}".format(depth))
                         result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth)
-                        #tip_result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [tip_xy[0], tip_xy[1]], depth)
-                        #logger.info("tip_result-result_mushroom ={},{},{}".format(tip_result[0]-result[0],tip_result[1]-result[1],tip_result[2]-result[2]))
-                        #logger.info("after  rs2_deproject_pixel_to_point depth:{}".format(depth))
-                        #cv2.line(result_img_rgb, (tip_xy[0], tip_xy[1]), (pix[0], pix[1]), (0, 0, 255), 3)
-                        #depth_val = cv_image.get_distance(pix[0], pix[1])  # Meters
-                        #xyz = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth_val)
+                        tip_result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [tip_xy[0], tip_xy[1]], tip_depth)
+                        logger.info("tip_result-result_mushroom ={},{},{}".format(tip_result[0]-result[0],tip_result[1]-result[1],tip_result[2]-result[2]))
+                        logger.info("after  rs2_deproject_pixel_to_point depth:{}".format(depth))
+                        cv2.line(result_img_rgb, (tip_xy[0], tip_xy[1]), (pix[0], pix[1]), (0, 0, 255), 3)
                         line = f'{result[0]},{result[1]},{result[2]}'
+                        tip=f'{tip_result[0]},{tip_result[1]},{tip_result[2]}'
                         logger.info("xyz in side camera: {}".format(line))
+                        logger.info("gripper tip in side camera: {}".format(tip_result))
                         bbox=String()
                         bbox.data=line
 
@@ -410,6 +412,10 @@ class yolox_ros(yolox_py):
                             self.pre_mushroom=result
                             self.pre_pix=pix
                             self.pub_bounding_boxes.publish(bbox)
+                        if  r.get("mode")=="adjust_ready": # int(result[1])<100 and
+                            adjust_bbox=String()
+                            adjust_bbox.data=f'{tip_result[0]-result[0]},{tip_result[1]-result[1]},{tip_result[2]-result[2]}'
+                            self.adj_pub_bounding_boxes.publish(adjust_bbox)
 
                         break
                 if result_img_rgb is not None:
@@ -454,8 +460,6 @@ class yolox_ros(yolox_py):
                         #logger.info("tip_result-result_mushroom ={},{},{}".format(tip_result[0]-result[0],tip_result[1]-result[1],tip_result[2]-result[2]))
                         #logger.info("after  rs2_deproject_pixel_to_point depth:{}".format(depth))
                         #cv2.line(d405_result_img_rgb, (tip_xy[0], tip_xy[1]), (pix[0], pix[1]), (0, 0, 255), 3)
-                        #depth_val = cv_image.get_distance(pix[0], pix[1])  # Meters
-                        #xyz = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth_val)
                         line = f'{result[0]},{result[1]},{result[2]}'
                         logger.info("xyz in top camera: {},mode={},mode==adjust_ready?".format(line,r.get("mode"),r.get("mode")=="adjust_ready"))
                         bbox=String()

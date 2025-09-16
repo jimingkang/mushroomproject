@@ -38,7 +38,7 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 
 #redis_server='10.0.0.21'
-redis_server='172.23.248.34'
+redis_server='172.23.248.56'
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
@@ -423,21 +423,20 @@ class HitbotController(Node):
             ret=self.robot.movej_xyz(goal[0],goal[1],0,-180,80,1)
             self.get_logger().info(f"bounding_boxes_callback : goal={goal},ret :{ret}")
             self.robot.wait_stop()
+            time.sleep(2)
             if ret<2:
                 r.set("mode","adjust_ready")
             else:
             	r.set("mode","camera_ready")
-            
-            time.sleep(2)
 
     def adj_bounding_boxes_callback(self, msg):
         if r.get("mode")=="adjust_ready":
             mushroom_xyz=msg.data
             mushroom_xyz=msg.data.split(",");
-            goal=[int(float(mushroom_xyz[1].strip())),int(float(mushroom_xyz[0].strip()))]
+            goal=[int(float(mushroom_xyz[0].strip())),int(float(mushroom_xyz[1].strip())),int(float(mushroom_xyz[2].strip()))]
             self.robot.get_scara_param()
-            ret=self.robot.movej_xyz(self.robot.x-goal[0],self.robot.y-goal[1],self.robot.z,-180,80,1)
-            self.get_logger().info(f"adj bounding_boxes_callback ->adjust :{goal},ret:{ret}")
+            ret=self.robot.movej_xyz(self.robot.x+goal[2],self.robot.y+goal[0],self.robot.z,-180,80,1)
+            self.get_logger().info(f"adj bounding_boxes_callback ->adjust :{goal},x_offset:{goal[2]},y_offset:{goal[0]},ret :{ret}")
             self.robot.wait_stop()
             if ret<2:
                 r.set("mode","adjust_done")
@@ -445,7 +444,7 @@ class HitbotController(Node):
             	#if response is not None:
                 self.robot.get_scara_param()
                 self.robot.wait_stop()
-                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-190,self.robot.r,80,1)
+                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-170,self.robot.r,80,1)
                 self.robot.wait_stop()
                 self.get_logger().info(f"move in -z, ret :{ret}")
                 response = self.client_node.send_request() #close request
