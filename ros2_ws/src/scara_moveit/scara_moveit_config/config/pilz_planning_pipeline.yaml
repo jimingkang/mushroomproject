@@ -1,0 +1,20 @@
+move_group:
+  ros__parameters:
+    planning_pipelines:
+      pilz_industrial_motion_planner:
+        planning_plugin: pilz_industrial_motion_planner/CommandPlanner
+        request_adapters: >-
+          default_planner_request_adapters/AddTimeParameterization
+        start_state_max_bounds_error: 0.1
+        default_planner_config: PTP   # ?? ???? planner_id,????
+
+    pilz_industrial_motion_planner:
+      default_planner_config: PTP
+      planner_configs:
+        PTP:
+          type: pilz_industrial_motion_planner/PlanningContextLoaderPTP
+        LIN:
+          type: pilz_industrial_motion_planner/PlanningContextLoaderLIN
+        CIRC:
+          type: pilz_industrial_motion_planner/PlanningContextLoaderCIRC
+
