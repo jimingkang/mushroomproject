@@ -7,8 +7,6 @@ Panels:
         - /Global Options1
         - /TwistStamped1
         - /ColorOccupancyGrid1
-        - /ColorOccupancyGrid1/Status1
-        - /ColorOccupancyGrid1/Topic1
         - /ColorOccupancyGrid2
       Splitter Ratio: 0.5
     Tree Height: 189
@@ -76,63 +74,63 @@ Visualization Manager:
             Show Axes: false
             Show Trail: false
             Value: true
-          camera_1_accel_frame:
+          camera_link_d435_accel_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_accel_optical_frame:
+          camera_link_d435_accel_optical_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_bottom_screw_frame:
+          camera_link_d435_bottom_screw_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_color_frame:
+          camera_link_d435_color_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_color_optical_frame:
+          camera_link_d435_color_optical_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_depth_frame:
+          camera_link_d435_depth_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_depth_optical_frame:
+          camera_link_d435_depth_optical_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_gyro_frame:
+          camera_link_d435_gyro_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_gyro_optical_frame:
+          camera_link_d435_gyro_optical_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_imu_optical_frame:
+          camera_link_d435_imu_optical_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_infra1_frame:
+          camera_link_d435_infra1_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_infra1_optical_frame:
+          camera_link_d435_infra1_optical_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_infra2_frame:
+          camera_link_d435_infra2_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_infra2_optical_frame:
+          camera_link_d435_infra2_optical_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_link:
+          camera_link_d435_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
@@ -162,6 +160,10 @@ Visualization Manager:
             Show Axes: false
             Show Trail: false
             Value: true
+          world:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
         Loop Animation: true
         Robot Alpha: 0.5
         Robot Color: 150; 50; 150
@@ -213,63 +215,63 @@ Visualization Manager:
             Show Axes: false
             Show Trail: false
             Value: true
-          camera_1_accel_frame:
+          camera_link_d435_accel_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_accel_optical_frame:
+          camera_link_d435_accel_optical_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_bottom_screw_frame:
+          camera_link_d435_bottom_screw_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_color_frame:
+          camera_link_d435_color_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_color_optical_frame:
+          camera_link_d435_color_optical_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_depth_frame:
+          camera_link_d435_depth_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_depth_optical_frame:
+          camera_link_d435_depth_optical_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_gyro_frame:
+          camera_link_d435_gyro_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_gyro_optical_frame:
+          camera_link_d435_gyro_optical_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_imu_optical_frame:
+          camera_link_d435_imu_optical_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_infra1_frame:
+          camera_link_d435_infra1_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_infra1_optical_frame:
+          camera_link_d435_infra1_optical_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_infra2_frame:
+          camera_link_d435_infra2_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_infra2_optical_frame:
+          camera_link_d435_infra2_optical_frame:
             Alpha: 1
             Show Axes: false
             Show Trail: false
-          camera_1_link:
+          camera_link_d435_link:
             Alpha: 1
             Show Axes: false
             Show Trail: false
@@ -299,6 +301,10 @@ Visualization Manager:
             Show Axes: false
             Show Trail: false
             Value: true
+          world:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
         Robot Alpha: 0.5
         Show Robot Collision: false
         Show Robot Visual: true
@@ -390,10 +396,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5499995350837708
+      Pitch: 0.4099996089935303
       Target Frame: base_link
       Value: Orbit (rviz_default_plugins)
-      Yaw: 5.810198783874512
+      Yaw: 1.0820132493972778
     Saved: ~
 Window Geometry:
   Displays:
@@ -411,5 +417,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1200
-  X: 75
-  Y: 27
+  X: 322
+  Y: 89

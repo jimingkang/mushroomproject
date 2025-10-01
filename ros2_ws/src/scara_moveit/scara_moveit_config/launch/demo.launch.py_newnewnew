@@ -1,0 +1,58 @@
+from launch import LaunchDescription 
+from launch.substitutions import Command, PathJoinSubstitution
+from moveit_configs_utils import MoveItConfigsBuilder
+from moveit_configs_utils.launches import generate_demo_launch
+from launch_ros.substitutions import FindPackageShare
+
+def generate_launch_description():
+    moveit_config = (
+        MoveItConfigsBuilder("scara_description", package_name="scara_moveit_config")
+        # ? ? Command ?? xacro ??
+        .robot_description(
+            content=Command([
+                "xacro ",
+                PathJoinSubstitution([
+                    FindPackageShare("scara_moveit_config"),
+                    "config",
+                    "scara_description.urdf.xacro",
+                ]),
+            ])
+        )
+        # ? ?????? SRDF
+        .robot_description_semantic(
+            content=Command([
+                "xacro ",
+                PathJoinSubstitution([
+                    FindPackageShare("scara_moveit_config"),
+                    "config",
+                    "scara_description.srdf.xacro",
+                ]),
+            ])
+        )
+        .trajectory_execution(
+            file_path=PathJoinSubstitution([
+                FindPackageShare("scara_moveit_config"),
+                "config",
+                "moveit_controllers.yaml",
+            ])
+        )
+        .planning_pipelines(pipelines=["pilz_industrial_motion_planner"])
+        .joint_limits(
+            file_path=PathJoinSubstitution([
+                FindPackageShare("scara_moveit_config"),
+                "config",
+                "joint_limits.yaml",
+            ])
+        )
+        .cartesian_limits(
+            file_path=PathJoinSubstitution([
+                FindPackageShare("scara_moveit_config"),
+                "config",
+                "cartesian_limits.yaml",
+            ])
+        )
+        .to_moveit_configs()
+    )
+
+    return generate_demo_launch(moveit_config)
+
