@@ -16,7 +16,6 @@ def main():
         end_effector_name="link5",    # ?????
         group_name="scara_arm",             # MoveIt2 ???? planning_group
     )
-
     # ??:??????
     #moveit2.move_to_configuration([0.0, 1.57, 1.57, 0.0]
     moveit2.planner_id="PTP"
