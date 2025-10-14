@@ -23,7 +23,14 @@ scara_arm_controller:
 #      - joint7
     command_interfaces:
       - position
-        #- velocity
+      - velocity
     state_interfaces:
       - position
-        #- velocity
+      - velocity
+    constraints:
+      goal_time: 0.0
+      stopped_velocity_tolerance: 0.02
+      joint1: { trajectory: 0.05, goal: 0.05 }
+      joint2: { trajectory: 0.05, goal: 0.05 }
+      joint3: { trajectory: 0.05, goal: 0.05 }
+      joint4: { trajectory: 0.05, goal: 0.05 }

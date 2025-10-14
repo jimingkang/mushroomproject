@@ -19,7 +19,7 @@ import os
 from time import sleep
 import math
 from flask_cors import CORS, cross_origin
-import RPi.GPIO as GPIO
+#import RPi.GPIO as GPIO
 
 import time
 #from yolox_ros_py.HitbotInterface import HitbotInterface
@@ -181,13 +181,16 @@ class yolox_ros(yolox_py):
         self.camera_param= self.get_parameter('camera_name').value
         logger.info("camera_param: {},camera_param=='d405':{}".format(self.camera_param,self.camera_param=="d405"))
         if self.camera_param=="d405":
-        	self.d405_raw_image_topic = '/'+self.camera_param+'/color/image_rect_raw'
-        	self.d405_depth_image_topic = '/'+self.camera_param+'/aligned_depth_to_color/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
-        	self.d405_depth_info_topic = '/'+self.camera_param+'/depth/camera_info'
-        else :
-        	self.d435_raw_image_topic = '/'+self.camera_param+'/color/image_raw'
-        	self.d435_depth_image_topic = '/'+self.camera_param+'/aligned_depth_to_color/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
-        	self.d435_depth_info_topic = '/'+self.camera_param+'/depth/camera_info'
+            self.d405_raw_image_topic = '/' + self.camera_param + '/color/image_rect_raw'
+            self.d405_depth_image_topic = '/' + self.camera_param + '/aligned_depth_to_color/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
+            self.d405_depth_info_topic = '/' + self.camera_param + '/color/camera_info'
+        else:
+            self.d435_raw_image_topic = '/' + self.camera_param + '/color/image_raw'
+            self.d435_depth_image_topic = '/' + self.camera_param + '/aligned_depth_to_color/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
+            self.d435_depth_info_topic = '/' + self.camera_param + '/color/camera_info'
+            #self.d435_raw_image_topic = '/camera/color/image_raw'
+            #self.d435_depth_image_topic = '/camera/aligned_depth_to_color/image_raw'
+            #self.d435_depth_info_topic = '/camera/color/camera_info'
 	       
 
         move_x="/move/x"
@@ -198,13 +201,12 @@ class yolox_ros(yolox_py):
 
 
         #self.pub_pointclouds = self.create_publisher(PointCloud2,'/yolox/pointclouds', 10)
-
+        self.adj_pub_bounding_boxes = self.create_publisher(String,"/yolox/adj_bounding_boxes", 1)
         if self.camera_param=="d435":
             self.pub_bounding_boxes = self.create_publisher(String,"/yolox/bounding_boxes", 1)
             self.pub_boxes_img = self.create_publisher(Image,"/d435/yolox/boxes_image", 10)
             self.sub_info = self.create_subscription(CameraInfo, self.d435_depth_info_topic, self.imageDepthInfoCallback, 1)
         else:
-            self.adj_pub_bounding_boxes = self.create_publisher(String,"/d405/yolox/adj_bounding_boxes", 1)
             self.d405_pub_boxes_img = self.create_publisher(Image,"/d405/yolox/boxes_image", 10)
             self.d405_sub_info = self.create_subscription(CameraInfo, self.d405_depth_info_topic, self.d405_imageDepthInfoCallback, 1)
         
@@ -224,15 +226,15 @@ class yolox_ros(yolox_py):
         qos_profile_subscriber = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,history=HistoryPolicy.KEEP_LAST,depth=1)
         
         if self.camera_param=="d435":
-        	self.sub_depth_image = Subscriber(self,Image, self.d435_depth_image_topic)
-        	self.sub = Subscriber(self,Image,self.d435_raw_image_topic, qos_profile=qos_profile_subscriber)
-        	ats = ApproximateTimeSynchronizer([ self.sub,self.sub_depth_image], queue_size=1, slop=0.025, allow_headerless=True)
-        	ats.registerCallback(self.callback)
+            self.sub_depth_image = Subscriber(self,Image, self.d435_depth_image_topic)
+            self.sub = Subscriber(self,Image,self.d435_raw_image_topic, qos_profile=qos_profile_subscriber)
+            ats = ApproximateTimeSynchronizer([self.sub, self.sub_depth_image], queue_size=1, slop=0.025, allow_headerless=True)
+            ats.registerCallback(self.callback)
         else:
-        	self.d405_sub_depth_image = Subscriber(self,Image, self.d405_depth_image_topic)
-        	self.d405_sub = Subscriber(self,Image,self.d405_raw_image_topic, qos_profile=qos_profile_subscriber)
-        	ats = ApproximateTimeSynchronizer([ self.d405_sub,self.d405_sub_depth_image], queue_size=1, slop=0.025, allow_headerless=True)
-        	ats.registerCallback(self.d405_callback)  
+            self.d405_sub_depth_image = Subscriber(self,Image, self.d405_depth_image_topic)
+            self.d405_sub = Subscriber(self,Image,self.d405_raw_image_topic, qos_profile=qos_profile_subscriber)
+            ats = ApproximateTimeSynchronizer([self.d405_sub, self.d405_sub_depth_image], queue_size=1, slop=0.025, allow_headerless=True)
+            ats.registerCallback(self.d405_callback)  
     def setting_yolox_exp(self) -> None:
 
         WEIGHTS_PATH = '../../weights/yolox_nano.pth'  #for no trt
@@ -305,7 +307,7 @@ class yolox_ros(yolox_py):
             logger.info("loading checkpoint")
             ckpt = torch.load(ckpt_file, map_location="cpu")
             # load the model state dict
-            model.load_state_dict(ckpt["model"],str)
+            model.load_state_dict(ckpt["model"],strict=False)
             logger.info("loaded checkpoint done.")
 
         # about fuse
@@ -393,7 +395,6 @@ class yolox_ros(yolox_py):
                 global_camera_xy=r.get("global_camera_xy")
                 camera_xy=global_camera_xy.split(",")
                 logger.info("in  imageDepthCallback camera_xy:{},bboxes:{},scores:{},data.encoding{}".format(camera_xy,bboxes,scores,data.encoding))
-
                 for box,score in zip(bboxes,scores):
                     logger.info("box[0]:{},{},{},{}".format(box[0],box[2],box[1],box[3]))                
                 
@@ -402,52 +403,32 @@ class yolox_ros(yolox_py):
                     logger.info("before  rs2_deproject_pixel_to_point depth:{}".format(depth))
                     result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth)
                     #self.diff_pix=abs(self.pre_pix[0]-pix[0])+abs(self.pre_pix[1]-pix[1])
-                    logger.info("pix: {},box:{},score:{}".format(pix,box,score))
-                    if( int(result[1])>0 and score>0.4 and self.intrinsics and abs(int((box[0]-box[2])))>30 and  abs(int((box[0]-box[2])))<120 and abs(int((box[1]-box[3])))>30 and abs(int((box[1]-box[3])))<120):
-
+                    logger.info("pix: {},box:{},score:{},result:{}".format(pix,box,score,result))
+                    if(result is not None and int(result[1])>0 and score>0.4 and self.intrinsics and abs(int((box[0]-box[2])))>30 and  abs(int((box[0]-box[2])))<120 and abs(int((box[1]-box[3])))>30 and abs(int((box[1]-box[3])))<120):    
                         tip_depth = cv_image[int(tip_xy[1]), int(tip_xy[0])]
                         logger.info("tip_tmpdepth:{}".format(tip_depth))
                         tip_result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [tip_xy[0], tip_xy[1]], tip_depth)
-                        #tip_depth=[]
-                        #tip_result=[]
-                        #for tip in tip_xy:
-                        #    logger.info("tip:{},{}".format(tip[0],tip[1]))
-                        #    tip_tmpdepth = cv_image[int(tip[1]), int(tip[0])]
-                        #    logger.info("tip_tmpdepth:{}".format(tip_tmpdepth))
-                        #    tip_depth.append(tip_tmpdepth)
-                        #    tip_tmpresult = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [tip[0], tip[1]], tip_tmpdepth)
-                        #    tip_result.append(tip_tmpresult)
-                        #logger.info("tip_result:{}".format(tip_result))
-                        #n_cols = len(tip_result[0])
-                        #col_avgs = [sum(row[i] for row in tip_result) / len(tip_result) for i in range(n_cols)]
-                        #tip_result=col_avgs
-                        #logger.info("tip_result after avg:{}".format(tip_result))
-                        logger.info("tip_result-result_mushroom =x:{},{},z:{}".format(tip_result[0]-result[0],tip_result[1]-result[1],tip_result[2]-result[2]))
-
-                        #n_cols = len(tip_xy[0])
-                        #col_avgs = [sum(row[i] for row in tip_xy) / len(tip_result) for i in range(n_cols)]
-                        #tip_xy=col_avgs
-                        #logger.info("tip_xy after avg:{}".format(tip_xy))
-                        cv2.line(result_img_rgb, (int(tip_xy[0]), int(tip_xy[1])), (pix[0], pix[1]), (0, 0, 255), 3)
-                        line = f'{result[0]},{result[1]},{result[2]}'
                         tip=f'{tip_result[0]},{tip_result[1]},{tip_result[2]}'
-                        logger.info("xyz in side camera: {}".format(line))
-                        logger.info("gripper tip in side camera: {}".format(tip_result))
-                        bbox=String()
-                        bbox.data=line
-
-                        #diff=abs(self.pre_mushroom[0]-result[0])+abs(self.pre_mushroom[2]-result[2])
-                        #logger.info("box:{},".format(bbox.data))
-                        if   r.get("mode")=="camera_ready": # int(result[1])<100 and
+                        logger.info("tip_result-result_mushroom =x:{},{},z:{}".format(tip_result[0]-result[0],tip_result[1]-result[1],tip_result[2]-result[2]))
+                        cv2.line(result_img_rgb, (int(tip_xy[0]), int(tip_xy[1])), (pix[0], pix[1]), (0, 0, 255), 3)
+                        logger.info("gripper tip in side camera: {}".format(tip_result)) 
+                        if   r.get("mode")=="camera_ready"  :
+                            line = f'{result[0]},{result[1]},{result[2]}'
+                            logger.info("xyz in side camera: {}".format(line))
+                            bbox=String()
+                            bbox.data=line
                             self.pre_mushroom=result
                             self.pre_pix=pix
                             self.pub_bounding_boxes.publish(bbox)
+                            r.set("mushroom_xyz",line)
+
+                            break
                         if  r.get("mode")=="adjust_ready": # int(result[1])<100 and
                             adjust_bbox=String()
                             adjust_bbox.data=f'{tip_result[0]-result[0]},{tip_result[1]-result[1]},{tip_result[2]-result[2]}'
-                            self.adj_pub_bounding_boxes.publish(adjust_bbox)
-
-                        break
+                            logger.info("box:{},".format(bbox.data))
+                            self.adj_pub_bounding_boxes.publish("adjust_bbox.data: {}".format(adjust_bbox.data))
+                            break
                 if result_img_rgb is not None:
                     img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
                 else:

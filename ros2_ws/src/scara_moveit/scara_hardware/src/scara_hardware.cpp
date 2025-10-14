@@ -70,13 +70,18 @@ CallbackReturn ScaraHardware::on_init(const hardware_interface::HardwareInfo & i
         }
     }
     
-    joint_state_sub_ = node_->create_subscription<sensor_msgs::msg::JointState>("/hitbot/joint_states", 10, std::bind(&ScaraHardware::jointStateCallback, this, std::placeholders::_1));
+    joint_state_sub_ = node_->create_subscription<sensor_msgs::msg::JointState>("/joint_states", 10, std::bind(&ScaraHardware::jointStateCallback, this, std::placeholders::_1));
 
     // Create publisher and subscriber
     motor_state_sub_ = node_->create_subscription<device_interface::msg::MotorState>(
         "motor_state", 10, std::bind(&ScaraHardware::motor_state_callback, this, std::placeholders::_1));
     motor_goal_pub_ = node_->create_publisher<device_interface::msg::MotorGoal>("motor_goal", 10);
     std::thread([this]() { executor_.spin(); }).detach();
+
+    size_t num_joints = info.joints.size(); 
+    position_.assign(num_joints, 0.0);
+    velocity_.assign(num_joints, 0.0);   // ✅ 必须有
+    command_position_.assign(num_joints, 0.0);
 
     // Done
     RCLCPP_INFO(node_->get_logger(), "ScaraHardware initialized.");
@@ -89,13 +94,27 @@ void ScaraHardware::jointStateCallback(const sensor_msgs::msg::JointState::Share
             //joint_positions_[i] = msg->position[i];
             
             this->joint_states[joint_names[i]]= {msg->position[i],0};
-           //  RCLCPP_INFO(node_->get_logger(), "msg->positions i=%d,%f\n",i,msg->position[i]);
-          //    RCLCPP_INFO(node_->get_logger(), " this->joint_states=%s\n", this->joint_states[joint_names[i]]);
+            // RCLCPP_INFO(node_->get_logger(), "msg->positions i=%d,%f\n",i,msg->position[i]);
+            //RCLCPP_INFO(node_->get_logger(), " this->joint_states=%s\n", this->joint_states[joint_names[i]]);
             
             
         }
         // RCLCPP_INFO(node_->get_logger(), "msg->positions");
     }
+
+    std::vector<hardware_interface::StateInterface> ScaraHardware::export_state_interfaces() 
+{
+    std::vector<hardware_interface::StateInterface> state_interfaces;
+    for (size_t i = 0; i < joint_names.size(); ++i)
+    {
+        state_interfaces.emplace_back(
+            hardware_interface::StateInterface(joint_names[i], hardware_interface::HW_IF_POSITION, &position_[i]));
+        state_interfaces.emplace_back(
+            hardware_interface::StateInterface(joint_names[i], hardware_interface::HW_IF_VELOCITY, &velocity_[i]));
+    }
+    return state_interfaces;
+}
+    /*
 std::vector<hardware_interface::StateInterface> ScaraHardware::export_state_interfaces()
 {
     std::vector<hardware_interface::StateInterface> state_interfaces;
@@ -107,7 +126,7 @@ std::vector<hardware_interface::StateInterface> ScaraHardware::export_state_inte
     }
     return state_interfaces;
 }
-
+*/
 std::vector<hardware_interface::CommandInterface> ScaraHardware::export_command_interfaces()
 {
     std::vector<hardware_interface::CommandInterface> command_interfaces;
@@ -119,8 +138,62 @@ std::vector<hardware_interface::CommandInterface> ScaraHardware::export_command_
     }
     return command_interfaces;
 }
+return_type ScaraHardware::read(const rclcpp::Time & time, const rclcpp::Duration & period) 
+{
+    static const std::vector<double> joint_offsets = {0.0, 0.0, 0.0, 3.14-0.785398}; 
+    for (size_t i = 0; i < joint_names.size(); ++i)
+    {
+        const std::string &j = joint_names[i];
+        double prev_position = position_[i];
 
-return_type ScaraHardware::read(const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
+        // ✅ 确保 joint_states 中有这个关节
+        if (joint_states.find(j) != joint_states.end()) {
+            auto [pos, vel] = joint_states[j];  // 解构 tuple
+            position_[i] = pos;
+           //position_[i] = pos - joint_offsets[i]; 
+            velocity_[i] = vel;  // 如果你的硬件没有直接提供速度，这里可以先用 vel=0.0 或差分计算
+        } else {
+            RCLCPP_INFO(rclcpp::get_logger("ScaraHardware"),"Joint '%s' not found in joint_states, keeping previous value", j.c_str());
+            position_[i] = prev_position;
+            velocity_[i] = 0.0;
+        }
+    //RCLCPP_INFO(rclcpp::get_logger("ScaraHardware"), "joint[%s]: pos=%.4f vel=%.6f", j.c_str(), position_[i], velocity_[i]);
+
+        // ✅ 如果 velocity 没有硬件反馈，也可以用差分法自己计算：
+        if (period.seconds() > 0.0 && std::abs(velocity_[i]) < 1e-6) {
+            velocity_[i] = (position_[i] - prev_position) / period.seconds();
+        }
+        // ✅ 把非常小的速度归零，防止 Pilz 报错
+        if (std::abs(velocity_[i]) < 1e-3) {
+            velocity_[i] = 0.0;
+           
+        }
+    }
+        
+
+    return return_type::OK;
+}
+
+/*
+return_type ScaraHardware::read(const rclcpp::Time & time, const rclcpp::Duration & period) 
+{
+    // 假设 joint_states 是从订阅的反馈里更新的 std::map<std::string, double>
+    // 或者你有实时反馈数据来源
+    for (size_t i = 0; i < joint_names.size(); ++i)
+    {
+        const std::string &j = joint_names[i];
+
+        double prev_position = position_[i];
+        position_[i] = joint_states[j];   // ← 这里必须更新 position_
+
+        // velocity 用 (Δ位置 / Δ时间) 计算
+        velocity_[i] = (position_[i] - prev_position) / period.seconds();
+    }
+
+    return return_type::OK;
+}
+
+return_type ScaraHardware::read(const rclcpp::Time & time, const rclcpp::Duration & period)
 {
     // update the joint states
     // already done in the callback
@@ -132,6 +205,8 @@ return_type ScaraHardware::read(const rclcpp::Time & /*time*/, const rclcpp::Dur
  
     return return_type::OK;
 }
+
+*/
 
 return_type ScaraHardware::write(const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
 {

@@ -59,6 +59,10 @@ private:
 
     vector<string> joint_names = {"joint1", "joint2", "joint3", "joint4"};
     vector<string> motor_names = {"J1", "J2", "J3", "J4"};
+      std::vector<double> position_;           // 每个关节的当前角度（rad）
+  std::vector<double> velocity_;           // 每个关节的当前速度（rad/s）
+  std::vector<double> command_position_;   // 控制器下发的目标位置
+  std::vector<double> command_velocity_;   // （可选）目标速度
 };
 
 }

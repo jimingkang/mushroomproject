@@ -328,7 +328,7 @@
     name="joint5"
     type="fixed">
     <origin
-      xyz="0.172158865969243 0 0"
+      xyz="0.262158865969243 0 0"
       rpy="0 0 0" />
     <parent
       link="link4" />

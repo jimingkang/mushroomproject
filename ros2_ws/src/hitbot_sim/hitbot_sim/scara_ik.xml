@@ -231,7 +231,7 @@
     <child
       link="link4" />
     <axis
-      xyz="0 0 1" />
+      xyz="0 0 -1" />
     <limit
       lower="-3.1415"
       upper="3.1415"
@@ -322,9 +322,9 @@
   </link>
   <joint
     name="joint5"
-    type="revolute">
+    type="fixed">
     <origin
-      xyz="0.172158865969243 0 0"
+      xyz="0.262158865969243 0 0"
       rpy="0 0 0" />
     <parent
       link="link4" />

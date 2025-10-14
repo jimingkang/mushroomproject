@@ -687,6 +687,74 @@ class HitbotController(Node):
             #    return True
         print("No collision detected.")
         return False
+    
+     def stop_and_save(self):
+        if not self.recording:
+            return
+            
+        self.recording = False
+        
+        # Ensure all buffers have same length
+        min_length = min(len(self.buffer['observations']['images']),
+                        len(self.buffer['observations']['qpos']),
+                        len(self.buffer['action']))
+                
+        self.get_logger().info(f"min_length{min_length}")
+        # Trim buffers
+        for k in self.buffer['observations']:
+            self.buffer['observations'][k] = list(self.buffer['observations'][k])[:min_length]
+        self.buffer['action'] = list(self.buffer['action'])[:min_length]
+        self.buffer['timestamps'] = list(self.buffer['timestamps'])[:min_length]
+        
+        # Save to HDF5
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        filename = os.path.join("/home/a/Downloads/mushroomproject/ros2_ws/", f"episode_{self.episode_count}.hdf5")
+        
+        with h5py.File(filename, 'w') as f:
+            # Create observations group
+            obs_group = f.create_group('observations')
+            data = np.array([x.cpu().numpy() for x in self.buffer['observations']['images']])
+		
+            obs_group.create_dataset('images0', 
+                                  data=np.array(data), #self.buffer['observations']['images']
+                                  compression='gzip')
+            obs_group.create_dataset('qpos',
+                                  data=np.array(self.buffer['observations']['qpos']),
+                                  compression='gzip')
+            obs_group.create_dataset('cartesian_pos',
+                                  data=np.array(self.buffer['observations']['cartesian_pos']),
+                                  compression='gzip')
+            obs_group.create_dataset('gripper',
+                                  data=np.array(self.buffer['observations']['gripper']),
+                                  compression='gzip')
+            
+            # Save actions and timestamps
+            f.create_dataset('action',
+                           data=np.array(self.buffer['action']),
+                           compression='gzip')
+            f.create_dataset('timestamps',
+                           data=np.array(self.buffer['timestamps']),
+                           compression='gzip')
+            
+            # Metadata
+            f.attrs['robot_type'] = 'SCARA'
+            f.attrs['joint_names'] = self.joint_names
+            f.attrs['episode_id'] = self.episode_count
+            
+        self.episode_count += 1
+        self.get_logger().info(f"Saved episode {filename}")
+
+
+    def get_occupied_voxels(self,octree):
+        self.occupied_voxels = set()  # Use a set for faster lookups
+        for node in octree.begin_leafs():
+            if octree.isNodeOccupied(node):
+                x, y, z = node.getCoordinate()
+                self.occupied_voxels.add((x, z))  # Store XZ coordinates
+        return self.occupied_voxels
+
+
+    
     def load_octomap(self,file_path):
         occupancy_map = octomap.OcTree(0.05)  #self.process_octomap(msg)# 5 cm resolution
         if isinstance(file_path, bytes):  
@@ -699,6 +767,56 @@ class HitbotController(Node):
         else:
             print("? Error: Could not load Octomap from file!")
         return occupancy_map
+    def octomap_callback(self, msg):
+        """ Callback to receive and process Octomap data. """
+
+
+        file_path="/home/a/Downloads/newmap.bt"
+        octomap_size = len(msg.data)
+        self.get_logger().info(f"octomap_size: {octomap_size},{self.robot.x/1000}{self.robot.y/1000},{self.robot.z/1000}")
+        if not msg.data:
+            return
+        output=subprocess.check_output(["ros2", "run", "octomap_server", "octomap_saver_node", "--ros-args", "-p" ,"octomap_path:=/home/a/Downloads/newmap.bt" ,"-r" ,"octomap_binary:=/rtabmap/octomap_binary" ],text=True)
+
+
+
+        #self.occupancy_map = self.load_octomap(file_path)  #self.process_octomap(msg)# 5 cm resolution
+
+        if self.occupancy_map:
+            start = ( self.robot.x/1000,(self.robot.y)/1000, 0.0)  # Example start position
+            goal = ((self.robot.x-100)/1000,(self.robot.y+50)/1000, 0.0 )   # Example goal position
+            #self.convert_to_fcl_objects()#fcl.OcTree(self.occupancy_map)  # ? Convert Octomap to FCL Octree
+    
+            # Define joint positions (example)
+            target_position = list(goal)  # Replace with your target position
+            target_orientation = [0, 0, 0.0]  # Replace with your target orientation (roll, pitch, yaw)
+            
+            joint_angles = self.scara_arm.inverse_kinematics(target_position,target_orientation)
+            print("Computed Joint Angles:", joint_angles)
+
+            # Compute forward kinematics to get the positions of all joints
+            joint_positions = self.scara_arm.forward_kinematics(joint_angles, full_kinematics=True)
+
+            # Extract the positions of all joints
+            joint_positions = [frame[:3, 3] for frame in joint_positions]
+
+            camera_joint_positions=self.R@np.transpose(np.matrix(joint_positions))
+            camera_joint_positions=np.asarray(np.transpose(camera_joint_positions))
+            print("Computed Joint joint_positions:",camera_joint_positions)
+        
+            occupied_voxels = self.get_occupied_voxels(self.occupancy_map)
+            # Check for collisions
+            collision=self.check_robot_collision_xz( camera_joint_positions, occupied_voxels)
+            if(collision):
+                return
+            self.get_logger().info(f"before rrt planning")
+            path = self.rrt_planning(start, goal, max_iter=500)
+
+            if path:
+                self.get_logger().info(f"get apath {path}")
+                self.visualize_path(path)
+            else:
+                self.get_logger().warn("No valid path found.")
     def octomap_callback(self, msg):
         """ Callback to receive and process Octomap data. """
 
@@ -1389,6 +1507,8 @@ class HitbotController(Node):
         self.destroy_node()
         rclpy.shutdown()
 
+
+
 def main(args=None):
     rclpy.init(args=args)
 
@@ -1404,3 +1524,46 @@ def main(args=None):
 
 if __name__ == "__main__":
     main()
+
+
+
+class ComputeIK(Node):
+    def __init__(self):
+        super().__init__('hitbot_computeik')
+        self.cli = self.create_client(GetPositionIK, '/compute_ik')
+
+        while not self.cli.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Waiting for /compute_ik service...')
+
+        self.req = GetPositionIK.Request()
+        self.done_event = threading.Event()
+        self.ik_result=None
+    def send_request(self,x,y,z):
+        # 填写请求数据
+        self.req.ik_request.group_name = 'scara_arm'  # 改成你的 MoveIt group
+        self.req.ik_request.avoid_collisions = False
+        #self.req.ik_request.attempts = 5
+
+        # 目标姿态
+        pose = PoseStamped()
+        pose.header.frame_id = 'link1'
+        pose.pose.position.x = x
+        pose.pose.position.y = y
+        pose.pose.position.z = z
+        pose.pose.orientation.w = 1.0
+        self.req.ik_request.pose_stamped = pose
+
+        # 调用服务
+        self.get_logger().info(f"before call service call_async,x={x},y={y},z={z}")
+        self.future = self.cli.call_async(self.req)
+        self.future.add_done_callback(self.ik_response_callback)
+        self.get_logger().info(f"📡 IK request sent.")
+        self.done_event.wait()           # ✅ 阻塞等待回调设置事件
+        return self.ik_result
+    def ik_response_callback(self, future):
+        self.ik_result = future.result()
+        self.done_event.set()     
+        if self.ik_result.error_code.val == self.ik_result.error_code.SUCCESS:
+            self.get_logger().info(f"✅ IK success: {self.ik_result.solution.joint_state.position}")
+        else:
+            self.get_logger().error("❌ IK failed")

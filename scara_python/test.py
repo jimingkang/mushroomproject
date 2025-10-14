@@ -18,12 +18,20 @@ hi.is_collision()
 hi.unlock_position()
 #ret=hi.movel_xyz(500,0,hi.z,hi.r-160,50)
 #hi.wait_stop()
-ret=hi.movel_xyz(600,0,0,hi.r-160,50)
+ret=hi.movel_xyz(600,0,0,0,50)
 #ret=hi.movel_xyz(hi.x,hi.y,hi.z-10,hi.r,50)
 hi.wait_stop()
-#ret=hi.movel_xyz(500,-200,0,-48,50)
+#ret=hi.movel_xyz(300,-200,0,-20,50)
 #hi.wait_stop()
-#ret=hi.movej_angle(50,-104,0,-20-60,30,1)
+#ret=hi.movej_angle(52,-58,0,-55-20,30,1)  #0.6,-0.001
+#ret=hi.movej_angle(5,-44,0,-116+20,30,1)  #0.6,0.001
+#ret=hi.movej_angle(-37,50,0,-107+20,30,1)  #0.5,-0.4
+#ret=hi.movej_angle(-23,59,0,58-20,30,1) #0.5,-0.3
+#ret=hi.movej_angle(-18,50,0,45+20,30,1) #0.5,-0.3 
+#ret=hi.movej_angle(-8.9,51,0,52+20,30,1) #0.5,-0.4
+#ret=hi.movej_angle(7,-48,0,-54-20,30,1) #0.5,0.4
+#ret=hi.movej_angle(20,-55,0,-62-20,30,1) #0.5,0.3
+#ret=hi.movej_angle(-14,31,0,-118-20,30,1) #0.5,0.3
 #hi.wait_stop()
 #ret=hi.movej_angle(50,40,0,-20,30,1)
 #hi.wait_stop()

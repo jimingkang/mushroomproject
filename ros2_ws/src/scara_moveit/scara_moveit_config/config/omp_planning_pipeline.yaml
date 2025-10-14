@@ -1,0 +1,51 @@
+move_group:
+  ros__parameters:
+    planning_pipelines: ["ompl"]
+    ompl:
+      planning_plugin: "ompl_interface/OMPLPlanner"
+
+      # ✅ 请求适配器：执行前的常规修复步骤（推荐保留）
+      request_adapters: >-
+        default_planner_request_adapters/AddTimeParameterization
+        default_planner_request_adapters/FixWorkspaceBounds
+        default_planner_request_adapters/FixStartStateBounds
+        default_planner_request_adapters/FixStartStateCollision
+        default_planner_request_adapters/FixStartStatePathConstraints
+
+      start_state_max_bounds_error: 0.1
+
+      # ✅ 默认使用的规划器（可选：RRTConnect、RRTstar、PRM 等）
+      default_planner_config: RRTConnect
+
+      # ✅ 所有可用规划器的配置
+      planner_configs:
+        RRTConnect:
+          type: geometric::RRTConnect
+          range: 0.0   # 0.0 表示自动推断，通常无需改
+        RRTstar:
+          type: geometric::RRTstar
+          range: 0.0
+        PRM:
+          type: geometric::PRM
+          range: 0.0
+        PRMstar:
+          type: geometric::PRMstar
+          range: 0.0
+        LBKPIECE:
+          type: geometric::LBKPIECE
+          range: 0.0
+        KPIECE:
+          type: geometric::KPIECE
+          range: 0.0
+        BKPIECE:
+          type: geometric::BKPIECE
+          range: 0.0
+        EST:
+          type: geometric::EST
+          range: 0.0
+        SBL:
+          type: geometric::SBL
+          range: 0.0
+        RRT:
+          type: geometric::RRT
+          range: 0.0

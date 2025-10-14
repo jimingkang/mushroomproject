@@ -4,6 +4,7 @@ import pickle
 import subprocess
 import sys
 import os
+import uuid
 import rclpy
 import time
 from rclpy.node import Node
@@ -20,12 +21,12 @@ from geometry_msgs.msg import Point
 from visualization_msgs.msg import Marker
 import numpy as np
 import random
-import octomap
-from scipy.spatial import KDTree
-import fcl
+#import octomap
+#from scipy.spatial import KDTree
+#import fcl
 from ikpy.chain import Chain
 from ikpy.link import URDFLink
-import h5py
+#import h5py
 from collections import deque
 from cv_bridge import CvBridge
 import cv2
@@ -38,7 +39,7 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 
 #redis_server='10.0.0.21'
-redis_server='172.23.248.56'
+redis_server='172.23.248.33'
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True,password='jimmy')
 r = redis.Redis(connection_pool=pool)
@@ -55,14 +56,35 @@ from scipy.optimize import root
 from matplotlib import pyplot as plt
 from .transform_calc import RobotTransform
 
-class Solver:
-    def __init__(self,link_lengths=np.array([0.325, 0.275, 0.260])):
-        self.link_lengths = link_lengths
+from geometry_msgs.msg import PoseStamped
+from moveit_msgs.msg import PlanningScene, CollisionObject
+from shape_msgs.msg import SolidPrimitive
+import pymoveit2 
+from sensor_msgs.msg import LaserScan
+from moveit_msgs.msg import PlanningScene, CollisionObject
+from geometry_msgs.msg import Pose
 
+from geometry_msgs.msg import PoseStamped
+from moveit_msgs.srv import GetPositionIK
+
+
+import numpy as np
+
+
+class OldSolver:
+    def __init__(self,link_lengths=np.array([0.325, 0.275, 0.254])):
+        self.link_lengths = link_lengths
+    #related angles
     def forward_kinematics_from_angles(self,theta):
         theta1, theta2, theta3 = theta
         x = self.link_lengths[0] * np.cos(theta1) + self.link_lengths[1] * np.cos(theta1 + theta2) + self.link_lengths[2] * np.cos(theta1 + theta2 + theta3)
         y = self.link_lengths[0] * np.sin(theta1) + self.link_lengths[1] * np.sin(theta1 + theta2) + self.link_lengths[2] * np.sin(theta1 + theta2 + theta3)
+        return np.array([x, y])
+    #absolute angles
+    def check_forward_kinematics_from_angles(self,theta):
+        theta1, theta2, theta3 = theta
+        x = self.link_lengths[0] * np.cos(theta1) + self.link_lengths[1] * np.cos(  theta2) + self.link_lengths[2] * np.cos( theta3)
+        y = self.link_lengths[0] * np.sin(theta1) + self.link_lengths[1] * np.sin( theta2) + self.link_lengths[2] * np.sin(theta3)
         return np.array([x, y])
 
     def forward_kinematics_from_angles_all(self,theta):
@@ -177,28 +199,79 @@ class Solver:
             return None  # or raise a more descriptive exception
 
         #return solved[min_config]
+    def normalize_angle(self,deg):
+        deg = ((deg + 180) % 360) - 180
+        return round(deg, 1)
+
     def get_robot_angle_in_degree(self, target, current_angle=[0,0,0]):
         ans=self.get_angle_to_target(target, current_angle)
         if ans is None:  # Check if IK failed
-            print(f"ERROR: No valid joint angles (IK failed)! current_angle={current_angle}")
-            ans= current_angle #[0.0, 0.0, 0.0]  # Default safe value (or raise an exception)
-        return [round(ans[0]*180/3.1415,0),round(ans[1]*180/3.1415,0),round((ans[0]+ans[1]+ans[2])*180/3.1415,0)]
+            print("ERROR: No valid joint angles (IK failed)!")
+            return [0.0, 0.0, 0.0]  # Default safe value (or raise an exception)
+        theta1 = ans[0] * 180.0 / math.pi
+        theta2 = ans[1] * 180.0 / math.pi
+        theta3 = ans[2] * 180.0 / math.pi
+
+    # 累积角度
+        angles = [theta1, theta1 + theta2,theta1 + theta2 + theta3]
+        normalized = [self.normalize_angle(a) for a in angles]
+        return normalized
+
+class Solver:
+    def __init__(self, link_lengths=np.array([0.325, 0.275, 0.260])):
+        self.link_lengths = link_lengths
+
+    def forward_kinematics_from_angles(self, theta):
+        t1, t2, t3 = theta
+        x = (self.link_lengths[0] * np.cos(t1) +
+             self.link_lengths[1] * np.cos(t1 + t2) +
+             self.link_lengths[2] * np.cos(t1 + t2 + t3))
+        y = (self.link_lengths[0] * np.sin(t1) +
+             self.link_lengths[1] * np.sin(t1 + t2) +
+             self.link_lengths[2] * np.sin(t1 + t2 + t3))
+        return np.array([x, y])
+
+    def jacobian(self, theta):
+        r1, r2, r3 = self.link_lengths
+        t1, t2, t3 = theta
+        j11 = -r1*np.sin(t1) - r2*np.sin(t1+t2) - r3*np.sin(t1+t2+t3)
+        j12 = -r2*np.sin(t1+t2) - r3*np.sin(t1+t2+t3)
+        j13 = -r3*np.sin(t1+t2+t3)
+        j21 = r1*np.cos(t1) + r2*np.cos(t1+t2) + r3*np.cos(t1+t2+t3)
+        j22 = r2*np.cos(t1+t2) + r3*np.cos(t1+t2+t3)
+        j23 = r3*np.cos(t1+t2+t3)
+        return np.array([[j11, j12, j13],
+                         [j21, j22, j23]])
+
+    def inverse_kinematics(self, target, initial_guess, max_iter=100, tol=1e-5):
+        theta = np.array(initial_guess, dtype=float)
+        for _ in range(max_iter):
+            current_pos = self.forward_kinematics_from_angles(theta)
+            error = target - current_pos
+            if np.linalg.norm(error) < tol:
+                break
+            J = self.jacobian(theta)
+            dtheta = np.linalg.pinv(J) @ error
+            theta += dtheta
+        
+        theta = (theta + np.pi) % (2 * np.pi) - np.pi
+        return theta
 
 
 class ServiceClient(Node):
     def __init__(self):
         super().__init__('service_client')
-        self.client = self.create_client(Trigger, 'close_gripper_service')  # Service type and name
-        self.open_client = self.create_client(Trigger, 'open_gripper_service')  # Service type and name
+        #self.client = self.create_client(Trigger, 'close_gripper_service')  # Service type and name
+        #self.open_client = self.create_client(Trigger, 'open_gripper_service')  # Service type and name
        
         # Wait for service to be available
-        while not self.client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('close service not available, waiting again...')
-        while not self.open_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('open service not available, waiting again...')
+        #while not self.client.wait_for_service(timeout_sec=1.0):
+        #    self.get_logger().info('close service not available, waiting again...')
+        #while not self.open_client.wait_for_service(timeout_sec=1.0):
+        #    self.get_logger().info('open service not available, waiting again...')
        
-        self.request = Trigger.Request()
-        self.open_request = Trigger.Request()
+        #self.request = Trigger.Request()
+        #self.open_request = Trigger.Request()
    
     def send_request(self ):
         #self.request.a = a
@@ -223,7 +296,7 @@ class HitbotController(Node):
         r.set("mode","camera_ready")
 
         self.client_node = ServiceClient()
-        self.solver=Solver()
+
         self.goal=[0,0]
 
         self.link_lengths=np.array([0.325, 0.275, 0.260])
@@ -231,7 +304,7 @@ class HitbotController(Node):
         self.hitbot_x = 0
         self.hitbot_y = 0
         self.hitbot_z = 0
-        self.hitbot_r = -180
+        self.hitbot_r = -0
 
         self.hitbot_t1_publisher = self.create_subscription(Int32, '/hitbot_theta1',self.hitbot_theta1_callback, 10)
         self.hitbot_t2_publisher = self.create_subscription(Int32, '/hitbot_theta2',self.hitbot_theta2_callback, 10)
@@ -246,7 +319,7 @@ class HitbotController(Node):
 
 
         self.bounding_boxes_sub = self.create_subscription(String,"/yolox/bounding_boxes",self.bounding_boxes_callback, 10)
-        self.adj_bounding_boxes_sub = self.create_subscription(String,"/d405/yolox/adj_bounding_boxes",self.adj_bounding_boxes_callback, 10)
+        #self.adj_bounding_boxes_sub = self.create_subscription(String,"/yolox/adj_bounding_boxes",self.adj_bounding_boxes_callback, 10)
         self.xyz_sub = self.create_subscription(String,"/hitbot_end_xyz",self.hitbot_end_xyzr_callback,10)
         self.angle_sub = self.create_subscription(String,"/hitbot_end_angle",self.hitbot_end_angle_callback,10)
         self.gripper_adjust_sub = self.create_subscription(String,"/yolox/rpi5/adjust/xy_pixel",self.hitbot_gripper_adjust_callback,1)
@@ -260,15 +333,15 @@ class HitbotController(Node):
         self.gripper_hold_pub = self.create_publisher(String,'/yolox/gripper_hold',10)
         
         # Joint State Publisher
-        self.joint_state_pub = self.create_publisher(JointState, "/hitbot/joint_states", 10)
+        self.joint_state_pub = self.create_publisher(JointState, "/joint_states", 10)
 
         # Timer to publish joint states at 50Hz (20ms)
-        self.timer = self.create_timer(0.5, self.publish_joint_states)
+        self.timer = self.create_timer(0.5, self.timer_cb)
+        #self.timer = self.create_timer(10, self.thread_bounding_boxes_callback)
 
         # Define joint names (Modify according to your HitBot model)
         self.joint_names = ["joint1", "joint2", "joint3", "joint4"]
        
-
         self.joint_command_sub = self.create_subscription(
             DisplayTrajectory,
             "/display_planned_path",
@@ -288,9 +361,7 @@ class HitbotController(Node):
         self.robot = HitbotInterface(self.robot_id)
 
         self.init_robot()
-        #pygame.init()
-        #pygame.display.set_mode((100, 100))  # Small invisible window
-        #pygame.display.set_caption("ROS2 Keyboard Control")
+
 
         #self.urdf_file = "/home/a/Downloads/mushroomproject/ros2_ws/build/hitbot_sim/hitbot_sim/scara_ik.xml"
         #self.scara_arm = Chain.from_urdf_file(self.urdf_file)
@@ -309,75 +380,172 @@ class HitbotController(Node):
         self.bounds = (-2.0, 2.0, -2.0, 2.0, -2.0, 2.0)  # Workspace bounds (xmin, xmax, ymin, ymax, zmin, zmax)
 
 
-        #self.dataset_dir = "dataset_dir"
-        #os.makedirs(self.dataset_dir, exist_ok=True)
         
         # SCARA configuration
         self.joint_names = ['joint1', 'joint2', 'joint3', 'joint4']
         self.gripper_joint = 'joint4'  # Assuming last joint controls gripper
+        self.planned_once = False
         
-        # Data buffers
-        self.buffer = {
-            'observations': {
-                'images': deque(maxlen=1000),
-                'qpos': deque(maxlen=1000),
-                'cartesian_pos': deque(maxlen=1000),
-                'gripper': deque(maxlen=1000)
-            },
-            'action': deque(maxlen=1000),
-            'timestamps': deque(maxlen=1000)
-        }
         
         # ROS setup
         self.bridge = CvBridge()
-        #self.joints_sub=self.create_subscription( JointState,"/hitbot/joint_states", self.joint_state_cb,10)
-        #self.image_sub=self.create_subscription(Image,"/camera/color/image_rect_raw",  self.image_cb,10)  #/yolox/boxes_image
-        
-        self.recording = False
-        self.episode_count = 0
-        self.last_qpos = None
-        self.last_cartesian_pos=None
-
-        self.latest_image=None
-        self.latest_qpos=None
+   
         self.link_lengths=[np.float64(0.325), np.float64(0.275), np.float64(0.26)]
-        self.ik_solver=self.chain_bulider(self.link_lengths)
-    
-        #self.mean = torch.tensor([0.485, 0.456, 0.406]).cuda().view(3, 1, 1)
-        #self.std = torch.tensor([0.229, 0.224, 0.225]).cuda().view(3, 1, 1)
-    def chain_bulider(self,link_lengths= [np.float64(0.325), np.float64(0.275), np.float64(0.26)]):
-        scara_chain = Chain(name='RRR_SCARA', links=[
-            URDFLink(
-                name="base",
-                origin_translation=[0, 0, 0],
-                origin_orientation=[0, 0, 0],  # roll, pitch, yaw
-                rotation=[0, 0, 1],  # rotate around Z
-                joint_type='revolute'
-            ),
-            URDFLink(
-                name="link1",
-                origin_translation=[link_lengths[0], 0, 0],
-                origin_orientation=[0, 0, 0],
-                rotation=[0, 0, 1],
-                joint_type='revolute'
-            ),
-            URDFLink(
-                name="link2",
-                origin_translation=[link_lengths[1], 0, 0],
-                origin_orientation=[0, 0, 0],
-                rotation=[0, 0, 1],
-                joint_type='revolute'
-            ),
-            URDFLink(
-                name="end_effector",
-                origin_translation=[link_lengths[2], 0, 0],
-                origin_orientation=[0, 0, 0],
-                rotation=None,  # fixed segment
-                joint_type='fixed'
-            )
-        ])
 
-        return scara_chain
+
+        self.sub_scan = self.create_subscription(LaserScan, "/scan", self.scan_callback, 10)
+        self.pub_scene = self.create_publisher(PlanningScene, "/planning_scene", 10)
+        self.get_logger().info("✅ 已启动: 将 /scan 转换为 3D 细小立柱障碍物，并查找最近障碍物")
+
+        self.solver=OldSolver() #Solver()#
+
+        self.obstacles=[]
+        self.column_count=0
+
+    def point_in_triangle(self, P, A, B, C):
+        def cross(u, v): return u[0]*v[1] - u[1]*v[0]
+        PA = (P[0]-A[0], P[1]-A[1])
+        PB = (P[0]-B[0], P[1]-B[1])
+        PC = (P[0]-C[0], P[1]-C[1])
+        AB = (B[0]-A[0], B[1]-A[1])
+        BC = (C[0]-B[0], C[1]-B[1])
+        CA = (A[0]-C[0], A[1]-C[1])
+        c1 = cross(AB, PA)
+        c2 = cross(BC, PB)
+        c3 = cross(CA, PC)
+        return (c1 >= 0 and c2 >= 0 and c3 >= 0) or (c1 <= 0 and c2 <= 0 and c3 <= 0)
+# ✅ 创建圆柱体障碍物
+    def addobject(self,ps,x,y):
+        ps.world.collision_objects.clear()
+
+        co = CollisionObject()
+        co.id = "pillar_" + str(uuid.uuid4())[:8]
+        co.header.frame_id = "base_link"
+        co.operation = CollisionObject.ADD
+        cylinder = SolidPrimitive()
+        cylinder.type = SolidPrimitive.CYLINDER
+        cylinder.dimensions = [0.5, 0.02]  # 高0.5m 半径2cm
+
+        pose = Pose()
+        pose.position.x = x
+        pose.position.y = y
+        pose.position.z = 0.25  # 中心点高度
+        pose.orientation.w = 1.0
+
+        co.primitives.append(cylinder)
+        co.primitive_poses.append(pose)
+        ps.world.collision_objects.append(co)
+        self.column_count += 1
+    def scan_callback(self, msg: LaserScan):
+        self.obstacles=[]
+        self.column_count=0
+        ps = PlanningScene()
+        ps.is_diff = True
+
+        co = CollisionObject()
+        co.id = "all"                     # ID 可随意，只要唯一即可
+        co.operation = CollisionObject.REMOVE
+        ps.world.collision_objects.append(co)
+        self.pub_scene.publish(ps)
+
+
+        for i, r in enumerate(msg.ranges):
+            if not (msg.range_min < r < msg.range_max):
+                continue
+
+            angle = msg.angle_min + i * msg.angle_increment
+            x = r * math.cos(angle)
+            y = r * math.sin(angle)
+            P = (x, y)
+            dist = math.sqrt(x**2 + y**2)
+            self.obstacles.append(P)
+            self.addobject(ps,x,y)
+
+
+        # ✅ 发布所有立柱障碍物
+        if self.column_count > 0:
+            self.pub_scene.publish(ps)
+            self.get_logger().info(f"📡 已发布 {self.column_count} 个立柱障碍物")
+
+        time.sleep(5)
+    def compute_waypoint(self, obstacle, current, target):
+        """
+        根据障碍点计算绕行点（自动判断左右绕行方向）
+        """
+        ox, oy = obstacle
+        cx, cy = current
+        tx, ty = target
+
+        # 当前到目标的方向向量
+        dx = tx - cx
+        dy = ty - cy
+        norm = math.sqrt(dx**2 + dy**2)
+        if norm == 0:
+            return current
+        dx /= norm
+        dy /= norm
+
+        # 判断障碍在路径的哪一侧（通过叉积符号判断）
+        cross_val = (ox - cx) * dy - (oy - cy) * dx
+        side = 1 if cross_val < 0 else -1  # <0 左侧, >0 右侧
+
+        # 计算垂直偏移方向
+        perp = (-dy * side, dx * side)
+
+        offset = 0.15  # 绕障偏移距离
+        waypoint = (ox + perp[0]*offset, oy + perp[1]*offset)
+
+        self.get_logger().info(
+            f"🧭 绕行方向 {'左侧' if side > 0 else '右侧'} → waypoint=({waypoint[0]:.3f},{waypoint[1]:.3f})"
+        )
+        return waypoint
+
+    def findpath(self, current, target):
+        """
+        在 (current, target, origin) 三角区域内寻找障碍，
+        并按角度排序生成自然路径。
+        """
+        origin = (0.0, 0.0)
+        valid_obs = []
+        waypoints = []
+        # --- 1️⃣ 筛选三角形内的障碍 ---
+        for obs in self.obstacles:
+            if self.point_in_triangle(obs, current, target, origin):
+                valid_obs.append(obs)
+
+        if not valid_obs:
+            self.get_logger().info("✅ 三角区域内无障碍")
+        #    waypoints.append(target)
+        #    return waypoints
+
+        # --- 2️⃣ 计算每个障碍相对于路径的角度 ---
+        cx, cy = current
+        tx, ty = target
+        path_vec = (tx - cx, ty - cy)
+
+        obs_angles = []
+        for obs in valid_obs:
+            ox, oy = obs
+            obs_vec = (ox - cx, oy - cy)
+            cross = path_vec[0]*obs_vec[1] - path_vec[1]*obs_vec[0]
+            dot = path_vec[0]*obs_vec[0] + path_vec[1]*obs_vec[1]
+            theta = math.atan2(cross, dot)   # [-pi, pi]
+            dist = math.sqrt((ox - cx)**2 + (oy - cy)**2)
+            obs_angles.append((obs, theta, dist))
+
+        # --- 3️⃣ 按角度排序，再按距离排序（保证路径连续） ---
+        obs_angles.sort(key=lambda x: (x[1], x[2]))
+
+        # --- 4️⃣ 生成绕行点 ---
+
+        for obs, theta, _ in obs_angles:
+            waypoint = self.compute_waypoint(obs, current, target)
+            waypoints.append(waypoint)
+
+        self.get_logger().info(f"✅ 找到 {len(waypoints)} 个绕行点（按角度排序）")
+        return waypoints
+
+
     def hitbot_theta1_callback(self,msg):
         theta1=msg.data
         theta1=int(theta1)
@@ -395,84 +563,134 @@ class HitbotController(Node):
         self.robot.movej_angle(self.robot.angle1,self.robot.angle2,self.robot.z,theta3,50,1)
     def forward_kinematics_from_angles(self,theta):
         theta1, theta2, theta3 = theta[:3]
-        x = self.link_lengths[0] * np.cos(theta1) + self.link_lengths[1] * np.cos(theta1 + theta2) + self.link_lengths[2] * np.cos(theta1 + theta2 + theta3)
-        y = self.link_lengths[0] * np.sin(theta1) + self.link_lengths[1] * np.sin(theta1 + theta2) + self.link_lengths[2] * np.sin(theta1 + theta2 + theta3)
+        x = self.link_lengths[0] * np.cos(theta1) + self.link_lengths[1] * np.cos(theta2) + self.link_lengths[2] * np.cos(theta3)
+        y = self.link_lengths[0] * np.sin(theta1) + self.link_lengths[1] * np.sin(theta2) + self.link_lengths[2] * np.sin(theta3)
         #x = self.link_lengths[0] * np.cos(theta1) + self.link_lengths[1] * np.cos(theta1 + theta2) + self.link_lengths[2] * np.cos(theta1 + theta2 + theta3)
         #y = self.link_lengths[0] * np.sin(theta1) + self.link_lengths[1] * np.sin(theta1 + theta2) + self.link_lengths[2] * np.sin(theta1 + theta2 + theta3)
+        #x=self.robot.x+self.link_lengths[2] * np.cos(self.robot.angle1*3.14/180 + self.robot.angle2*3.14/180 + self.robot.angle3*3.14/180)
+        #y=self.robot.x+self.link_lengths[2] * np.sin(self.robot.angle1*3.14/180 + self.robot.angle2*3.14/180 + self.robot.angle3*3.14/180)
         return np.array([x, y])
-    
+
+    def plan_and_print_once(self,x,y,z):
+        #if self.planned_once:
+        #    return
+        #self.planned_once = True
+
+        theta_init = [0, 0, 0]
+        
+        waypoints=self.findpath((self.robot.x,self.robot.y),(x,y))
+        if waypoints is None or len(waypoints)==0:
+            waypoints=[]
+            waypoints.append((x,y))
+        for wp in waypoints:
+            self.get_logger().info(f"➡️ 规划路径点: x={wp[0]:.3f}, y={wp[1]:.3f}")
+            target = [wp[0], wp[1]]
+            self.robot.get_scara_param()
+            #current_angle=[ang1 *3.1415/180,ang2*3.1415/180,ang2*3.1415/180]
+            #response=self.solver.get_robot_angle_in_degree(target)
+            #response=self.solver.inverse_kinematics(target,current_angle)
+            #response=self.solver.inverse_kinematics(target, theta_init)
+            if 1:#response is not None:
+                #joint_positions = response
+                #forward_xy=self.solver.check_forward_kinematics_from_angles(np.deg2rad(joint_positions))
+                #self.get_logger().info('✅ IK Computed Successfully!joint_pos={}'.format(joint_positions))
+                #self.get_logger().info(' Target: x={:.3f},y={:.3f},z={:.3f}, Forward FK: x={:.3f},y={:.3f}'.format(x,y,z,forward_xy[0],forward_xy[1]))
+                #if(y)<0:
+                #    joint_positions[2]=joint_positions[2]+20
+                #else:
+                #    joint_positions[2]=joint_positions[2]-0
+                #self.get_logger().info(' Move to: angle1={:.1f},angle2={:.1f},angle3={:.1f},z={:.1f}'.format(joint_positions[0],joint_positions[1],joint_positions[2],z))
+                #joint
+                #ret=self.robot.movej_angle(joint_positions[0],joint_positions[1],0,joint_positions[2]-0,30,1) 
+                ret=self.robot.movej_xyz(target[0]*1000-260,target[1]*1000,0,0,30,1) 
+
+            else:
+                self.get_logger().error(f'❌ IK computation failed: code={response.error_code.val}')
+            #time.sleep(0.5)
+        self.robot.wait_stop()
+        waypoints=[]
+
+
+     
+    def thread_bounding_boxes_callback(self):
+        self.bounding_boxes_callback()
+            #threading.Thread(target=self.bounding_boxes_callback, args=(msg,),daemon=True).start()
     def bounding_boxes_callback(self, msg):
+        #r.set("gripper_flag", "ready")
         if r.get("mode")=="camera_ready":
             mushroom_xyz=msg.data
             mushroom_xyz=msg.data.split(",");
-            goal=[int(float(mushroom_xyz[2].strip()))-270,0-int(float(mushroom_xyz[0].strip()))]
-            #self.get_logger().info(f"get mushroom_xyz:{mushroom_xyz}")
+            #mushroom_xyz=r.get("mushroom_xyz")
+            if mushroom_xyz is None :
+                self.get_logger().info(f"no mushroom_xyz")
+                return
+            goal=[int(float(mushroom_xyz[2].strip())),0-int(float(mushroom_xyz[0].strip()))]
+            self.get_logger().info(f"get mushroom_xyz:{mushroom_xyz}")
             #self.goal=[int(float(mushroom_xyz[2].strip()))/1000,0-int(float(mushroom_xyz[0].strip()))/1000]
-            #self.get_logger().info(f"target get goal:{self.goal}")
-            current_angle=[self.robot.angle1 *3.1415/180,self.robot.angle2*3.1415/180,self.robot.r*3.1415/180]
-            #angles=self.solver.get_robot_angle_in_degree(self.goal,current_angle)
-            #self.get_logger().info(f"Computed   angle:{angles},current_angle:{current_angle}")
-            #computed_pos=self.forward_kinematics_from_angles(angles[:3])
-            #self.get_logger().info(f"Computed   position:{computed_pos}")
-            #if (abs(current_angle[2]))*180/3.14>100:
-                #r.set("mode","camera_ready")
-            #    self.get_logger().info(f"self collide")
-                #return
+            #self.get_logger().info(f"target get goal:{self.goal}")        
 
-            #ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-180,100,1) 
-            ret=self.robot.movej_xyz(goal[0],goal[1],0,-180,80,1)
-            self.get_logger().info(f"bounding_boxes_callback : goal={goal},ret :{ret}")
+            #ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-0,100,1) 
+            #ret=self.robot.movej_xyz(goal[0],goal[1],0,-0,80,1)
+            self.robot.get_scara_param()
+            self.plan_and_print_once(x=goal[0]/1000,y=goal[1]/1000,z=0.1)
+            self.get_logger().info(f"bounding_boxes_callback : goal={goal},")
             self.robot.wait_stop()
             time.sleep(2)
-            if ret<2:
-                r.set("mode","adjust_ready")
-            else:
-            	r.set("mode","camera_ready")
+            #if ret<2:
+            #    r.set("mode","adjust_ready")
+            #else:
+            #	r.set("mode","camera_ready")    
+        r.set("gripper_flag", "done")
+        r.set("mushroom_xyz","")    
 
     def adj_bounding_boxes_callback(self, msg):
-        if r.get("mode")=="adjust_ready":
-            mushroom_xyz=msg.data
-            mushroom_xyz=msg.data.split(",");
-            goal=[int(float(mushroom_xyz[0].strip())),int(float(mushroom_xyz[1].strip())),int(float(mushroom_xyz[2].strip()))]
+        if r.get("mode") == "adjust_ready":
+            mushroom_xyz = msg.data
+            mushroom_xyz = msg.data.split(",")
+            goal = [int(float(mushroom_xyz[0].strip())), int(float(mushroom_xyz[1].strip())), int(float(mushroom_xyz[2].strip()))]
             self.robot.get_scara_param()
-            ret=self.robot.movej_xyz(self.robot.x+goal[2],self.robot.y+goal[0],self.robot.z,-180,80,1)
-            self.get_logger().info(f"adj bounding_boxes_callback ->adjust :{goal},x_offset:{goal[2]},y_offset:{goal[0]},ret :{ret}")
-            self.robot.wait_stop()
-            if ret<2:
-                r.set("mode","adjust_done")
+            if(abs(self.robot.x - goal[2])>80 or abs(self.robot.y - goal[0])>50):
+                ret = self.robot.movej_xyz(self.robot.x - goal[2], self.robot.y - goal[0], self.robot.z, -0, 80, 1)
+                self.get_logger().info(f"adj bounding_boxes_callback ->adjust :{goal},x_offset:{goal[2]},y_offset:{goal[0]},ret :{ret}")
+            else:
+                self.robot.wait_stop()
+                r.set("mode", "adjust_done")
+            if 0:  # ret<2:
+                r.set("mode", "adjust_done")
                 response = self.client_node.open_send_request()
-            	#if response is not None:
+                # if response is not None:
                 self.robot.get_scara_param()
                 self.robot.wait_stop()
-                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-170,self.robot.r,80,1)
+                ret = self.robot.movej_xyz(self.robot.x, self.robot.y, self.robot.z - 170, self.robot.r, 80, 1)
                 self.robot.wait_stop()
                 self.get_logger().info(f"move in -z, ret :{ret}")
-                response = self.client_node.send_request() #close request
+                response = self.client_node.send_request()  # close request
                 time.sleep(3)
                 self.robot.get_scara_param()
                 self.robot.wait_stop()
                 self.client_node.get_logger().info(f'open 2 for {self.robot.z}')
                 for i in range(3):
-                    ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z,self.robot.r-3,30,1)
+                    ret = self.robot.movej_xyz(self.robot.x, self.robot.y, self.robot.z, self.robot.r - 3, 30, 1)
                     self.robot.wait_stop()
                     self.robot.get_scara_param()
                     self.robot.wait_stop()
-                    ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z,self.robot.r+3,30,1)
+                    ret = self.robot.movej_xyz(self.robot.x, self.robot.y, self.robot.z, self.robot.r + 3, 30, 1)
                     self.robot.wait_stop()
                     time.sleep(0.5)
-            	
-            	#if response is not None:
+                # if response is not None:
                 self.robot.get_scara_param()
-                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,0,self.robot.r,80,1)
+                ret = self.robot.movej_xyz(self.robot.x, self.robot.y, 0, self.robot.r, 80, 1)
                 self.robot.wait_stop()
                 time.sleep(1)
-                ret=self.robot.movej_xyz(0,400,0,+20,50,1)
+                ret = self.robot.movej_xyz(0, 400, 0, +20, 50, 1)
                 self.robot.wait_stop()
                 response = self.client_node.open_send_request()
-            #else:
-            # 	r.set("mode","camera_ready")
-            r.set("mode","camera_ready")          
-            time.sleep(2)
+            # else:
+            #     r.set("mode","camera_ready")
+            r.set("mode", "camera_ready")
+
+        time.sleep(2)
+        r.set("gripper_flag", "done")
 
     def hitbot_gripper_adjust_done_callback(self, msg):
         self.get_logger().info(f"hitbot_gripper_adjust_done_callback:{msg}")
@@ -481,7 +699,7 @@ class HitbotController(Node):
             if response is not None:
                 self.robot.get_scara_param()
                 self.robot.wait_stop()
-                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-180,self.robot.r,80,1)
+                ret=self.robot.movej_xyz(self.robot.x,self.robot.y,self.robot.z-0,self.robot.r,80,1)
                 self.robot.wait_stop()
                 self.get_logger().info(f"move in -z, ret :{ret}")
                 self.client_node.get_logger().info(f'open for {response}')
@@ -517,11 +735,11 @@ class HitbotController(Node):
                 #self.get_logger().info(f"adjust,Computed   position:{computed_pos}")
                 self.robot.get_scara_param()
                 self.robot.wait_stop()
-                #ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-180,50,1)
+                #ret=self.robot.movej_angle(angles[0],angles[1],0,angles[2]-0,50,1)
                 #adj_goal=[(self.robot.x+x_0/30),(self.robot.y+y_0/30)]
                 adj_goal=[(self.robot.x-int(xy[1])/10),(self.robot.y-int(xy[0])/10)] 
                 
-                ret=self.robot.movej_xyz(adj_goal[0],adj_goal[1],self.robot.z,-180,30,1)
+                ret=self.robot.movej_xyz(adj_goal[0],adj_goal[1],self.robot.z,-0,30,1)
                 self.robot.wait_stop()
                 r.set("mode","ready_to_adjust")#
                 time.sleep(1)   
@@ -530,7 +748,6 @@ class HitbotController(Node):
             	done=String()
             	done.data="done"
             	self.gripper_adj_done_pub.publish(done)            
-
         else:
             r.set("mode","camera_ready") #adjust_done
             done=String()
@@ -541,6 +758,7 @@ class HitbotController(Node):
 
 
     def joint_state_cb(self, msg):
+        #self.get_logger().info("joint_state_cb:{}".format(msg.position))  
         if not self.recording:
             return
             
@@ -568,143 +786,6 @@ class HitbotController(Node):
             return
         
 
-    def forward_kinematics(self, qpos):
-        """Simple SCARA forward kinematics"""
-        θ1, θ2, d, θ4 = qpos
-        x = self.robot.angle1 #0.325 * np.cos(θ1) + 0.275 * np.cos(θ2)+0.17 * np.cos(θ4)  # Modify with your arm's lengths
-        y = self.robot.angle2 # 0.325 * np.sin(θ1) + 0.275 * np.sin(θ2)+0.17 * np.sin(θ4)
-        z = 0#self.robot.z  # Prismatic joint
-        #rz = θ1 + θ2 + θ4  # Total rotation
-        return np.array([x, y, z])
-
-    
-    def stop_and_save(self):
-        if not self.recording:
-            return
-            
-        self.recording = False
-        
-        # Ensure all buffers have same length
-        min_length = min(len(self.buffer['observations']['images']),
-                        len(self.buffer['observations']['qpos']),
-                        len(self.buffer['action']))
-                
-        self.get_logger().info(f"min_length{min_length}")
-        # Trim buffers
-        for k in self.buffer['observations']:
-            self.buffer['observations'][k] = list(self.buffer['observations'][k])[:min_length]
-        self.buffer['action'] = list(self.buffer['action'])[:min_length]
-        self.buffer['timestamps'] = list(self.buffer['timestamps'])[:min_length]
-        
-        # Save to HDF5
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        filename = os.path.join("/home/a/Downloads/mushroomproject/ros2_ws/", f"episode_{self.episode_count}.hdf5")
-        
-        with h5py.File(filename, 'w') as f:
-            # Create observations group
-            obs_group = f.create_group('observations')
-            data = np.array([x.cpu().numpy() for x in self.buffer['observations']['images']])
-		
-            obs_group.create_dataset('images0', 
-                                  data=np.array(data), #self.buffer['observations']['images']
-                                  compression='gzip')
-            obs_group.create_dataset('qpos',
-                                  data=np.array(self.buffer['observations']['qpos']),
-                                  compression='gzip')
-            obs_group.create_dataset('cartesian_pos',
-                                  data=np.array(self.buffer['observations']['cartesian_pos']),
-                                  compression='gzip')
-            obs_group.create_dataset('gripper',
-                                  data=np.array(self.buffer['observations']['gripper']),
-                                  compression='gzip')
-            
-            # Save actions and timestamps
-            f.create_dataset('action',
-                           data=np.array(self.buffer['action']),
-                           compression='gzip')
-            f.create_dataset('timestamps',
-                           data=np.array(self.buffer['timestamps']),
-                           compression='gzip')
-            
-            # Metadata
-            f.attrs['robot_type'] = 'SCARA'
-            f.attrs['joint_names'] = self.joint_names
-            f.attrs['episode_id'] = self.episode_count
-            
-        self.episode_count += 1
-        self.get_logger().info(f"Saved episode {filename}")
-
-    def get_occupied_voxels(self,octree):
-        self.occupied_voxels = set()  # Use a set for faster lookups
-        for node in octree.begin_leafs():
-            if octree.isNodeOccupied(node):
-                x, y, z = node.getCoordinate()
-                self.occupied_voxels.add((x, z))  # Store XZ coordinates
-        return self.occupied_voxels
-
-    
-    def load_octomap(self,file_path):
-        occupancy_map = octomap.OcTree(0.05)  #self.process_octomap(msg)# 5 cm resolution
-        if isinstance(file_path, bytes):  
-            file_path = file_path.decode("utf-8")  # ? Convert bytes to string
-
-            # ? Load the Octomap from the file
-        if occupancy_map.readBinary(file_path.encode()):  
-            print("? Octomap loaded successfully!")
-            print(f"Number of occupied nodes: {sum(1 for _ in occupancy_map.begin_leafs())}")
-        else:
-            print("? Error: Could not load Octomap from file!")
-        return occupancy_map
-    def octomap_callback(self, msg):
-        """ Callback to receive and process Octomap data. """
-
-
-        file_path="/home/a/Downloads/newmap.bt"
-        octomap_size = len(msg.data)
-        self.get_logger().info(f"octomap_size: {octomap_size},{self.robot.x/1000}{self.robot.y/1000},{self.robot.z/1000}")
-        if not msg.data:
-            return
-        output=subprocess.check_output(["ros2", "run", "octomap_server", "octomap_saver_node", "--ros-args", "-p" ,"octomap_path:=/home/a/Downloads/newmap.bt" ,"-r" ,"octomap_binary:=/rtabmap/octomap_binary" ],text=True)
-
-
-
-        self.occupancy_map = self.load_octomap(file_path)  #self.process_octomap(msg)# 5 cm resolution
-
-        if self.occupancy_map:
-            start = ( self.robot.x/1000,(self.robot.y)/1000, 0.0)  # Example start position
-            goal = ((self.robot.x-100)/1000,(self.robot.y+50)/1000, 0.0 )   # Example goal position
-            #self.convert_to_fcl_objects()#fcl.OcTree(self.occupancy_map)  # ? Convert Octomap to FCL Octree
-    
-            # Define joint positions (example)
-            target_position = list(goal)  # Replace with your target position
-            target_orientation = [0, 0, 0.0]  # Replace with your target orientation (roll, pitch, yaw)
-            
-            joint_angles = self.scara_arm.inverse_kinematics(target_position,target_orientation)
-            print("Computed Joint Angles:", joint_angles)
-
-            # Compute forward kinematics to get the positions of all joints
-            joint_positions = self.scara_arm.forward_kinematics(joint_angles, full_kinematics=True)
-
-            # Extract the positions of all joints
-            joint_positions = [frame[:3, 3] for frame in joint_positions]
-
-            camera_joint_positions=self.R@np.transpose(np.matrix(joint_positions))
-            camera_joint_positions=np.asarray(np.transpose(camera_joint_positions))
-            print("Computed Joint joint_positions:",camera_joint_positions)
-        
-            occupied_voxels = self.get_occupied_voxels(self.occupancy_map)
-            # Check for collisions
-            collision=self.check_robot_collision_xz( camera_joint_positions, occupied_voxels)
-            if(collision):
-                return
-            self.get_logger().info(f"before rrt planning")
-            path = self.rrt_planning(start, goal, max_iter=500)
-
-            if path:
-                self.get_logger().info(f"get apath {path}")
-                self.visualize_path(path)
-            else:
-                self.get_logger().warn("No valid path found.")
 
 
     def hitbot_end_xyzr_callback(self,msg):
@@ -734,31 +815,32 @@ class HitbotController(Node):
         self.get_logger().info(f"hitbot_move_z_callback ret: {ret}")
         self.robot.wait_stop()
     
-    
+    def timer_cb(self):
+        self.publish_joint_states()
+        #threading.Thread(target=self.publish_joint_states, daemon=True).start()
 
     def publish_joint_states(self):
         # Get real joint positions from HitBot API (Replace this with actual API calls)
         self.robot.get_scara_param()
-        joint_positions = [self.robot.z,self.robot.angle1*3.14/180,self.robot.angle2*3.14/180,(self.robot.r-48)*3.14/180]
+        joint_positions = [self.robot.z,self.robot.angle1*3.14/180,self.robot.angle2*3.14/180,(self.robot.r+20)*3.14/180]
 
         # Create JointState message
         joint_state_msg = JointState()
         joint_state_msg.header.stamp = self.get_clock().now().to_msg()
         joint_state_msg.name = self.joint_names
         joint_state_msg.position = joint_positions
+        # Publish the joint states
+        self.get_logger().info(f"publish_joint_states :joint_positions={joint_positions}")
+        self.joint_state_pub.publish(joint_state_msg)
 
         self.hitbot_x=self.robot.x/1000
         self.hitbot_y=self.robot.y/1000
         self.hitbot_z=self.robot.z/1000
 
-
-        # Publish the joint states
-        self.joint_state_pub.publish(joint_state_msg)
-
         self.publish_hitbot_x(str(int(self.robot.x)))
         self.publish_hitbot_y(str(int(self.robot.y)))
         self.publish_hitbot_z(str(int(self.robot.z)))
-        #self.get_logger().info(f"publish_joint_states str(int(self.robot.z)) {str(int(self.robot.z))}")
+        #self.get_logger().info(f"publish_joint_states z={str(int(self.robot.z))}")
         #self.publish_hitbot_r(str(int(self.robot.r-48)))
         camera_xyz=String()
         camera_xyz.data=str(self.robot.x)+","+str(self.robot.y)
@@ -780,10 +862,9 @@ class HitbotController(Node):
                 self.get_logger().info(f"i={i},waypoints : {waypoints}")
                 #for j in range(0, len(waypoints)):
                   #positions=waypoints[j].positions
-                self.robot.new_movej_angle(waypoints[1]*180/3.14, waypoints[2]*180/3.14, waypoints[0], (waypoints[3]*180/3.14)-48.0, 50, 1)
+                self.robot.new_movej_angle(waypoints[1]*180/3.14, waypoints[2]*180/3.14, waypoints[0], (waypoints[3]*180/3.14)-0.0, 50, 1)
                 #
             self.robot.wait_stop()
-
                 #if pos < min_limit or pos > max_limit:
                 #    print(f"Position for joint{i} must be between {min_limit} and {max_limit}.")
                 #    return self.get_positions_from_user()
@@ -793,26 +874,21 @@ class HitbotController(Node):
             #return positions
         except ValueError:
             print("Invalid input. Please enter numerical values.")
-
-
         self.get_logger().info(f"Sent joint command to HitBot")    
 
     def publish_hitbot_x(self, data):
         msg = String()
-
         msg.data = (data)
         self.hitbot_x_publisher.publish(msg)
 
     def publish_hitbot_y(self, data):
         msg = String()
         msg.data = (data)
-
         self.hitbot_y_publisher.publish(msg)
 
     def publish_hitbot_z(self, data):
         msg = String()
         msg.data = (data)
-
         self.hitbot_z_publisher.publish(msg)
 
     def publish_hitbot_r(self, data):
@@ -820,9 +896,6 @@ class HitbotController(Node):
         msg.data = (data)
         self.hitbot_r_publisher.publish(msg)
 
-
-
-  
 
     def joint_home_callback(self, request, response):
         max_retries = 3
@@ -921,8 +994,8 @@ class HitbotController(Node):
         print('unlock Robot')
         self.robot.unlock_position()
         print('Robot position initialized.')
-        ret=self.robot.movel_xyz(600,0,0,-180,50)
-    	#ret=self.robot.new_movej_xyz_lr(hi.x-100,hi.y,0,-180,20,0,1)
+        ret=self.robot.movel_xyz(600,0,0,-0,50)
+    	#ret=self.robot.new_movej_xyz_lr(hi.x-100,hi.y,0,-0,20,0,1)
         #ret=self.robot.movej_angle(0,30,0,0,20,0)
         self.robot.wait_stop()
         r.set("mode","camera_ready") 
@@ -932,45 +1005,27 @@ class HitbotController(Node):
         time.sleep(1)
         print('Robot initialized.')
     
-    #def run(self):
-    #    print("hello hibot")
-    #    # 使用多线程执行器
-    #    executor = MultiThreadedExecutor(num_threads=2)
-    #    executor.add_node(self)
 
-    #    try:
-    #        executor.spin()
-    #    except Exception as e:
-    #        print("Executor error:", str(e))
-    #    finally:
-    #        self.destroy_node()
-    #        rclpy.shutdown()
     def run(self):
         print("hello hibot")
+        executor = MultiThreadedExecutor(num_threads=10)  # 开4个线程并行处理回调
+        executor.add_node(self)
+        #executor.add_node(self.compute_ik_node)
 
-        while rclpy.ok():
-            try:
-                rclpy.spin_once(self)
-            except ValueError as e:
-                print("Error:", str(e))
-            except RuntimeError as e:
-                print("Error:", str(e))
-
-        self.destroy_node()
-        rclpy.shutdown()
+        try:
+            executor.spin()
+        except KeyboardInterrupt:
+            self.get_logger().info("⚠️ Ctrl+C 停止")
+        finally:
+            self.destroy_node()
+            rclpy.shutdown()
 
 def main(args=None):
     rclpy.init(args=args)
 
     hitbot_controller = HitbotController()
-
-    try:
-        hitbot_controller.run()
-    except KeyboardInterrupt:
-        print("KeyboardInterrupt")
-    finally:
-        hitbot_controller.destroy_node()
-        rclpy.shutdown()
+    hitbot_controller.run()
+    
 
 if __name__ == "__main__":
     main()
