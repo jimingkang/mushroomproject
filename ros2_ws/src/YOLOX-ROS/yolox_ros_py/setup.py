@@ -104,7 +104,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'yolox_ros = '+package_name+'.yolox_ros:ros_main',
+            'yolox_ros = '+package_name+'.yolo11_ros:ros_main',
             'yolox_openvino = '+package_name+'.yolox_openvino:ros_main',
             'yolox_onnx = '+package_name+'.yolox_onnx:ros_main',
             'yolox_tflite = '+package_name+'.yolox_tflite:ros_main',

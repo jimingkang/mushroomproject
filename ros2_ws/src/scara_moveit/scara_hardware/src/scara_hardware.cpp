@@ -70,7 +70,7 @@ CallbackReturn ScaraHardware::on_init(const hardware_interface::HardwareInfo & i
         }
     }
     
-    joint_state_sub_ = node_->create_subscription<sensor_msgs::msg::JointState>("/joint_states", 10, std::bind(&ScaraHardware::jointStateCallback, this, std::placeholders::_1));
+    joint_state_sub_ = node_->create_subscription<sensor_msgs::msg::JointState>("/hitbot/joint_states", 10, std::bind(&ScaraHardware::jointStateCallback, this, std::placeholders::_1));
 
     // Create publisher and subscriber
     motor_state_sub_ = node_->create_subscription<device_interface::msg::MotorState>(

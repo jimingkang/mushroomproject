@@ -98,26 +98,13 @@ i = 0
 
 
 #broker="172.23.66.229"
-redis_server="172.23.66.229"
+redis_server="172.23.248.33"
 
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True, password='jimmy')
 r = redis.Redis(connection_pool=pool)
 
-#--vocab_file=third_party/ORB_SLAM3/Vocabulary/ORBvoc.txt \
-#    --settings_file=third_party/ORB_SLAM3/Examples/RGB-D/TUM1.yaml \
-#parser = argparse.ArgumentParser()
-#parser.add_argument("--vocab_file", required=True)
-#parser.add_argument("--settings_file", required=True)
-#parser.add_argument("--dataset_path", required=True)
-#args = parser.parse_args()
 
-#img_files = sorted(glob(os.path.join(args.dataset_path, 'rgb/*.png')))
-#vocab_file="/media/jimmy/01D9E5979B0C5780/ORB-SLAM3-python/third_party/ORB_SLAM3/Vocabulary/ORBvoc.txt"
-#settings_file="/media/jimmy/01D9E5979B0C5780/ORB-SLAM3-python/third_party/ORB_SLAM3/Examples/RGB-D/TUM1.yaml"
-#slam = orbslam3.system(vocab_file, settings_file, orbslam3.Sensor.RGBD)
-#slam.set_use_viewer(True)
-#slam.initialize()
 
 
 app = Flask(__name__)
@@ -126,10 +113,7 @@ app.config['DEBUG'] = False
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 
-
 y = 0
-
-
 
 
 ros_class=None
@@ -323,56 +307,66 @@ global_points_xyz_rgb_list=np.asarray([()])
 i=0
 class yolox_ros(yolox_py):
     def __init__(self) -> None:
-        raw_image_topic = '/camera/color/image_raw'
-        depth_image_topic = '/camera/aligned_depth_to_color/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
-        depth_info_topic = '/camera/depth/camera_info'
-    
+        super().__init__('yolo11_ros', load_params=False)
+        self.infer_model = YOLO("/home/jimmy/Downloads/train13_chengcheng_7917.engine")
+        #self.declare_parameter('camera_name', 'd435')
+        self.camera_param="d435"# self.get_parameter('camera_name').value
+        logger.info("camera_param: {},camera_param=='d405':{}".format(self.camera_param,self.camera_param=="d405"))
+        if self.camera_param=="d405":
+            self.d405_raw_image_topic = '/' + self.camera_param + '/color/image_rect_raw'
+            self.d405_depth_image_topic = '/' + self.camera_param + '/aligned_depth_to_color/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
+            self.d405_depth_info_topic = '/' + self.camera_param + '/color/camera_info'
+        else:
+            self.d435_raw_image_topic = '/' + self.camera_param + '/color/image_raw'
+            self.d435_depth_image_topic = '/' + self.camera_param + '/aligned_depth_to_color/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
+            self.d435_depth_info_topic = '/' + self.camera_param + '/color/camera_info'
+            #self.d435_raw_image_topic = '/camera/color/image_raw'
+            #self.d435_depth_image_topic = '/camera/aligned_depth_to_color/image_raw'
+            #self.d435_depth_info_topic = '/camera/color/camera_info'
+	       
 
-        #raw_image_topic = '/camera/color/image_rect_raw'
-        #depth_image_topic = '/camera/depth/image_rect_raw'
-        #depth_info_topic = '/camera/depth/camera_info'
-        gripper_camera_topic="/camera/gripper/raw_image"
         move_x="/move/x"
 
-        # ROS2 init
-        super().__init__('yolox_ros', load_params=False)
-
         #self.setting_yolox_exp()
-        #self.cap = cv2.VideoCapture(6)
-        #w, h, fps = (int(self.cap.get(x)) for x in (cv2.CAP_PROP_FRAME_WIDTH, cv2.CAP_PROP_FRAME_HEIGHT, cv2.CAP_PROP_FPS))
-        #self.w=w
-        #self.h=h
-        #self.fps=fps
-        self.infer_model = YOLO("/home/a/Downloads/mushroomproject/ros2_ws/src/YOLOX-ROS/yolox_ros_py/yolox_ros_py/yolo11_google_mushroom.pt")
-
-
         self.bridge = CvBridge()
+
+
+
+        #self.pub_pointclouds = self.create_publisher(PointCloud2,'/yolox/pointclouds', 10)
+        self.adj_pub_bounding_boxes = self.create_publisher(String,"/yolox/adj_bounding_boxes", 1)
+        if self.camera_param=="d435":
+            self.pub_bounding_boxes = self.create_publisher(String,"/yolox/bounding_boxes", 1)
+            self.pub_boxes_img = self.create_publisher(Image,"/d435/yolox/boxes_image", 10)
+            self.sub_info = self.create_subscription(CameraInfo, self.d435_depth_info_topic, self.imageDepthInfoCallback, 1)
+        else:
+            self.d405_pub_boxes_img = self.create_publisher(Image,"/d405/yolox/boxes_image", 10)
+            self.d405_sub_info = self.create_subscription(CameraInfo, self.d405_depth_info_topic, self.d405_imageDepthInfoCallback, 1)
         
-        #self.pub = self.create_publisher(Detection2DArray,"/yolox/bounding_boxes", 10)
-        self.pub_bounding_boxes = self.create_publisher(Detection2DArray,"/yolox/bounding_boxes", 1)
-        self.pub_bounding_boxes_cords = self.create_publisher(BoundingBoxesCords,"/yolox/bounding_boxes_cords", 1)
-        self.pub_boxes_img = self.create_publisher(Image,"/yolox/boxes_image", 1)
-        self.pub_rpi5_boxes_img = self.create_publisher(Image,"/yolox/rpi5/boxing_image", 1)
-        self.sub_rpi_raw_img = self.create_subscription(Image,"/yolox/rpi5/raw_image",self.rpi5_imageflow_callback, 1)
-        self.pub_pointclouds = self.create_publisher(PointCloud2,'/yolox/pointclouds', 10)
-       
-        self.sub_info = self.create_subscription(CameraInfo, depth_info_topic, self.imageDepthInfoCallback, 1)
         self.sub_move_xy_info = self.create_subscription(String, move_x, self.MoveXYZCallback, 1)
 
         self.intrinsics = None
+        self.d405_intrinsics = None
+        
         self.pix = None
         self.pix_grade = None
+        self.pre_mushroom=[0,0,0]
+        self.pre_pix=(0,0)
+        r.set("mode","camera_ready")
 
-        #if (self.sensor_qos_mode):
-        #    self.sub = self.create_subscription(Image,raw_image_topic,self.imageflow_callback, qos_profile_sensor_data)
-        #else:
+
+
         qos_profile_subscriber = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,history=HistoryPolicy.KEEP_LAST,depth=1)
-        self.sub_depth_image = Subscriber(self,Image, depth_image_topic)
-        self.sub = Subscriber(self,Image,raw_image_topic, qos_profile=qos_profile_subscriber)
-
-
-        ats = ApproximateTimeSynchronizer([ self.sub,self.sub_depth_image], queue_size=1, slop=0.025, allow_headerless=True)
-        ats.registerCallback(self.callback)
+        
+        if self.camera_param=="d435":
+            self.sub_depth_image = Subscriber(self,Image, self.d435_depth_image_topic)
+            self.sub = Subscriber(self,Image,self.d435_raw_image_topic, qos_profile=qos_profile_subscriber)
+            ats = ApproximateTimeSynchronizer([self.sub, self.sub_depth_image], queue_size=1, slop=0.025, allow_headerless=True)
+            ats.registerCallback(self.callback)
+        else:
+            self.d405_sub_depth_image = Subscriber(self,Image, self.d405_depth_image_topic)
+            self.d405_sub = Subscriber(self,Image,self.d405_raw_image_topic, qos_profile=qos_profile_subscriber)
+            ats = ApproximateTimeSynchronizer([self.d405_sub, self.d405_sub_depth_image], queue_size=1, slop=0.025, allow_headerless=True)
+            ats.registerCallback(self.d405_callback)  
 
 
 
@@ -479,36 +473,7 @@ class yolox_ros(yolox_py):
                 yield b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n--frame\r\n'
    
 
-    def rpi5_imageflow_callback(self,msg:Image) -> None:
-        bboxes_msg=None
-        result_img_rgb=None
-        img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
-        if img_rgb is not None:
-            detect_res = self.infer_model.predict(img_rgb, conf=0.90)
-            bboxes = detect_res[0].boxes.cpu().numpy()
 
-            try:
-                    logger.info("get  rpi5 msg mode={},mode==camera_ready,{}".format(r.get("mode"),r.get("mode")=="camera_ready"))
-                    #if  (detect_res is not None) and r.get("scan")=="start" :#r.get("mode")=="camera_ready" and
-                        #logger.info("output[0]{},img_info{}".format(outputs[0],img_info))
-                        #result_img_rgb, bboxes, scores, cls, cls_names,track_ids = self.predictor.visual(outputs[0], img_info)
-                    if  bboxes is not None:
-                        bboxes_msg, result_img_rgb = self.yolox2bboxes_msgs(bboxes, confs, classes, msg.header, img_rgb)
-                            #logger.info("result_img_rgb:{}".format(result_img_rgb))
-
-                    if result_img_rgb is not None:
-                        img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
-                    else:
-                        img_rgb_pub = self.bridge.cv2_to_imgmsg(img_rgb,"bgr8")
-
-                    self.pub_rpi5_boxes_img.publish(img_rgb_pub)
-                    #time,sleep(1)
-                    #if (self.imshow_isshow):
-                    #    cv2.imshow("YOLOX",result_img_rgb)
-                    #    cv2.waitKey(1)
-            except Exception as e:
-                logger.error(e)
-                pass
     def imageflow_callback(self,msg:Image) -> None:
             global bboxes_msg,result_img_rgb,img_rgb,mapp,frame
             img_rgb = self.bridge.imgmsg_to_cv2(msg,"bgr8")
@@ -557,10 +522,9 @@ class yolox_ros(yolox_py):
                     classes = boxes.cls
                     scores   = boxes.conf
 
-
                         # 转换为 ROS 消息
-                    bboxes_msg = self.yolov11_to_bboxes_msg(boxes, scores, classes, msg.header)
-                    self.pub_bounding_boxes.publish(bboxes_msg)
+                    #bboxes_msg = self.yolov11_to_bboxes_msg(boxes, scores, classes, msg.header)
+                    #self.pub_bounding_boxes.publish(bboxes_msg)
                         # 绘制框图
                     result_img_rgb = result.plot()  # Ultralytics 自带绘制
                     img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb, "bgr8")
@@ -746,162 +710,7 @@ class yolox_ros(yolox_py):
         #i=i-1
         #pointsxyzrgb_total=np.delete(pointsxyzrgb_total,0)
         #return pointsxyzrgb_total
-    def create_point_cloud_file2(self,vertices, filename):
-        ply_header = '''ply
-    format ascii 1.0
-    element vertex %(vert_num)d
-    property float x
-    property float y
-    property float z
-    property uchar red
-    property uchar green
-    property uchar blue
-    end_header
-    '''
-        with open(filename, 'w') as f:
-            f.write(ply_header %dict(vert_num=len(vertices)))
-            np.savetxt(f,vertices,'%f %f %f %d %d %d')
-    def pose_estimation(self,depth,raw_img,bounding_boxes):
-        print(" pose_estimation bounding_boxes:", bounding_boxes)
-        # Convert depth image to proper format if necessary
-        if depth.dtype != np.float32:
-            depth = depth.astype(np.float32)
-        # Convert depth units if necessary (e.g., scaling)
-        # depth = depth * depth_scale  # Uncomment and set depth_scale if needed
-        # Extract annotations for the specific image
-        #image_id = get_image_id_by_name(image_name, coco)
-        #annotations = [ann for ann in coco['annotations'] if ann['image_id'] == image_id]
-
-        # Generate the 3D point cloud for the entire image using your provided code
-        (height, width, _) = raw_img.shape
-        xx, yy = np.meshgrid(np.arange(0, width), np.arange(0, height))
-
-        # Flatten the arrays to create a point cloud
-        x = xx.flatten()
-        y = yy.flatten()
-        z = depth.flatten()
-
-        # Remove invalid depth points
-        valid = (z > 0) & (~np.isnan(z))
-        x = x[valid]
-        y = y[valid]
-        z = z[valid]
-
-        # Stack x, y, z coordinates into a point array
-        points = np.vstack((x, y, z)).T
-
-        # Reshape the RGB image for color mapping and normalize colors
-        colors = raw_img.reshape(-1, 3)[valid]
-        colors = (colors).astype(np.uint8)  # Ensure colors are uint8 for PyVista
-
-        # Camera intrinsic parameters (adjust if known)
-        fx = fy = 382  # Focal length in pixels
-        cx = width / 2.0
-        cy = height / 2.0
-
-        # Convert pixel coordinates to 3D coordinates in camera space
-        X = (x - cx) * z / fx
-        Y = (y - cy) * z / fy
-        Z = z
-
-        # Stack into Nx3 array
-        points_3d = np.vstack((X, Y, Z)).T
-
-        # Create a PyVista point cloud
-        #cloud = pv.PolyData(points_3d)
-        #cloud["RGB"] = colors
-
-        # Create a PyVista plotter
-        #plotter = pv.Plotter()
-
-        # Add the point cloud to the plotter and set up color mapping
-        #plotter.add_points(cloud, scalars="RGB", rgb=True, point_size=1)
-
-        # Set plot labels
-        #plotter.set_background("white")
-        #plotter.add_axes()
-
-        # Prepare to store rotation values and normals
-        rotation_results = []
-    
-        # Process each mushroom instance
-        for box in bounding_boxes:
-            # Extract bounding box
-            #bbox = ann['bbox']  # Format: [x_min, y_min, width, height]
-            #x_min, y_min, width_bbox, height_bbox = bbox
-            x_min = box.xmin#int(x_min)
-            y_min = box.ymin# int(y_min)
-            #width_bbox = int(width_bbox)
-            #height_bbox = int(height_bbox)
-            x_max = box.xmax# + width_bbox
-            y_max =box.ymax # + height_bbox
-
-            # Handle cases where the bounding box is out of image bounds
-            if x_min < 0 or y_min < 0 or x_max > width or y_max > height:
-                print("Bounding box out of image bounds for box ID:", box.class_id)
-                continue
-
-            # Get indices within the bounding box
-            bbox_indices = ((x >= x_min) & (x < x_max) & (y >= y_min) & (y < y_max))
-
-            # Get the points and colors within the bounding box
-            X_bbox = X[bbox_indices]
-            Y_bbox = Y[bbox_indices]
-            Z_bbox = Z[bbox_indices]
-            points_bbox = np.vstack((X_bbox, Y_bbox, Z_bbox)).T
-
-            if points_bbox.shape[0] < 3:
-                print("Not enough valid points for plane fitting for annotation ID:", box.class_id)
-                continue
-
-            # Fit a plane to the 3D points
-            # Compute the centroid
-            centroid = np.mean(points_bbox, axis=0)
-            # Center the points
-            points_centered = points_bbox - centroid
-            # Compute covariance matrix
-            H_matrix = np.dot(points_centered.T, points_centered)
-            # Singular Value Decomposition
-            _, _, Vt = np.linalg.svd(H_matrix)
-            # Normal vector is the last row of Vt
-            normal_vector = Vt[-1, :]
-            # Ensure normal vector points towards the camera (positive Z)
-            if normal_vector[2] > 0:
-                normal_vector = -normal_vector
-
-            # Compute rotation matrix
-            z_axis = np.array([0, 0, 1])
-            rotation_axis = np.cross(z_axis, normal_vector)
-            rotation_axis_norm = np.linalg.norm(rotation_axis)
-            if rotation_axis_norm < 1e-6:
-                # The normal vector is aligned with the z-axis
-                rotation_matrix = np.eye(3)
-            else:
-                rotation_axis = rotation_axis / rotation_axis_norm
-                angle = np.arccos(np.clip(np.dot(z_axis, normal_vector), -1.0, 1.0))
-                # Rodrigues' rotation formula
-                K = np.array([[0, -rotation_axis[2], rotation_axis[1]],
-                                [rotation_axis[2], 0, -rotation_axis[0]],
-                                [-rotation_axis[1], rotation_axis[0], 0]])
-                rotation_matrix = np.eye(3) + np.sin(angle) * K + (1 - np.cos(angle)) * np.dot(K, K)
-
-            # Convert rotation matrix to Euler angles (XYZ convention)
-            r = R.from_matrix(rotation_matrix)
-            euler_angles = r.as_euler('xyz', degrees=True)
-
-            # Store rotation results
-            rotation_results.append({
-                'annotation_id': 1,
-                'rotation_x': euler_angles[0],
-                'rotation_y': euler_angles[1],
-                'rotation_z': euler_angles[2],
-                'centroid': centroid,
-                'normal_vector': normal_vector
-            })
-            print(f"Rotation: {euler_angles}")
-
-        # Show the plot
-        #plotter.show()
+   
     def imageDepthCallback(self, data):
         global bboxes_msg,result_img_rgb,i,points_xyz_rgb,global_points_xyz_rgb_list
 

@@ -23,7 +23,7 @@ def main():
     moveit2.max_acceleration = 0.5
     # ?????????
     moveit2.move_to_pose(
-        position=[0.50, 0.0, 0.1],   # x,y,z
+        position=[0.3,0.3, 0.01],   # x,y,z
         quat_xyzw=[0.0, 0.0, 0.0, 1.0] , # ???
         #planner_id="PTP"
     )

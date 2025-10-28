@@ -33,8 +33,8 @@ hi.wait_stop()
 #ret=hi.movej_angle(20,-55,0,-62-20,30,1) #0.5,0.3
 #ret=hi.movej_angle(-14,31,0,-118-20,30,1) #0.5,0.3
 #hi.wait_stop()
-#ret=hi.movej_angle(50,40,0,-20,30,1)
-#hi.wait_stop()
+ret=hi.movej_angle(40,50,0,0,70,1)
+hi.wait_stop()
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 

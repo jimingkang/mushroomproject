@@ -20,4 +20,7 @@ moveit_simple_controller_manager:
       - joint1
       - joint2
       - joint3
-      - joint4  
+      - joint4
+    path_tolerance: 0.1
+    goal_tolerance: 0.1
+    stopped_velocity_tolerance: 0.1  

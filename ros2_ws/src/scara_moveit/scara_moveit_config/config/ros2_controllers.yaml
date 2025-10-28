@@ -27,9 +27,10 @@ scara_arm_controller:
     state_interfaces:
       - position
       - velocity
+
     constraints:
       goal_time: 0.0
-      stopped_velocity_tolerance: 0.02
+      stopped_velocity_tolerance: 0.1
       joint1: { trajectory: 0.05, goal: 0.05 }
       joint2: { trajectory: 0.05, goal: 0.05 }
       joint3: { trajectory: 0.05, goal: 0.05 }

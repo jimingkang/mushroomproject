@@ -26,3 +26,9 @@ z_arm_controller:
       - joint3
       - joint4
     allow_nonzero_velocity_at_trajectory_end: true
+    state_tolerance:
+      - 0.1  # 每个关节状态允许误差（原来是 0.05）
+    path_tolerance:
+      - 0.1  # 轨迹中间允许误差
+    goal_tolerance:
+      - 0.1  # 最终位置允许误差

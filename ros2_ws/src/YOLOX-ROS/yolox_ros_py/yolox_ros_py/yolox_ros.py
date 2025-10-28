@@ -405,13 +405,6 @@ class yolox_ros(yolox_py):
                     #self.diff_pix=abs(self.pre_pix[0]-pix[0])+abs(self.pre_pix[1]-pix[1])
                     logger.info("pix: {},box:{},score:{},result:{}".format(pix,box,score,result))
                     if(result is not None and int(result[1])>0 and score>0.4 and self.intrinsics and abs(int((box[0]-box[2])))>30 and  abs(int((box[0]-box[2])))<120 and abs(int((box[1]-box[3])))>30 and abs(int((box[1]-box[3])))<120):    
-                        tip_depth = cv_image[int(tip_xy[1]), int(tip_xy[0])]
-                        logger.info("tip_tmpdepth:{}".format(tip_depth))
-                        tip_result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [tip_xy[0], tip_xy[1]], tip_depth)
-                        tip=f'{tip_result[0]},{tip_result[1]},{tip_result[2]}'
-                        logger.info("tip_result-result_mushroom =x:{},{},z:{}".format(tip_result[0]-result[0],tip_result[1]-result[1],tip_result[2]-result[2]))
-                        cv2.line(result_img_rgb, (int(tip_xy[0]), int(tip_xy[1])), (pix[0], pix[1]), (0, 0, 255), 3)
-                        logger.info("gripper tip in side camera: {}".format(tip_result)) 
                         if   r.get("mode")=="camera_ready"  :
                             line = f'{result[0]},{result[1]},{result[2]}'
                             logger.info("xyz in side camera: {}".format(line))
@@ -421,13 +414,19 @@ class yolox_ros(yolox_py):
                             self.pre_pix=pix
                             self.pub_bounding_boxes.publish(bbox)
                             r.set("mushroom_xyz",line)
-
                             break
                         if  r.get("mode")=="adjust_ready": # int(result[1])<100 and
+                            tip_depth = cv_image[int(tip_xy[1]), int(tip_xy[0])]
+                            logger.info("tip_tmpdepth:{}".format(tip_depth))
+                            tip_result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [tip_xy[0], tip_xy[1]], tip_depth)
+                            tip=f'{tip_result[0]},{tip_result[1]},{tip_result[2]}'
+                            logger.info("tip_result-result_mushroom =x:{},{},z:{}".format(tip_result[0]-result[0],tip_result[1]-result[1],tip_result[2]-result[2]))
+                            cv2.line(result_img_rgb, (int(tip_xy[0]), int(tip_xy[1])), (pix[0], pix[1]), (0, 0, 255), 3)
+                            logger.info("gripper tip in side camera: {}".format(tip_result)) 
                             adjust_bbox=String()
                             adjust_bbox.data=f'{tip_result[0]-result[0]},{tip_result[1]-result[1]},{tip_result[2]-result[2]}'
-                            logger.info("box:{},".format(bbox.data))
-                            self.adj_pub_bounding_boxes.publish("adjust_bbox.data: {}".format(adjust_bbox.data))
+                            logger.info("box:{},".format(adjust_bbox.data))
+                            self.adj_pub_bounding_boxes.publish(adjust_bbox)
                             break
                 if result_img_rgb is not None:
                     img_rgb_pub = self.bridge.cv2_to_imgmsg(result_img_rgb,"bgr8")
