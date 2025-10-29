@@ -315,7 +315,7 @@ class yolox_ros(yolox_py):
         logger.info("camera_param: {},camera_param=='d405':{}".format(self.camera_param,self.camera_param=="d405"))
         if self.camera_param=="d405":
             self.raw_image_topic =  topic_param + '/color/image_rect_raw'
-            self.depth_image_topic = topic_param + '/aligned_depth_to_color/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
+            self.depth_image_topic = topic_param + '/depth/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
             self.depth_info_topic = topic_param + '/color/camera_info'
         else:
             self.raw_image_topic =  topic_param + '/color/image_raw'
