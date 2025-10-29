@@ -84,10 +84,10 @@ frame=None
 
 
 # import camera driver
-if os.environ.get('CAMERA'):
-    Camera = import_module('camera_' + os.environ['CAMERA']).Camera
-else:
-    from .camera_ipcam import Camera
+#if os.environ.get('CAMERA'):
+#    Camera = import_module('camera_' + os.environ['CAMERA']).Camera
+#else:
+#    from .camera_ipcam import Camera
 
 import pyrealsense2 as rs2
 if (not hasattr(rs2, 'intrinsics')):
