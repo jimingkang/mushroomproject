@@ -308,7 +308,7 @@ i=0
 class yolox_ros(yolox_py):
     def __init__(self) -> None:
         super().__init__('yolo11_ros', load_params=False)
-        self.infer_model = YOLO("/home/jimmy/Downloads/train13_chengcheng_7917.engine")
+        self.infer_model = YOLO("/home/cotrobot/mushroomproject/train13_chengcheng_7917.engine")
         #self.declare_parameter('camera_name', 'd435')
         self.camera_param="d405"# self.get_parameter('camera_name').value
         topic_param="/camera/"+self.camera_param
