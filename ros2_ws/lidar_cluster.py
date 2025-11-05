@@ -531,38 +531,7 @@ class ScanToCylinders(Node):
         self.max_iter = 500
         self.goal_tolerance = 0.1
         self.solver = OldSolver()
-
         self.rrt_planner = RRTAngle(start_pos=[0.0, 0.0, 0.0], obstacles=[], tolerance=self.goal_tolerance, step_size=self.step_size)
-    def point_in_square(self,obs, current, target, margin=0.0):
-        """
-        判断点 obs 是否在 current 与 target 形成的方框内
-        参数：
-            obs: (x, y)  — 障碍点
-            current: (x, y) — 起点
-            target: (x, y)  — 终点
-            margin: float — 外扩边界（例如机器人宽度）
-        返回：
-            True / False
-        """
-        x_min = min(current[0], target[0]) - margin
-        x_max = max(current[0], target[0]) + margin
-        y_min = min(current[1], target[1]) - margin
-        y_max = max(current[1], target[1]) + margin
-
-        ox, oy = obs
-        return (x_min <= ox <= x_max) and (y_min <= oy <= y_max)
-    def point_in_triangle(self, P, A, B, C):
-        def cross(u, v): return u[0]*v[1] - u[1]*v[0]
-        PA = (P[0]-A[0], P[1]-A[1])
-        PB = (P[0]-B[0], P[1]-B[1])
-        PC = (P[0]-C[0], P[1]-C[1])
-        AB = (B[0]-A[0], B[1]-A[1])
-        BC = (C[0]-B[0], C[1]-B[1])
-        CA = (A[0]-C[0], A[1]-C[1])
-        c1 = cross(AB, PA)
-        c2 = cross(BC, PB)
-        c3 = cross(CA, PC)
-        return (c1 >= 0 and c2 >= 0 and c3 >= 0) or (c1 <= 0 and c2 <= 0 and c3 <= 0)
 # ✅ 创建圆柱体障碍物
     def addobject(self,ps,x,y):
         co = CollisionObject()
@@ -700,7 +669,6 @@ class ScanToCylinders(Node):
         clusters = []
         cluster = [points[0]]
         cluster_thresh = 0.05  # 相邻点间距小于 5cm 视为同一簇
-
         for i in range(1, len(points)):
             prev = points[i - 1]
             curr = points[i]
@@ -737,10 +705,9 @@ class ScanToCylinders(Node):
         self.rrt_planner.obstacles.clear()
         for obs in self.obstacles:
             self.rrt_planner.add_obstacle('circle', (obs[0], obs[1], 0.2))
-        #self.rrt_planner.add_obstacle('circle', (0.5, 0.3, 0.2))
-        #path,smooth_joint_path=self.rrt_planner.build_tree([0.0,0.4])
+        self.rrt_planner.add_obstacle('circle', (0.5, 0.3, 0.2))
+        #path,smooth_joint_path=self.rrt_planner.build_tree([0.0,0.6])
         #robot_angles=[self.rrt_planner.get_robot_angle_in_degree(p) for p in smooth_joint_path] if smooth_joint_path else None
-        #self.get_logger().info(f"RRT路径点数: {len(path) if path else 0}")
         #if path:
         #    self.publish_path(path)
 

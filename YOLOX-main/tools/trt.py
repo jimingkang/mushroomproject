@@ -53,7 +53,7 @@ def main():
     ckpt = torch.load(ckpt_file, map_location="cpu")
     # load the model state dict
 
-    model.load_state_dict(ckpt["model"])
+    model.load_state_dict(ckpt["model"],strict=False)
     logger.info("loaded checkpoint done.")
     model.eval()
     model.cuda()

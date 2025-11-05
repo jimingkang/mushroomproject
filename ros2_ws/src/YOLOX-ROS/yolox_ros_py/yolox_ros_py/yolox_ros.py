@@ -182,11 +182,11 @@ class yolox_ros(yolox_py):
         logger.info("camera_param: {},camera_param=='d405':{}".format(self.camera_param,self.camera_param=="d405"))
         if self.camera_param=="d405":
             self.d405_raw_image_topic = '/' + self.camera_param + '/color/image_rect_raw'
-            self.d405_depth_image_topic = '/' + self.camera_param + '/aligned_depth_to_color/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
+            self.d405_depth_image_topic = '/' + self.camera_param + '/depth/image_rect_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
             self.d405_depth_info_topic = '/' + self.camera_param + '/color/camera_info'
         else:
             self.d435_raw_image_topic = '/' + self.camera_param + '/color/image_raw'
-            self.d435_depth_image_topic = '/' + self.camera_param + '/aligned_depth_to_color/image_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
+            self.d435_depth_image_topic = '/' + self.camera_param + '/depth/image_rect_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
             self.d435_depth_info_topic = '/' + self.camera_param + '/color/camera_info'
             #self.d435_raw_image_topic = '/camera/color/image_raw'
             #self.d435_depth_image_topic = '/camera/aligned_depth_to_color/image_raw'

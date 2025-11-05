@@ -39,6 +39,7 @@ from example_interfaces.srv import Trigger
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import ReentrantCallbackGroup
+from nav_msgs.msg import Path
 #redis_server='10.0.0.21'
 redis_server='172.23.248.33'
 
@@ -75,7 +76,7 @@ from scipy.interpolate import splprep, splev
 import numpy as np
 L1, L2, L3 = 0.325, 0.275, 0.26
 class RRTAngle:
-    def __init__(self, start_pos, obstacles=[], tolerance=0.1, step_size=0.2):
+    def __init__(self, start_pos, obstacles=[], tolerance=0.1, step_size=0.15):
         self.length = [0.325, 0.275,0.26]
         self.workspace_size = sum(self.length)
         self.start_node = np.array(start_pos)
@@ -105,12 +106,51 @@ class RRTAngle:
         y1 = y0 + self.length[0] * np.sin(angles[0])
         x2 = x1 + self.length[1] * np.cos(angles[0] + angles[1])
         y2 = y1 + self.length[1] * np.sin(angles[0] + angles[1])
-        x3 = x2 + self.length[1] * np.cos(angles[0] + angles[1]+angles[2])
-        y3 = y2 + self.length[1] * np.sin(angles[0] + angles[1]+ angles[2])
+        x3 = x2 + self.length[2] * np.cos(angles[0] + angles[1]+angles[2])
+        y3 = y2 + self.length[2] * np.sin(angles[0] + angles[1]+ angles[2])
 
         result = np.array([[x0, x1, x2,x3], [y0, y1, y2,y3]], dtype=np.float32)
         self.forward_kinematics_cache[angles_tuple] = result  # Cache the result
         return result
+    def sample_position_new(self, goal_ws=None, last_pos=None, goal_bias=0.3, max_attempts=20):
+        """
+        goal_ws: 目标点 (x, y)
+        last_pos: 上一个节点末端坐标，用于局部方向判断
+        """
+        # 有目标且触发目标偏置时
+        if goal_ws is not None and np.random.rand() < goal_bias:
+            for _ in range(max_attempts):
+                sample = [
+                    np.random.uniform(-np.pi/2, np.pi/2),
+                    np.random.uniform(-3*np.pi/4, 3*np.pi/4),
+                    np.random.uniform(-3*np.pi/4, 3*np.pi/4)
+                ]
+                xs, ys = self.forward_kinematics(sample)
+                end_effector = np.array([xs[-1], ys[-1]])
+
+                # 计算局部方向向量（上一个点指向目标）
+                if last_pos is None:
+                    last_pos = np.array([0.8, 0.0])  # 如果是起点，默认用原点
+
+                vec_goal = np.array(goal_ws) - np.array(last_pos)
+                vec_end = end_effector - np.array(last_pos)
+
+                # 判断夹角
+                cos_theta = np.dot(vec_goal, vec_end) / (
+                    np.linalg.norm(vec_goal) * np.linalg.norm(vec_end) + 1e-6
+                )
+
+                # 方向一致且距离适中时，接受采样
+                if cos_theta > 0.4 or np.linalg.norm(end_effector - goal_ws) < self.workspace_size *0.3:
+                    return sample
+
+        # 默认随机采样
+        return [
+            np.random.uniform(-np.pi/2, np.pi/2),
+            np.random.uniform(-3*np.pi/4, 3*np.pi/4),
+            np.random.uniform(-3*np.pi/4, 3*np.pi/4)
+        ]
+
 
     def sample_position(self, goal_ws=None, goal_bias=0.2):
         if goal_ws is not None and np.random.rand() < goal_bias:
@@ -190,6 +230,13 @@ class RRTAngle:
         for i in tqdm(range(max_iterations)):
             sample = self.sample_position()
             nearest = self.nearest_node(sample)
+
+
+            # 朝目标方向采样sample_position_new
+            #xs, ys = self.forward_kinematics(nearest)
+            #last_pos = np.array([xs[-1], ys[-1]])
+            #sample = self.sample_position(goal_ws, last_pos=last_pos)
+
             new_node = self.steer(nearest, sample)
             new_node_tuple = tuple(new_node)
 
@@ -387,7 +434,7 @@ class RRTAngle:
         return normalized
 
 class OldSolver:
-    def __init__(self,link_lengths=np.array([0.325, 0.275, 0.254])):
+    def __init__(self,link_lengths=np.array([0.325, 0.275, 0.26])):
         self.link_lengths = link_lengths
     #related angles
     def forward_kinematics_from_angles(self,theta):
@@ -693,7 +740,7 @@ class HitbotController(Node):
         #self.subscription = self.create_subscription(Octomap,'/rtabmap/octomap_binary',self.octomap_callback,10)
 
         # Publisher for RRT Path Visualization
-        self.path_publisher = self.create_publisher(Marker, 'rrt_path', 10)
+        #self.path_publisher = self.create_publisher(Marker, 'rrt_path', 10)
         self.fcl_octree = None  # FCL Octree for collision checking
         self.occupancy_map = None  # Store Octomap for collision checking
         self.bounds = (-2.0, 2.0, -2.0, 2.0, -2.0, 2.0)  # Workspace bounds (xmin, xmax, ymin, ymax, zmin, zmax)
@@ -713,19 +760,21 @@ class HitbotController(Node):
 
 
         #self.sub_scan = self.create_subscription(LaserScan, "/scan", self.scan_callback, 10)
-        #self.pub_scene = self.create_publisher(PlanningScene, "/planning_scene", 10)
-        self.get_logger().info("✅ 已启动: 将 /scan 转换为 3D 细小立柱障碍物，并查找最近障碍物")
+        self.pub_scene = self.create_publisher(PlanningScene, "/planning_scene", 10)
+        self.pub_path = self.create_publisher(Path, '/rrt_path', 10)
+        #self.get_logger().info("✅ 已启动: 将 /scan 转换为 3D 细小立柱障碍物，并查找最近障碍物")
 
         self.solver=OldSolver() #Solver()#
 
         self.obstacles=[]
         self.column_count=0
 
-                        # 参数
+        # 参数
         self.step_size = 0.1
         self.max_iter = 500
         self.goal_tolerance = 0.1
         self.rrt_planner = RRTAngle(start_pos=[0.0, 0.0, 0.0], obstacles=[], tolerance=self.goal_tolerance, step_size=self.step_size)
+        self.move_robo_angles=[]
   
 
     def find_nearest_obstacle(self, robot_pos=(0.0, 0.0)):
@@ -746,7 +795,6 @@ class HitbotController(Node):
         min_idx = np.argmin(dist)
         nearest = points[min_idx]
         min_dist = dist[min_idx]
-
         return tuple(nearest), min_dist
 
     def point_in_rotated_square(self,obs, current, target, half_width=0.1):
@@ -1184,13 +1232,9 @@ class HitbotController(Node):
                     self.get_logger().info(' Target: x={:.3f},y={:.3f},z={:.3f}, Forward FK: x={:.3f},y={:.3f}'.format(x,y,z,forward_xy[0],forward_xy[1]))
                     #self.get_logger().info(' Move to: angle1={:.1f},angle2={:.1f},angle3={:.1f},z={:.1f}'.format(joint_positions[0],joint_positions[1],joint_positions[2],z))
                     ret=self.robot.movej_angle(joint_positions[0],joint_positions[1],0,joint_positions[2]-0,30,1) 
-                    self.robot.wait_stop()
                 else:
                     self.get_logger().error(f'❌ IK computation failed: code={response.error_code.val}')
-
-            else :
-                return
-
+        self.robot.wait_stop()
 
         return waypoints
 
@@ -1199,6 +1243,21 @@ class HitbotController(Node):
     def thread_bounding_boxes_callback(self,msg):
         #self.bounding_boxes_callback()
         threading.Thread(target=self.bounding_boxes_callback, args=(msg,),daemon=True).start()
+    def publish_path(self, path):
+        msg = Path()
+        msg.header.frame_id = 'base_link'   # ✅ 一定要写对（map 或 odom）
+        msg.header.stamp = self.get_clock().now().to_msg()
+        #self.get_logger().info(f"path:{path} ")
+        for x, y in path:
+            pose = PoseStamped()
+            pose.header.frame_id = 'base_link'    # ✅ 和上面一致
+            pose.pose.position.x = x*1.0
+            pose.pose.position.y = y*1.0
+            pose.pose.position.z = 0.0
+            msg.poses.append(pose)
+        self.pub_path.publish(msg)
+        self.get_logger().info(f"📡 已发布路径到 /rrt_path，共 {len(path)} 点")
+
     def move(self,goal):
         redis_obstacles = json.loads(r.get('obstacles'))
         self.obstacles=redis_obstacles if redis_obstacles else self.obstacles
@@ -1213,11 +1272,14 @@ class HitbotController(Node):
         for obs in self.obstacles:
             self.rrt_planner.add_obstacle('circle', (obs[0], obs[1], 0.1))
         path,joint_path=self.rrt_planner.build_tree(goal) 
+        #if path:
+        #    self.publish_path(path)
         robot_angles=[self.rrt_planner.get_robot_angle_in_degree(p) for p in joint_path] if joint_path else None
         for robot_angle in robot_angles if robot_angles else []:
-            ret=self.robot.movej_angle(robot_angle[0],robot_angle[1],0,robot_angle[2]-0,30,1) 
+            ret=self.robot.new_movej_angle(robot_angle[0],robot_angle[1],0,robot_angle[2]-0,30,1) 
         self.robot.wait_stop()
-        self.get_logger().info(f"RRT waypoints: {len(joint_path) if joint_path else 0}")      
+        self.get_logger().info(f"RRT waypoints: {len(joint_path) if joint_path else 0}")  
+        return     robot_angles
 
 
     def bounding_boxes_callback(self, msg):
@@ -1230,9 +1292,11 @@ class HitbotController(Node):
                 self.get_logger().info(f"no mushroom_xyz")
                 return
             goal=[int(float(mushroom_xyz[2].strip()))/1000,0-int(float(mushroom_xyz[0].strip()))/1000]
-            self.get_logger().info(f"get mushroom_xyz {mushroom_xyz},goal:{goal}")        
-            #self.move(goal)
-
+            self.get_logger().info(f"get mushroom_xyz {mushroom_xyz},goal:{goal}")    
+            if abs(goal[0]) >0.8 or abs(goal[1])>0.8 or (abs(goal[0])<0.35 and abs(goal[1])<0.35):
+                self.get_logger().info(f"mushroom_xyz out of range:{mushroom_xyz},goal:{goal}")    
+                return
+            #self.move_robo_angles=self.move(goal)
             self.plan_and_print_once(x=goal[0],y=goal[1],z=0.1,isPickup=True)
 
 
@@ -1252,7 +1316,7 @@ class HitbotController(Node):
             goal = [int(float(mushroom_xyz[0].strip())), int(float(mushroom_xyz[1].strip())), int(float(mushroom_xyz[2].strip()))]
             self.robot.get_scara_param()
             if 1:#(abs(self.robot.x - goal[2])>50 or abs(self.robot.y - goal[0])>50):
-                ret = self.robot.movej_xyz(self.robot.x - np.sign(goal[2])*10, self.robot.y - np.sign(goal[0])*10, self.robot.z, self.robot.r, 50, 1)
+                ret = self.robot.movej_xyz(self.robot.x - np.sign(goal[2])*20, self.robot.y - np.sign(goal[0])*20, self.robot.z, self.robot.r, 50, 1)
                 self.robot.wait_stop()
                 self.get_logger().info(f"adj bounding_boxes_callback ->adjust :{goal},x_offset:{goal[2]},y_offset:{goal[0]},ret :{ret}")
             #if 1:  # ret<2:
@@ -1285,11 +1349,16 @@ class HitbotController(Node):
                 time.sleep(1)
 
                 #self.plan_and_print_once(x=0,y=0.8,z=0,isPickup=True)
-                self.move([0,0.6])
+                self.robot.get_scara_param()
+                ret=self.robot.movej_xyz(600,0,0,0,50,1)
+                self.robot.wait_stop()
+                self.move_robo_angles=self.move([0.10,0.6])
                 self.robot.get_scara_param()
                 ret=self.robot.movej_xyz(0,400,0,90+90,50,1)
                 self.robot.wait_stop()
                 #response = self.client_node.open_send_request()
+                self.move_robo_angles=self.move(np.array([0.5,0.1]))
+                self.move_robo_angles=[]
             # else:
             #     r.set("mode","camera_ready")
             r.set("mode", "camera_ready")

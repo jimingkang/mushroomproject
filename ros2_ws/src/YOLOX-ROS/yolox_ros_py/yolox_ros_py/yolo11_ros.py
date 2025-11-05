@@ -306,7 +306,7 @@ class yolox_ros(yolox_py):
         super().__init__('yolo11_ros', load_params=False)
         self.infer_model = YOLO("/home/jimmy/Downloads/train12_chengcheng_2187.engine")
         #self.declare_parameter('camera_name', 'd435')
-        self.camera_param="d435"# self.get_parameter('camera_name').value
+        self.camera_param="d405"# self.get_parameter('camera_name').value
         topic_param="/"+self.camera_param
         logger.info("camera_param: {},camera_param=='d405':{}".format(self.camera_param,self.camera_param=="d405"))
         if self.camera_param=="d405":
