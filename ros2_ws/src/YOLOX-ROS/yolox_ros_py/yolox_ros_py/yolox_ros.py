@@ -67,7 +67,7 @@ from std_msgs.msg import String
 #import orbslam3
 #from slam import Mapp,Frame
 from scipy.spatial.transform import Rotation as R
-
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
 
 
 # camera intrinsics
@@ -177,20 +177,17 @@ class yolox_ros(yolox_py):
 
         # ROS2 init
         super().__init__('yolox_ros', load_params=False)
-        self.declare_parameter('camera_name', 'd435')
-        self.camera_param= self.get_parameter('camera_name').value
-        logger.info("camera_param: {},camera_param=='d405':{}".format(self.camera_param,self.camera_param=="d405"))
-        if self.camera_param=="d405":
-            self.d405_raw_image_topic = '/' + self.camera_param + '/color/image_rect_raw'
-            self.d405_depth_image_topic = '/' + self.camera_param + '/depth/image_rect_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
-            self.d405_depth_info_topic = '/' + self.camera_param + '/color/camera_info'
-        else:
-            self.d435_raw_image_topic = '/' + self.camera_param + '/color/image_raw'
-            self.d435_depth_image_topic = '/' + self.camera_param + '/depth/image_rect_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
-            self.d435_depth_info_topic = '/' + self.camera_param + '/color/camera_info'
-            #self.d435_raw_image_topic = '/camera/color/image_raw'
-            #self.d435_depth_image_topic = '/camera/aligned_depth_to_color/image_raw'
-            #self.d435_depth_info_topic = '/camera/color/camera_info'
+        #self.declare_parameter('camera_name', 'd435')
+        #self.camera_param= self.get_parameter('camera_name').value
+        #logger.info("camera_param: {},camera_param=='d405':{}".format(self.camera_param,self.camera_param=="d405"))
+        #if self.camera_param=="d405":
+        self.d405_raw_image_topic = '/d405' + '/color/image_rect_raw'
+        self.d405_depth_image_topic = '/d405' + '/depth/image_rect_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
+        self.d405_depth_info_topic = '/d405'  + '/color/camera_info'
+        #else:
+        self.d435_raw_image_topic = '/d435' + '/color/image_raw'
+        self.d435_depth_image_topic = '/d435' + '/depth/image_rect_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
+        self.d435_depth_info_topic = '/d435' +  '/color/camera_info'   
 	       
 
         move_x="/move/x"
@@ -198,18 +195,23 @@ class yolox_ros(yolox_py):
         self.setting_yolox_exp()
         self.bridge = CvBridge()
 
-
+        qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            depth=1
+        )
 
         #self.pub_pointclouds = self.create_publisher(PointCloud2,'/yolox/pointclouds', 10)
-        self.adj_pub_bounding_boxes = self.create_publisher(String,"/yolox/adj_bounding_boxes", 1)
-        if self.camera_param=="d435":
-            self.pub_bounding_boxes = self.create_publisher(String,"/yolox/bounding_boxes", 1)
-            self.pub_boxes_img = self.create_publisher(Image,"/d435/yolox/boxes_image", 10)
-            self.sub_info = self.create_subscription(CameraInfo, self.d435_depth_info_topic, self.imageDepthInfoCallback, 1)
-        else:
-            self.d405_pub_boxes_img = self.create_publisher(Image,"/d405/yolox/boxes_image", 10)
-            self.d405_sub_info = self.create_subscription(CameraInfo, self.d405_depth_info_topic, self.d405_imageDepthInfoCallback, 1)
-        
+
+        #if self.camera_param=="d435":
+        self.pub_bounding_boxes = self.create_publisher(String,"/d435/yolox/bounding_boxes", 1)
+        self.pub_boxes_img = self.create_publisher(Image,"/d435/yolox/boxes_image", 10)
+        self.sub_info = self.create_subscription(CameraInfo, self.d435_depth_info_topic, self.imageDepthInfoCallback, qos)
+        #else:
+        self.adj_pub_bounding_boxes = self.create_publisher(String,"/d405/yolox/adj_bounding_boxes", 1)
+        self.d405_pub_boxes_img = self.create_publisher(Image,"/d405/yolox/boxes_image", 10)
+        self.d405_sub_info = self.create_subscription(CameraInfo, self.d405_depth_info_topic, self.d405_imageDepthInfoCallback, qos)
+                
         self.sub_move_xy_info = self.create_subscription(String, move_x, self.MoveXYZCallback, 1)
 
         self.intrinsics = None
@@ -225,16 +227,17 @@ class yolox_ros(yolox_py):
 
         qos_profile_subscriber = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,history=HistoryPolicy.KEEP_LAST,depth=1)
         
-        if self.camera_param=="d435":
-            self.sub_depth_image = Subscriber(self,Image, self.d435_depth_image_topic)
-            self.sub = Subscriber(self,Image,self.d435_raw_image_topic, qos_profile=qos_profile_subscriber)
-            ats = ApproximateTimeSynchronizer([self.sub, self.sub_depth_image], queue_size=1, slop=0.025, allow_headerless=True)
-            ats.registerCallback(self.callback)
-        else:
-            self.d405_sub_depth_image = Subscriber(self,Image, self.d405_depth_image_topic)
-            self.d405_sub = Subscriber(self,Image,self.d405_raw_image_topic, qos_profile=qos_profile_subscriber)
-            ats = ApproximateTimeSynchronizer([self.d405_sub, self.d405_sub_depth_image], queue_size=1, slop=0.025, allow_headerless=True)
-            ats.registerCallback(self.d405_callback)  
+
+        #if self.camera_param=="d435":
+        self.d435_sub_depth_image = Subscriber(self,Image, self.d435_depth_image_topic,qos_profile=qos)
+        self.d435_sub = Subscriber(self,Image,self.d435_raw_image_topic, qos_profile=qos)
+        d435_ats = ApproximateTimeSynchronizer([self.d435_sub, self.d435_sub_depth_image], queue_size=1, slop=0.025, allow_headerless=True)
+        d435_ats.registerCallback(self.d435_callback)
+        #else:
+        self.d405_sub_depth_image = Subscriber(self,Image, self.d405_depth_image_topic,qos_profile=qos)
+        self.d405_sub = Subscriber(self,Image,self.d405_raw_image_topic, qos_profile=qos)
+        d405_ats = ApproximateTimeSynchronizer([self.d405_sub, self.d405_sub_depth_image], queue_size=1, slop=0.025, allow_headerless=True)
+        d405_ats.registerCallback(self.d405_callback)  
     def setting_yolox_exp(self) -> None:
 
         WEIGHTS_PATH = '../../weights/yolox_nano.pth'  #for no trt
@@ -378,7 +381,7 @@ class yolox_ros(yolox_py):
 
 
 
-    def callback(self,msg:Image,data:Image) -> None:
+    def d435_callback(self,msg:Image,data:Image) -> None:
         global bboxes_msg,result_img_rgb,img_rgb,mapp,frame
         bboxes=[]
         scores=[]
