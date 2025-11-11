@@ -181,9 +181,9 @@ class yolox_ros(yolox_py):
         #self.camera_param= self.get_parameter('camera_name').value
         #logger.info("camera_param: {},camera_param=='d405':{}".format(self.camera_param,self.camera_param=="d405"))
         #if self.camera_param=="d405":
-        self.d405_raw_image_topic = '/camera/d405' + '/color/image_rect_raw'
-        self.d405_depth_image_topic = '/camera/d405' + '/depth/image_rect_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
-        self.d405_depth_info_topic = '/camera/d405'  + '/color/camera_info'
+        self.d405_raw_image_topic = '/d405' + '/color/image_rect_raw'
+        self.d405_depth_image_topic = '/d405' + '/depth/image_rect_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
+        self.d405_depth_info_topic = '/d405'  + '/color/camera_info'
         #else:
         self.d435_raw_image_topic = '/d435' + '/color/image_raw'
         self.d435_depth_image_topic = '/d435' + '/depth/image_rect_raw' #  '/camera/depth/image_rect_raw' # /camera/aligned_depth_to_color/image_raw
@@ -195,11 +195,8 @@ class yolox_ros(yolox_py):
         self.setting_yolox_exp()
         self.bridge = CvBridge()
 
-        qos = QoSProfile(
-            reliability=ReliabilityPolicy.RELIABLE,
-        #    durability=DurabilityPolicy.TRANSIENT_LOCAL,
-            depth=1
-        )
+        #qos = QoSProfile( reliability=ReliabilityPolicy.RELIABLE,durability=DurabilityPolicy.TRANSIENT_LOCAL,depth=1)
+        qos= QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,history=HistoryPolicy.KEEP_LAST,depth=1)
 
         #self.pub_pointclouds = self.create_publisher(PointCloud2,'/yolox/pointclouds', 10)
 
@@ -225,7 +222,7 @@ class yolox_ros(yolox_py):
 
 
 
-        qos_profile_subscriber = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,history=HistoryPolicy.KEEP_LAST,depth=1)
+
         
 
         #if self.camera_param=="d435":
