@@ -77,8 +77,8 @@ class DualRealSensePublisher(Node):
         self.bridge = CvBridge()
         self.d435_intrinsics = None
         self.d405_intrinsics = None
-        #serials = ['027422070780']
-        serials = ['128422272136']# 128422272400
+        serials = ['027422070780','128422272136']
+        #serials = ['128422272136']# 128422272400
         self.pipelines = []
         self.aligns = []   # 每个相机独立一个 align 对象
 

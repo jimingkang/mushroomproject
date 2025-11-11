@@ -77,7 +77,7 @@ class DualRealSensePublisher2(Node):
         self.bridge = CvBridge()
         self.d435_intrinsics = None
         self.d405_intrinsics = None
-        serials = ['128422272400']
+        serials = ['128422272136']
         self.pipelines = []
         self.aligns = []   # 每个相机独立一个 align 对象
 
@@ -93,7 +93,7 @@ class DualRealSensePublisher2(Node):
             # Get color stream intrinsics
             color_stream = profile.get_stream(rs.stream.color)  # rs.video_stream_profile
             cameraInfo = color_stream.as_video_stream_profile().get_intrinsics()
-            if s == '128422272400':
+            if s == '128422272136':
 
                 try:
                     if self.d435_intrinsics:
