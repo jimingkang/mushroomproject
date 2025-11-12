@@ -62,7 +62,7 @@ from bboxes_ex_msgs.msg import BoundingBoxes,BoundingBoxesCords
 from bboxes_ex_msgs.msg import BoundingBox,BoundingBoxCord
 #from yolox_ros_py_utils.utils import yolox_py
 from sensor_msgs.msg import CameraInfo
-from std_msgs.msg import String
+from std_msgs.msg import String,Int32
 from scipy.spatial.transform import Rotation as R
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
 broker="172.23.66.117"
@@ -142,18 +142,21 @@ class DualRealSensePublisher(Node):
         self.d435_pub_boxes_img = self.create_publisher(Image,"/d435/yolox/boxes_image", 10)
         #self.d435_sub_info = self.create_subscription(CameraInfo, self.d435_depth_info_topic, self.D435_imageDepthInfoCallback, qos)
 
-        self.adj_pub_bounding_boxes = self.create_publisher(String,"/d405/yolox/adj_bounding_boxes", 1)
+        self.d405_adj_pub_bounding_boxes = self.create_publisher(String,"/d405/yolox/adj_bounding_boxes", 1)
         self.d405_pub_boxes_img = self.create_publisher(Image,"/d405/yolox/boxes_image", 10)
         #self.d405_sub_info = self.create_subscription(CameraInfo, self.d405_depth_info_topic, self.d405_imageDepthInfoCallback, qos)
 
 
-
+        self.hitbot_r_sub = self.create_subscription(Int32, '/hitbot_r', self.hitbot_r_callback,10)
         self.setting_yolox_exp()
 
 
 
         self.timer = self.create_timer(0.03, self.timer_callback)
 
+    def hitbot_r_callback(self,msg):
+        self.hitbot_r=msg.data
+        self.get_logger().info(f"hitbot_r_callback r={self.hitbot_r}")
     def setting_yolox_exp(self) -> None:
 
         WEIGHTS_PATH = '../../weights/yolox_nano.pth'  #for no trt
@@ -253,8 +256,9 @@ class DualRealSensePublisher(Node):
 
         self.predictor = Predictor(model, exp, COCO_CLASSES, trt_file, decoder, device, fp16, legacy)
     def timer_callback(self):
-        for i, (pipe, align) in enumerate(zip(self.pipelines, self.aligns)):
-            print(i)
+        for j, (pipe, align) in enumerate(zip(self.pipelines, self.aligns)):
+            
+            print(j)
             frames = pipe.wait_for_frames()
             aligned_frames = align.process(frames)
 
@@ -268,11 +272,16 @@ class DualRealSensePublisher(Node):
 
             color_msg = self.bridge.cv2_to_imgmsg(color_img, encoding='bgr8')
             depth_msg = self.bridge.cv2_to_imgmsg(depth_img, encoding='16UC1')
-            (self.pub1 if i == 0 else self.pub2).publish(color_msg)
+            (self.pub1 if j == 0 else self.pub2).publish(color_msg)
 
             outputs, img_info = self.predictor.inference(color_img)
             logger.info("mode={},mode==adjust_ready,{}".format(r.get("mode"),r.get("mode")=="adjust_ready"))
-            if  (outputs is not None): #and r.get("mode")=="camera_ready":# and r.get("scan")=="start" :#
+            bbox=String()
+            #if  (outputs is not None) : #and r.get("mode")=="camera_ready":# and r.get("scan")=="start" :#
+            if outputs is None or len(outputs) == 0 or outputs[0] is None:
+                logger.info("No detections returned from predictor.")
+                continue  # or continue
+            else:
                 output = outputs[0]
                 if isinstance(output, torch.Tensor):
                     output = output.cpu().numpy()
@@ -281,6 +290,7 @@ class DualRealSensePublisher(Node):
                 scores = output[:, 4] * output[:, 5]
                 class_ids = output[:, 6].astype(int)
                 print(f"Detected {len(boxes)} objects.")
+
                 for i in range(len(boxes)):
                     x1, y1, x2, y2 = map(int, boxes[i])
                     conf = scores[i]
@@ -291,53 +301,34 @@ class DualRealSensePublisher(Node):
                     # 获取中心点深度
                     depth_value = depth_frame.get_distance(cx, cy)
                     X, Y, Z = rs.rs2_deproject_pixel_to_point(depth_frame.profile.as_video_stream_profile().get_intrinsics(),[cx, cy],depth_value)
-                    print(f"3D({X:.3f}, {Y:.3f}, {Z:.3f})  depth={depth_value:.3f} m")
-                    cv2.rectangle(color_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    cv2.putText(color_img, f"id={cls_id}:conf={conf:.2f},depth={depth_value:.3f}",(x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX,0.5, (0, 255, 0), 2)
-            self.d435_pub_boxes_img.publish(self.bridge.cv2_to_imgmsg(color_img, encoding='bgr8')) if i==0 else self.d405_pub_boxes_img.publish(self.bridge.cv2_to_imgmsg(color_img, encoding='bgr8'))
+                    if (j==0 and Y>0 and Z<1.0)or j==1: 
+                        print(f"3D({X:.3f}, {Y:.3f}, {Z:.3f})  depth={depth_value:.3f} m")
+                        cv2.rectangle(color_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                        cv2.putText(color_img, f"id={cls_id}:conf={conf:.2f},depth={depth_value:.3f}",(x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX,0.5, (0, 255, 0), 2)
+                        bbox.data=f'{X},{Y},{Z}'
+                        break
+            if j==0 :
+                print(f"{j==0} d435 image publish")
+                self.d435_pub_boxes_img.publish(self.bridge.cv2_to_imgmsg(color_img, encoding='bgr8'))
+                if (r.get("mode")=="camera_ready"):
+                    if bbox.data=="":
+                        logger.info("no valid bbox from d435")
+                        continue
+                    self.d435_pub_bounding_boxes.publish(bbox)
+                    logger.info(" mushroom xyz in side camera: {}".format(bbox.data))
 
-        def d435_imageDepthInfoCallback(self, cameraInfo):
-            try:
-                if self.intrinsics:
-                    return
-                self.d435_intrinsics = rs2.intrinsics()
-                self.d435_intrinsics.width = cameraInfo.width
-                self.d435_intrinsics.height = cameraInfo.height
-                self.d435_intrinsics.ppx = cameraInfo.k[2]
-                self.d435_intrinsics.ppy = cameraInfo.k[5]
-                self.d435_intrinsics.fx = cameraInfo.k[0]
-                self.d435_intrinsics.fy = cameraInfo.k[4]
-                if cameraInfo.distortion_model == 'plumb_bob':
-                    self.intrinsics.model = rs2.distortion.brown_conrady
-                elif cameraInfo.distortion_model == 'equidistant':
-                    self.intrinsics.model = rs2.distortion.kannala_brandt4
-                self.intrinsics.coeffs = [i for i in cameraInfo.d]
-            except CvBridgeError as e:
-                print(e)
-                return    
-    def d405_imageDepthInfoCallback(self, cameraInfo):
-        try:
-            if self.d405_intrinsics:
-                return
-            self.d405_intrinsics = rs2.intrinsics()
-            self.d405_intrinsics.width = cameraInfo.width
-            self.d405_intrinsics.height = cameraInfo.height
-            self.d405_intrinsics.ppx = cameraInfo.k[2]
-            self.d405_intrinsics.ppy = cameraInfo.k[5]
-            self.d405_intrinsics.fx = cameraInfo.k[0]
-            self.d405_intrinsics.fy = cameraInfo.k[4]
-            if cameraInfo.distortion_model == 'plumb_bob':
-                self.d405_intrinsics.model = rs2.distortion.brown_conrady
-            elif cameraInfo.distortion_model == 'equidistant':
-                self.d405_intrinsics.model = rs2.distortion.kannala_brandt4
-            self.d405_intrinsics.coeffs = [i for i in cameraInfo.d]
-        except CvBridgeError as e:
-            print(e)
-            return
-    def stop_pipelines(self):
-        for p in self.pipelines:
-            p.stop()
-        self.get_logger().info("Pipelines stopped and cameras released ✅")
+            elif j==1 :
+                print(f"{j==0} d405 image publish")
+                self.d405_pub_boxes_img.publish(self.bridge.cv2_to_imgmsg(color_img, encoding='bgr8'))
+                if  (r.get("mode")=="adjust_ready"):
+                    if bbox.data=="" :
+                        logger.info("no valid bbox from d405")
+                        continue
+                    logger.info("mushroom xyz in top camera before rotation:{},".format(bbox.data))
+                    X,Y,Z=[float(x) for x in bbox.data.split(",")]
+                    self.d405_adj_pub_bounding_boxes.publish(bbox)
+            bbox.data=""
+
 
 def main():
     rclpy.init()
