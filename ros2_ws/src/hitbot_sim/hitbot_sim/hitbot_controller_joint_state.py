@@ -1349,8 +1349,11 @@ class HitbotController(Node):
             dist_incamera=math.sqrt(goal[0]*goal[0]+goal[1]*goal[1])
             if (dist_incamera>0.03):#(abs(self.robot.x - goal[2])>50 or abs(self.robot.y - goal[0])>50):
                 #this is for adj from top camera
-                RX=-goal[1]
-                RY=-goal[0]
+                #RX=-goal[1]
+                #RY=-goal[0]
+                #RZ=goal[2]
+                RX=goal[0]
+                RY=-goal[1]
                 RZ=goal[2]
                 X=RX*math.cos(math.radians(self.hitbot_r))-RY*math.sin(math.radians(self.hitbot_r))
                 Y=RX*math.sin(math.radians(self.hitbot_r))+RY*math.cos(math.radians(self.hitbot_r))
