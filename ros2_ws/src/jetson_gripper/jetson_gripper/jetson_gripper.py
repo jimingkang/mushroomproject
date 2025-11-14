@@ -52,9 +52,9 @@ class ServoControllerNode(Node):
     # --- 抓手打开 ---
     def open_gripper_service_callback(self, request, response):
         try:
-            self.servo1.angle = 50
-            self.servo2.angle = 50
-            self.servo3.angle = 50
+            self.servo1.angle = 40
+            self.servo2.angle = 40
+            self.servo3.angle = 40
             self.get_logger().info("🖐️ open")
             response.success = True
             response.message = "Gripper opened successfully."
