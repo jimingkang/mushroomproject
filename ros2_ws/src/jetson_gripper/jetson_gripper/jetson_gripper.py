@@ -38,9 +38,9 @@ class ServoControllerNode(Node):
     # --- 抓手关闭 ---
     def close_gripper_service_callback(self, request, response):
         try:
-            self.servo1.angle = 160
-            self.servo2.angle = 160
-            self.servo3.angle = 160
+            self.servo1.angle = 130
+            self.servo2.angle = 130
+            self.servo3.angle = 130
             self.get_logger().info("🤖 抓手关闭")
             response.success = True
             response.message = "Gripper closed successfully."
