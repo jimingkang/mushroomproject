@@ -1359,7 +1359,6 @@ class HitbotController(Node):
                 r.set("mode", "adjust_ready")
                 return
 
-                
                 # this is for adj from side camera
                 #ret = self.robot.movej_xyz(self.robot.x - np.sign(goal[2])*20, self.robot.y - np.sign(goal[0])*20, self.robot.z, self.robot.r, 50, 1)
                 #self.robot.wait_stop()
