@@ -1,4 +1,5 @@
-from deep_sort.deep_sort.tracker import Tracker as DeepSortTracker
+#from deep_sort.deep_sort.tracker import Tracker as DeepSortTracker
+from deep_sort_realtime.deepsort_tracker import DeepSort
 from deep_sort.tools import generate_detections as gdet
 from deep_sort.deep_sort import nn_matching
 from deep_sort.deep_sort.detection import Detection
@@ -14,10 +15,10 @@ class Tracker:
         max_cosine_distance = 0.4
         nn_budget = None
 
-        encoder_model_filename = '/home/jimmy/Downloads/mushroomproject/YOLOX-main/mars-small128.pb'
+        encoder_model_filename = '/home/cotrobot/mushroomproject/YOLOX-main/mars-small128.pb'
 
         metric = nn_matching.NearestNeighborDistanceMetric("cosine", max_cosine_distance, nn_budget)
-        self.tracker = DeepSortTracker(metric)
+        self.tracker = DeepSort(metric)
         self.encoder = gdet.create_box_encoder(encoder_model_filename, batch_size=1)
 
     def update(self, frame, detections):

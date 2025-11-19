@@ -77,7 +77,9 @@ class DualRealSensePublisher(Node):
         self.bridge = CvBridge()
         self.d435_intrinsics = None
         self.d405_intrinsics = None
-        serials = ['027422070780','128422272136']
+        #serials = ['027422070780','128422272136']
+        serials = ['405622072832','128422270555']
+        
         #serials = ['128422272136']# 128422272400
         self.pipelines = []
         self.aligns = []   # 每个相机独立一个 align 对象
@@ -161,7 +163,7 @@ class DualRealSensePublisher(Node):
 
         WEIGHTS_PATH = '../../weights/yolox_nano.pth'  #for no trt
         self.declare_parameter('imshow_isshow',True)
-        self.declare_parameter('yolox_exp_py', '/home/jimmy/Downloads/mushroomproject/ros2_ws/src/YOLOX-ROS/yolox_ros_py/exps/yolox_nano.py')
+        self.declare_parameter('yolox_exp_py', '/home/cotrobot/mushroomproject/ros2_ws/src/YOLOX-ROS/yolox_ros_py/exps/yolox_nano.py')
         #self.declare_parameter('yolox_exp_py', 'yolox_vos_s.py')
         self.declare_parameter('fuse',False)
         self.declare_parameter('trt', True)

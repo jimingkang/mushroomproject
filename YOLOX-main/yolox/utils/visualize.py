@@ -13,7 +13,7 @@ import numpy as np
 import redis
 
 #import fcntl
-from tracker import Tracker
+#from tracker import Tracker
 __all__ = ["vis"]
 
 from paho.mqtt import client as mqtt_client
@@ -26,7 +26,7 @@ topic4 = "/flask/pickup"
 # generate client ID with pub prefix randomly
 client_id = f'python-mqtt-{random.randint(0, 100)}'
 
-tracker = Tracker()
+#tracker = Tracker()
 colors = [(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)) for j in range(80)]
 
 pool = redis.ConnectionPool(host=broker, port=6379, decode_responses=True,password='jimmy')
@@ -36,7 +36,7 @@ def takeSecond(elem):
     return math.sqrt((elem[1]-elem[3])*(elem[1]-elem[3])+(elem[2]-elem[4])*(elem[2]-elem[4]))
 
 
-pre_tracker= Tracker()
+#pre_tracker= Tracker()
 
 focus=1035
 ref_real_width=35 #mm
@@ -74,10 +74,10 @@ def vis(img, boxes, scores, cls_ids,count,conf=0.5, class_names=None):
         new_detections.append(detections[0])
         global pre_tracker
         pre_tracker=tracker
-        tracker.update(img, new_detections)
-        #tracker.update(img, detections)
+        #tracker.update(img, new_detections)
         coordx =""
-        for track in tracker.tracks:
+        #for track in tracker.tracks:
+        for track in    detections:
 
             bbox = track.bbox
             x1, y1, x2, y2 = bbox
