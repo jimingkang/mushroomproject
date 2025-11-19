@@ -46,6 +46,7 @@ class Robot(Node, ScaraRobot):
         self.goal_pose_pub=self.create_publisher(PoseStamped,"/goal_pose",10)
         self.bounding_boxes_sub = self.create_subscription(String,"/d435/yolox/bounding_boxes",self.bounding_boxes_callback, 2)
         self.adj_bounding_boxes_sub = self.create_subscription(String,"/d405/yolox/adj_bounding_boxes",self.adj_bounding_boxes_callback, 10)
+        self.rrt_done_sub = self.create_subscription(String,"/rrt_done",self.rrtdone_callback, 10)
         self.solver=OldSolver()
         r.set("mode","camera_ready")
 
@@ -190,8 +191,12 @@ class Robot(Node, ScaraRobot):
                 #self.move_robo_angles=self.move(np.array([0.5,0.1]))
                 #self.move_robo_angles=[]
 
-            r.set("mode", "camera_ready")
+            r.set("mode", "rrt_done")
 
+def rrtdone_callback(self, msg):
+        if r.get("mode") == "rrt_done":
+            self.get_logger().info(f"rrt done callback received msg: {msg.data}")
+            r.set("mode", "camera_ready")
         
 def main(args=None):
     rclpy.init(args=args)

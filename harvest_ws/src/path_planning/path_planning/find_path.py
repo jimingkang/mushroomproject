@@ -118,11 +118,13 @@ class PathPlanningNode(Node):
         # Publisher for joint states
         self.joint_state_publisher = self.create_publisher(JointState, "/joint_states", 10)
 
+
         self.path = []  # stores planned joint path
         self.robot_free=True
 
         self.robot_move_status_sub = self.create_subscription(String, "move_status",self.update_move_status, 10)
-    
+        #jimmy add
+        self.rrt_planning_pub = self.create_publisher(String, "/rrt_done", 10)
     def update_move_status(self,msg):
         if msg.data=="Moving":
             self.robot_free=False
@@ -144,6 +146,12 @@ class PathPlanningNode(Node):
 
             self.joint_state_publisher.publish(joint_msg)
             self.get_logger().info(f"Published joint command: {joint_msg.position}")
+        if r.get("mode")=="rrt_done" and len(self.path)==0:
+            done_msg=String()
+            done_msg.data="done"
+            self.rrt_planning_pub.publish(done_msg)
+            self.get_logger().info("Published rrt done message")
+
 
     def goal_callback(self, msg):
         r.set("mode","camera_done")
