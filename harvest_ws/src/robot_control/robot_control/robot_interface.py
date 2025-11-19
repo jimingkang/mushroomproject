@@ -11,6 +11,8 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
 from visualization_msgs.msg import Marker
 from geometry_msgs.msg import PoseStamped, Pose
 from nav_msgs.msg import Path
+from std_srvs.srv import Trigger
+from .Hitbot.gripperclient import ServiceClient
 import  redis
 import math
 import time
@@ -40,6 +42,7 @@ class Robot(Node, ScaraRobot):
         self.joint_position = None
 
         #jimmy add 
+        self.client_node = ServiceClient()
         self.goal_pose_pub=self.create_publisher(PoseStamped,"/goal_pose",10)
         self.bounding_boxes_sub = self.create_subscription(String,"/d435/yolox/bounding_boxes",self.bounding_boxes_callback, 2)
         self.adj_bounding_boxes_sub = self.create_subscription(String,"/d405/yolox/adj_bounding_boxes",self.adj_bounding_boxes_callback, 10)
@@ -142,32 +145,32 @@ class Robot(Node, ScaraRobot):
                 return
             if 1:  # ret<2:
                 r.set("mode", "adjust_done")
-                #response = self.client_node.open_send_request()
-                # if response is not None:
-                self.get_scara_param()
-                self.wait_stop()
-                ret = self.movej_xyz(self.x, self.y, self.z - 50, self.r, 30, 1)
-                self.wait_stop()
-                self.get_logger().info(f"move in -z, ret :{ret}")
-                #response = self.client_node.send_request()  # close request
-                time.sleep(3)
-                self.get_scara_param()
-                self.wait_stop()
-                self.get_logger().info(f'open 2 for {self.z}')
-                for i in range(3):
-                    ret = self.movej_xyz(self.x, self.y, self.z, self.r - 3, 30, 1)
-                    self.wait_stop()
+                response = self.client_node.open_send_request()
+                if response is not None:
                     self.get_scara_param()
                     self.wait_stop()
-                    ret = self.movej_xyz(self.x, self.y, self.z, self.r + 3, 30, 1)
+                    ret = self.movej_xyz(self.x, self.y, self.z - 80, self.r, 30, 1)
                     self.wait_stop()
-                    time.sleep(0.5)
-                # if response is not None:
-                self.get_scara_param()
-                self.wait_stop()
-                ret = self.movej_xyz(self.x, self.y, 0, self.r, 50, 1)
-                self.wait_stop()
-                time.sleep(1)
+                    self.get_logger().info(f"move in -z, ret :{ret}")
+                response = self.client_node.close_send_request()  # close request
+                time.sleep(2)
+                if response is not None:
+                    self.get_scara_param()
+                    self.wait_stop()
+                    self.get_logger().info(f'open 2 for {self.z}')
+                    for i in range(3):
+                        ret = self.movej_xyz(self.x, self.y, self.z, self.r - 3, 30, 1)
+                        self.wait_stop()
+                        self.get_scara_param()
+                        self.wait_stop()
+                        ret = self.movej_xyz(self.x, self.y, self.z, self.r + 3, 30, 1)
+                        self.wait_stop()
+                        time.sleep(0.5)
+                    self.get_scara_param()
+                    self.wait_stop()
+                    ret = self.movej_xyz(self.x, self.y, 0, self.r, 50, 1)
+                    self.wait_stop()
+                    time.sleep(1)
                 #method 1: move to safe point and then to home
                 #self.get_scara_param()
                 #ret=self.movej_xyz(600,0,0,0,50,1)
