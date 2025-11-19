@@ -149,7 +149,7 @@ class Robot(Node, ScaraRobot):
                 if response is not None:
                     self.get_scara_param()
                     self.wait_stop()
-                    ret = self.movej_xyz(self.x, self.y, self.z - 80, self.r, 30, 1)
+                    ret = self.movej_xyz(self.x, self.y, self.z - 100, self.r, 30, 1)
                     self.wait_stop()
                     self.get_logger().info(f"move in -z, ret :{ret}")
                 response = self.client_node.close_send_request()  # close request
