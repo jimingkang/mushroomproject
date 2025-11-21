@@ -126,7 +126,8 @@ class Camera2(Node):
         self.publisher_mushroom_location = self.create_publisher(Point, 'mushroom_location', 10)
         self.publisher_color_image_detection = self.create_publisher(Image, 'color_image_detection', 10)
         self.bridge = CvBridge()
-        self.model = YOLO("/home/cotrobot/gripper/yolo11n_seg_640_abu_2.pt")#YOLO("/home/cotrobot/mushroomproject/train13_chengcheng_7917.pt")
+        #self.model = YOLO("/home/cotrobot/gripper/yolo11n_seg_640_abu_2.pt")
+        self.model=YOLO("/home/cotrobot/Downloads/train2_yolom_googleopenimg_100.engine")#train3_yolo11n_openimagewith20montreal_100epoch.pt #yolo11s_googleopenimg
         self.results=[]
         self.tracked_point_T0 = None     
         self.missed_frames = 0         

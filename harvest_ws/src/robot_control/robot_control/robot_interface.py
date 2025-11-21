@@ -81,7 +81,7 @@ class Robot(Node, ScaraRobot):
         free_msg.data = "Free"
         self.robot_move_status.publish(free_msg)
         #self.get_logger().info("Robot status: Free")
-        r.set("mode","camera_ready")
+        #r.set("mode","camera_ready")
     def bounding_boxes_callback(self, msg):
         #r.set("gripper_flag", "ready")
         if r.get("mode")=="camera_ready":
@@ -193,9 +193,10 @@ class Robot(Node, ScaraRobot):
 
             r.set("mode", "rrt_done")
 
-def rrtdone_callback(self, msg):
+    def rrtdone_callback(self, msg):
         if r.get("mode") == "rrt_done":
             self.get_logger().info(f"rrt done callback received msg: {msg.data}")
+            #response = self.client_node.open_send_request()
             r.set("mode", "camera_ready")
         
 def main(args=None):
