@@ -124,3 +124,6 @@ abdollah/*.onnx
 ros2_ws/build/
 ros2_ws/install/
 ros2_ws/log/
+harvest_ws/build/
+harvest_ws/install/
+harvest_ws/log/
