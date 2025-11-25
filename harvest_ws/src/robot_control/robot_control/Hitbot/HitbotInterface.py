@@ -39,7 +39,7 @@ class HitbotInterface:
 
 
     def net_port_initial(self):
-        self.dll=CDLL('/home/cotrobot/robot_ws/src/robot_control/robot_control/Hitbot/libsmall_scara_interface.so.3.0.0')
+        self.dll=CDLL('/home/jimmy/Downloads/mushroomproject/harvest_ws/src/robot_control/robot_control/Hitbot/libsmall_scara_interface.so.3.0.0')
         return self.dll.net_port_initial()
 
     def initial(self, generation, z_trail):
