@@ -444,7 +444,7 @@ class Camera2(Node):
     def setting_yolox_exp(self) -> None:
         WEIGHTS_PATH = '../../weights/yolox_nano.pth'  #for no trt
         self.declare_parameter('imshow_isshow',True)
-        self.declare_parameter('yolox_exp_py', '/home/jimmy/Downloads/mushroomproject/ros2_ws/src/YOLOX-ROS/yolox_ros_py/exps/yolox_nano.py')
+        self.declare_parameter('yolox_exp_py', '/home/cotrobot/mushroomproject/ros2_ws/src/YOLOX-ROS/yolox_ros_py/exps/yolox_nano.py')
         #self.declare_parameter('yolox_exp_py', 'yolox_vos_s.py')
         self.declare_parameter('fuse',False)
         self.declare_parameter('trt', True)
@@ -485,7 +485,7 @@ class Camera2(Node):
 
         #BASE_PATH = os.getcwd()
         #file_name = os.path.join(BASE_PATH, "../YOLOX-main/YOLOX_outputs/yolox_voc_s/")
-        file_name = "/home/jimmy/Downloads/mushroomproject/YOLOX-main/YOLOX_outputs/yolox_voc_s/"#ros2_ws/src/YOLOX-ROS/weights/tensorrt/"#os.path.join(BASE_PATH, "/src/YOLOX-ROS/weights/tensorrt/") #
+        file_name = "/home/cotrobot/mushroomproject/YOLOX-main/YOLOX_outputs/yolox_voc_s/"#ros2_ws/src/YOLOX-ROS/weights/tensorrt/"#os.path.join(BASE_PATH, "/src/YOLOX-ROS/weights/tensorrt/") #
         # os.makedirs(file_name, exist_ok=True)
 
         exp.test_conf = conf # test conf

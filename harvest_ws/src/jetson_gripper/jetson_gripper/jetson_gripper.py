@@ -22,10 +22,10 @@ class ServoControllerNode(Node):
         self.servo1 = servo.Servo(self.pca.channels[0])
         self.servo2 = servo.Servo(self.pca.channels[1])
         self.servo3 = servo.Servo(self.pca.channels[2])
-        self.servo_yaw = servo.Servo(self.pca.channels[4])
+        self.servo_yaw = servo.Servo(self.pca.channels[3])
 
         self.get_logger().info("✅ PCA9685 init ,pwm: 60Hz")
-        self.get_logger().info("✅ Servo channels: 0, 1, 3, 4")
+        self.get_logger().info("✅ Servo channels: 0, 1, 2, 3")
 
         # --- 创建 ROS2 Service ---
         self.srv_gripper_close = self.create_service(
