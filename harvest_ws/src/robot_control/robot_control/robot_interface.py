@@ -18,6 +18,7 @@ import math
 import time
 broker="172.23.66.117"
 redis_server='172.23.248.33'
+global_z=0
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True, password='jimmy')
 r = redis.Redis(connection_pool=pool)
@@ -83,6 +84,7 @@ class Robot(Node, ScaraRobot):
         #self.get_logger().info("Robot status: Free")
         #r.set("mode","camera_ready")
     def bounding_boxes_callback(self, msg):
+        global global_z
         #r.set("gripper_flag", "ready")
         if r.get("mode")=="camera_ready":
             mushroom_xyz=msg.data
@@ -93,6 +95,7 @@ class Robot(Node, ScaraRobot):
                 return
             #goal=[int(float(mushroom_xyz[2].strip())),0-int(float(mushroom_xyz[0].strip()))] # this is from yolox_ros
             goal=[float(mushroom_xyz[2].strip()),0-float(mushroom_xyz[0].strip())]
+            global_z=float(mushroom_xyz[1].strip())
             self.get_logger().info(f"get mushroom_xyz {mushroom_xyz},goal:{goal}")    
             if abs(goal[0]) >0.8 or abs(goal[1])>0.8 or (abs(goal[0])<0.35 and abs(goal[1])<0.35):
                 self.get_logger().info(f"mushroom_xyz out of range:{mushroom_xyz},goal:{goal}")    
@@ -103,21 +106,26 @@ class Robot(Node, ScaraRobot):
             response=self.solver.get_robot_angle_in_degree(goal)
             if response is not None:
                 joint_positions = response
-                ret=self.movej_angle(joint_positions[0],joint_positions[1],0,joint_positions[2]-0,30,1)
-                self.wait_stop() 
+                ret=self.movej_angle(joint_positions[0],joint_positions[1],0,joint_positions[2]-0,80,1)
+                self.wait_stop()
+                #time.sleep(3) 
             else:
                 self.get_logger().error(f'❌ IK computation failed: code={response.error_code.val}')
 
             r.set("mode", "adjust_ready")
     def adj_bounding_boxes_callback(self, msg):
-        if r.get("mode") == "adjust_ready":
+        global global_z
+        if  self.x <0.3:
+            return
+        if r.get("mode") == "adjust_ready" :
             mushroom_xyz = msg.data
             mushroom_xyz = msg.data.split(",")
-            self.get_logger().info(f"adj bounding_boxes_callback,mushroom_xyz:{mushroom_xyz} ")
+            self.get_logger().info(f"adj bounding_boxes_callback in top camera:{mushroom_xyz} ")
             goal = [float(mushroom_xyz[0].strip()), float(mushroom_xyz[1].strip()), float(mushroom_xyz[2].strip())]
             self.get_scara_param()
             dist_incamera=math.sqrt(goal[0]*goal[0]+goal[1]*goal[1])
-            if (dist_incamera>0.04 and dist_incamera<0.1):#(abs(self.robot.x - goal[2])>50 or abs(self.robot.y - goal[0])>50):
+            self.get_logger().info(f"adj bounding_boxes_callback :dist_incamera:{dist_incamera}")
+            if (dist_incamera>0.01 and dist_incamera<0.1):#(abs(self.robot.x - goal[2])>50 or abs(self.robot.y - goal[0])>50):
                 #this is for adj from top camera
                 #RX=-goal[1]
                 #RY=-goal[0]
@@ -127,11 +135,13 @@ class Robot(Node, ScaraRobot):
                 RZ=goal[2]
                 X=RX*math.cos(math.radians(self.r))-RY*math.sin(math.radians(self.r))
                 Y=RX*math.sin(math.radians(self.r))+RY*math.cos(math.radians(self.r))
+                self.get_logger().info(f"adj bounding_boxes_callback :XY in  top camera:{X},{Y}")
                 self.get_scara_param()
                 self.wait_stop()
                 ret = self.movej_xyz(self.x +X*1000, self.y +Y*1000, self.z, self.r, 30, 1)
                 self.wait_stop()
                 if ret>1:
+                    self.get_logger().info(f'❌ ajd IK computation by three joints')
                     response=self.solver.get_robot_angle_in_degree([self.x/1000+X,self.y/1000+Y])
                     if response is not None:
                         joint_positions = response
@@ -140,21 +150,19 @@ class Robot(Node, ScaraRobot):
                     else:
                         self.get_logger().error(f'❌ ajd IK computation failed: code={response.error_code.val}')
 
-                #ret_distance=self.offset_plan_and_print_once(x=X,y=Y,z=0.1,isPickup=True)
-                self.get_logger().info(f"adj bounding_boxes_callback :{goal},x_offset:{X},y_offset:{Y},dist_incamera:{dist_incamera}")
-                r.set("mode", "adjust_ready")
-                return
+                #r.set("mode", "adjust_ready")
+                #return
             if 1:  # ret<2:
                 r.set("mode", "adjust_done")
                 response = self.client_node.open_send_request()
                 if response is not None:
                     self.get_scara_param()
                     self.wait_stop()
-                    ret = self.movej_xyz(self.x, self.y, self.z - 100, self.r, 30, 1)
+                    ret = self.movej_xyz(self.x, self.y, -100, self.r, 30, 1)
                     self.wait_stop()
                     self.get_logger().info(f"move in -z, ret :{ret}")
                 response = self.client_node.close_send_request()  # close request
-                time.sleep(2)
+                time.sleep(1)
                 if response is not None:
                     self.get_scara_param()
                     self.wait_stop()
@@ -177,21 +185,25 @@ class Robot(Node, ScaraRobot):
                 #ret=self.movej_xyz(600,0,0,0,50,1)
                 #self.wait_stop()
                 #self.move_robo_angles=self.move([0.10,0.6])
-                #self.get_scara_param()
-                #ret=self.movej_xyz(0,400,0,90+90,50,1)
-                #self.wait_stop()
-                #methods 2: move directly to home
-                goal_pose=PoseStamped()
-                goal_pose.header.stamp=self.get_clock().now().to_msg()
-                goal_pose.header.frame_id="base_link"
-                goal_pose.pose.position.x=0.0
-                goal_pose.pose.position.y=0.4
-                self.goal_pose_pub.publish(goal_pose)
-                #response = self.client_node.open_send_request()
+                self.get_scara_param()
+                ret=self.movej_xyz(0,400,0,90+90,90,1)
+                self.wait_stop()
+                response = self.client_node.open_send_request()
                 #self.move_robo_angles=self.move(np.array([0.5,0.1]))
                 #self.move_robo_angles=[]
 
-            r.set("mode", "rrt_done")
+                #methods 2: move directly to home
+                #goal_pose=PoseStamped()
+                #goal_pose.header.stamp=self.get_clock().now().to_msg()
+                #goal_pose.header.frame_id="base_link"
+                #goal_pose.pose.position.x=-0.1
+                #goal_pose.pose.position.y=0.4
+                #self.goal_pose_pub.publish(goal_pose)
+
+
+
+            #r.set("mode", "rrt_done")
+            r.set("mode", "camera_ready")
 
     def rrtdone_callback(self, msg):
         if r.get("mode") == "rrt_done":

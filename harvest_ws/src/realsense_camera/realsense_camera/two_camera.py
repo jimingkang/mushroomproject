@@ -649,7 +649,7 @@ class Camera2(Node):
             if j==0 :
                 #print(f"{j==0} d435 image publish")
                 self.d435_pub_boxes_img.publish(self.bridge.cv2_to_imgmsg(color_img, encoding='bgr8'))
-                if 1:#(r.get("mode")=="camera_ready"):
+                if (r.get("mode")=="camera_ready"):
                     if bbox.data=="":
                         self.get_logger().info("no valid bbox from d435")
                         continue
