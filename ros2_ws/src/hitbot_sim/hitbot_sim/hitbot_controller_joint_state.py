@@ -1039,7 +1039,7 @@ class HitbotController(Node):
             y = radius * math.sin(angle)
             P = (x, y)
             dist = math.sqrt(x**2 + y**2)
-            if 0.4 < dist < 1.5:
+            if 0.4 < dist < 1.2:
                 #self.addobject(ps,x,y)
                 points.append(P)
 

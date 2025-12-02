@@ -16,16 +16,16 @@ ret = hi.initial(1, 210);  # // I add you on wechat
 hi.is_connect()
 hi.is_collision()
 hi.unlock_position()
-ret=hi.movel_xyz(600,0,0,0,50)
+ret=hi.movel_xyz(500,0,0,0,50)
 hi.wait_stop()
-print(ret)
-ret=hi.movel_xyz(600,0,-100,0,50)
-hi.wait_stop()
-print(ret)
+#print(ret)
+#ret=hi.movel_xyz(600,0,-100,0,50)
+#hi.wait_stop()
+#print(ret)
 #ret=hi.movel_xyz(600,0,0,0,50)
-ret=hi.movel_xyz(hi.x,hi.y,-130,0,50)
-hi.wait_stop()
-print(ret)
+#ret=hi.movel_xyz(hi.x,hi.y,-130,0,50)
+#hi.wait_stop()
+#print(ret)
 #ret=hi.movel_xyz(300,-200,0,-20,50)
 #hi.wait_stop()
 #ret=hi.movej_angle(52,-58,0,-55-20,30,1)  #0.6,-0.001
@@ -36,7 +36,7 @@ print(ret)
 #ret=hi.movej_angle(-8.9,51,0,52+20,30,1) #0.5,-0.4
 #ret=hi.movej_angle(7,-48,0,-54-20,30,1) #0.5,0.4
 #ret=hi.movej_angle(20,-55,0,-62-20,30,1) #0.5,0.3
-#ret=hi.movej_angle(-14,31,0,-118-20,30,1) #0.5,0.3
+#ret=hi.movej_angle(0,0,0,0,30,1) #0.5,0.3
 #hi.wait_stop()
 #ret=hi.movej_angle(40,50,0,0,70,1)
 #hi.wait_stop()

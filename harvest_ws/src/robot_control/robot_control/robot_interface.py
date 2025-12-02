@@ -16,6 +16,9 @@ from .Hitbot.gripperclient import ServiceClient
 import  redis
 import math
 import time
+
+from moveit_msgs.msg import DisplayTrajectory, RobotTrajectory
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 broker="172.23.66.117"
 redis_server='172.23.248.33'
 global_z=0
@@ -28,21 +31,26 @@ class Robot(Node, ScaraRobot):
         ScaraRobot.__init__(self)
 
         # Subscribers
-        self.joint_state_subscriber = self.create_subscription(
-            JointState, "joint_states", self.update_joint_states, 10
-        )
+        #self.joint_state_subscriber = self.create_subscription(
+        #    JointState, "joint_states", self.update_joint_states, 10
+        #)
+        # Timer
+        #timer_period = 0.5
+        #self.timer = self.create_timer(timer_period, self.timer_callback)
 
         # Publisher
         self.robot_move_status = self.create_publisher(String, "move_status", 10)
 
-        # Timer
-        timer_period = 0.5
-        self.timer = self.create_timer(timer_period, self.timer_callback)
+
 
         # Store joint positions
         self.joint_position = None
 
-        #jimmy add 
+        #jimmy add
+        self.joint_names = ["joint0","joint1", "joint2", "joint3"] 
+        self.timer = self.create_timer(0.1, self.publish_joint_states)
+        self.joint_state_pub = self.create_publisher(JointState, "/joint_states", 10)
+        self.joint_command_sub = self.create_subscription(DisplayTrajectory,"/rrt_path",self.joint_command_callback,10)
         self.client_node = ServiceClient()
         self.goal_pose_pub=self.create_publisher(PoseStamped,"/goal_pose",10)
         self.bounding_boxes_sub = self.create_subscription(String,"/d435/yolox/bounding_boxes",self.bounding_boxes_callback, 2)
@@ -51,38 +59,57 @@ class Robot(Node, ScaraRobot):
         self.solver=OldSolver()
         r.set("mode","camera_ready")
 
-    def update_joint_states(self, msg):
-        # Save joint positions as a dictionary
-        self.joint_position = {name: pos for name, pos in zip(msg.name, msg.position)}
+    def publish_joint_states(self):
+        # Get real joint positions from HitBot API (Replace this with actual API calls)
+        self.get_scara_param()
+        self.wait_stop()
+        joint_positions = [self.z,self.angle1*3.14/180,self.angle2*3.14/180,(self.r)*3.14/180]
 
-    def timer_callback(self):
-        if self.joint_position is None:
-            return
-        
-        # Publish "Moving" status
-        move_msg = String()
-        move_msg.data = "Moving"
-        self.robot_move_status.publish(move_msg)
-        #self.get_logger().info("Robot status: Moving")
+        # Create JointState message
+        joint_state_msg = JointState()
+        joint_state_msg.header.stamp = self.get_clock().now().to_msg()
+        joint_state_msg.name = self.joint_names
+        joint_state_msg.position = joint_positions
+        # Publish the joint states
+        #self.get_logger().info(f"publish_joint_states :joint_positions={joint_positions}")
+        self.joint_state_pub.publish(joint_state_msg)
 
-        # Move the robot
-        angle1 = self.joint_position.get("Angle1", 0.0)
-        angle2 = self.joint_position.get("Angle2", 0.0)
-        angle3 = self.joint_position.get("Angle3", 0.0)
-        prismatic_z = self.joint_position.get("PrismaticJointZ", 0.0)
+    def normalize_angle(self,angle):
+        return math.atan2(math.sin(angle), math.cos(angle))    
+    def joint_command_callback(self, msg):
+        try:
+            positions = []
+            #joint_limits = [(-1.2, 0.0), (-1.571, 1.571), (-2.967, 2.967), (-18.850, 18.850)]
+            trajs=msg.trajectory[-1].joint_trajectory.points
+            #self.get_logger().info(f"joint_command_callback trajectory: {trajs}")
+            for i in range(0, len(trajs)):
+                waypoints = trajs[i].positions
+                self.get_logger().info(f"i={i},waypoints : {waypoints}")
+                #for j in range(0, len(waypoints)):
+                  #positions=waypoints[j].positions
+                angle1=waypoints[0]*180/3.14
+                angle2=waypoints[1]*180/3.14
+                angle3=(waypoints[0]+waypoints[1]+waypoints[2])* 180 / 3.14
+                self.get_logger().info(f"joint_command_callback trajectory:angles: {angle1,angle2,angle3}")
+                #angle = (waypoints[0] + waypoints[1] +waypoints[2]) 
+                # 归一化到 [-180, 180)
+                #angle = normalize_angle(angle)
+                if( angle3>-180 and angle3 <180):
+                    self.new_movej_angle(angle1, angle2, 0, angle3, 30, 1)
+                #
+            self.wait_stop()
+            response = self.client_node.open_send_request()
+                #if pos < min_limit or pos > max_limit:
+                #    print(f"Position for joint{i} must be between {min_limit} and {max_limit}.")
+                #    return self.get_positions_from_user()
+                #positions.append(pos)
+            #return positions
+        except ValueError:
+            print("Invalid input. Please enter numerical values.")
+        self.get_logger().info(f"Sent joint command to  robot")
+        r.set("mode","camera_ready")
+          
 
-        self.move_joint_radian(angle1, angle2, angle3)
-        self.move_z(int(prismatic_z * 1000))  # Convert meters to mm if needed
-
-        # Optionally log joint positions
-        #self.get_logger().info(f"Joint positions: {self.joint_position}")
-
-        # Publish "Free" status after movement
-        free_msg = String()
-        free_msg.data = "Free"
-        self.robot_move_status.publish(free_msg)
-        #self.get_logger().info("Robot status: Free")
-        #r.set("mode","camera_ready")
     def bounding_boxes_callback(self, msg):
         global global_z
         #r.set("gripper_flag", "ready")
@@ -180,30 +207,31 @@ class Robot(Node, ScaraRobot):
                     ret = self.movej_xyz(self.x, self.y, 0, self.r, 50, 1)
                     self.wait_stop()
                     time.sleep(1)
-                #method 1: move to safe point and then to home
+  
                 #self.get_scara_param()
                 #ret=self.movej_xyz(600,0,0,0,50,1)
                 #self.wait_stop()
-                #self.move_robo_angles=self.move([0.10,0.6])
-                self.get_scara_param()
-                ret=self.movej_xyz(0,400,0,90+90,90,1)
-                self.wait_stop()
-                response = self.client_node.open_send_request()
-                #self.move_robo_angles=self.move(np.array([0.5,0.1]))
-                #self.move_robo_angles=[]
+
+                #method 1: move to safe point and then to home
+                #self.get_scara_param()
+                #ret=self.movej_xyz(0,400,0,90+90,90,1)
+                #self.wait_stop()
+                #response = self.client_node.open_send_request()
+
+
 
                 #methods 2: move directly to home
-                #goal_pose=PoseStamped()
-                #goal_pose.header.stamp=self.get_clock().now().to_msg()
-                #goal_pose.header.frame_id="base_link"
-                #goal_pose.pose.position.x=-0.1
-                #goal_pose.pose.position.y=0.4
-                #self.goal_pose_pub.publish(goal_pose)
+                goal_pose=PoseStamped()
+                goal_pose.header.stamp=self.get_clock().now().to_msg()
+                goal_pose.header.frame_id="base_link"
+                goal_pose.pose.position.x=-0.1
+                goal_pose.pose.position.y=0.4
+                self.goal_pose_pub.publish(goal_pose)
 
 
 
-            #r.set("mode", "rrt_done")
-            r.set("mode", "camera_ready")
+            r.set("mode", "rrt_ready")
+            #r.set("mode", "camera_ready")
 
     def rrtdone_callback(self, msg):
         if r.get("mode") == "rrt_done":
