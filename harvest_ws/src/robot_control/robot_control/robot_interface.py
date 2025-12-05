@@ -89,7 +89,7 @@ class Robot(Node, ScaraRobot):
                   #positions=waypoints[j].positions
                 angle1=waypoints[0]*180/3.14
                 angle2=waypoints[1]*180/3.14
-                angle3=(waypoints[0]+waypoints[1]+waypoints[2])* 180 / 3.14
+                angle3=self.normalize_angle(waypoints[0]+waypoints[1]+waypoints[2])* 180 / 3.14
                 self.get_logger().info(f"joint_command_callback trajectory:angles: {angle1,angle2,angle3}")
                 #angle = (waypoints[0] + waypoints[1] +waypoints[2]) 
                 # 归一化到 [-180, 180)
