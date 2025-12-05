@@ -14,7 +14,7 @@ from visualization_msgs.msg import Marker
 from std_msgs.msg import Header
 import sensor_msgs_py.point_cloud2 as pc2
 from sensor_msgs.msg import PointCloud2
-
+import os
 
 from ultralytics.utils import LOGGER
 LOGGER.setLevel("ERROR")
@@ -127,7 +127,7 @@ class Camera2(Node):
         self.publisher_color_image_detection = self.create_publisher(Image, 'color_image_detection', 10)
         self.bridge = CvBridge()
         #self.model = YOLO("/home/cotrobot/gripper/yolo11n_seg_640_abu_2.pt")
-        self.model=YOLO("/home/cotrobot/Downloads/train2_yolom_googleopenimg_100.engine")#train3_yolo11n_openimagewith20montreal_100epoch.pt #yolo11s_googleopenimg
+        #self.model=YOLO("/home/jimmy/Downloads/train2_yolom_googleopenimg.engine")#train3_yolo11n_openimagewith20montreal_100epoch.pt #yolo11s_googleopenimg
         self.results=[]
         self.tracked_point_T0 = None     
         self.missed_frames = 0         
@@ -213,10 +213,11 @@ class Camera2(Node):
         self.d405_pub_boxes_img = self.create_publisher(Image,"/d405/yolox/boxes_image", 10)
 
 
-
-        self.timer = self.create_timer(0.03, self.newyolo11_timer_callback)
-
-        #self.setting_yolox_exp()
+        #yolo11
+        #self.timer = self.create_timer(0.03, self.newyolo11_timer_callback)
+        #yolox
+        self.timer = self.create_timer(0.03, self.newyolox_timer_callback)
+        self.setting_yolox_exp()
     
 
     def update_joint_states(self,msg):
@@ -443,7 +444,7 @@ class Camera2(Node):
     def setting_yolox_exp(self) -> None:
         WEIGHTS_PATH = '../../weights/yolox_nano.pth'  #for no trt
         self.declare_parameter('imshow_isshow',True)
-        self.declare_parameter('yolox_exp_py', '/home/jimmy/Downloads/mushroomproject/ros2_ws/src/YOLOX-ROS/yolox_ros_py/exps/yolox_nano.py')
+        self.declare_parameter('yolox_exp_py', '/home/cotrobot/mushroomproject/ros2_ws/src/YOLOX-ROS/yolox_ros_py/exps/yolox_nano.py')
         #self.declare_parameter('yolox_exp_py', 'yolox_vos_s.py')
         self.declare_parameter('fuse',False)
         self.declare_parameter('trt', True)
@@ -484,7 +485,7 @@ class Camera2(Node):
 
         #BASE_PATH = os.getcwd()
         #file_name = os.path.join(BASE_PATH, "../YOLOX-main/YOLOX_outputs/yolox_voc_s/")
-        file_name = "/home/jimmy/Downloads/mushroomproject/YOLOX-main/YOLOX_outputs/yolox_voc_s/"#ros2_ws/src/YOLOX-ROS/weights/tensorrt/"#os.path.join(BASE_PATH, "/src/YOLOX-ROS/weights/tensorrt/") #
+        file_name = "/home/cotrobot/mushroomproject/YOLOX-main/YOLOX_outputs/yolox_voc_s/"#ros2_ws/src/YOLOX-ROS/weights/tensorrt/"#os.path.join(BASE_PATH, "/src/YOLOX-ROS/weights/tensorrt/") #
         # os.makedirs(file_name, exist_ok=True)
 
         exp.test_conf = conf # test conf
@@ -594,7 +595,7 @@ class Camera2(Node):
 
 
 
-    def new_timer_callback(self):
+    def newyolox_timer_callback(self):
         for j, (pipe, align) in enumerate(zip(self.pipelines, self.aligns)):
             frames = pipe.wait_for_frames()
             aligned_frames = align.process(frames)
@@ -611,7 +612,7 @@ class Camera2(Node):
             depth_msg = self.bridge.cv2_to_imgmsg(depth_img, encoding='16UC1')
             #(self.pub1 if j == 0 else self.pub2).publish(color_msg)
 
-            outputs, img_info =self.model(color)# self.predictor.inference(color_img)
+            outputs, img_info = self.predictor.inference(color_img) #self.model(color)
             self.get_logger().info("mode={},mode==adjust_ready,{}".format(r.get("mode"),r.get("mode")=="adjust_ready"))
             bbox=String()
             #if  (outputs is not None) : #and r.get("mode")=="camera_ready":# and r.get("scan")=="start" :#
@@ -638,8 +639,8 @@ class Camera2(Node):
                     # 获取中心点深度
                     depth_value = depth_frame.get_distance(cx, cy)
                     X, Y, Z = rs.rs2_deproject_pixel_to_point(depth_frame.profile.as_video_stream_profile().get_intrinsics(),[cx, cy],depth_value)
-                    X2, Y2, Z2 = rs.rs2_deproject_pixel_to_point(depth_frame.profile.as_video_stream_profile().get_intrinsics(),[x2, y2],depth_frame.get_distance(x2, y2))
-                    if (j==0 and Y>0 and Z<1.0 and abs(X2-X1)<0.1)or j==1: 
+                    #X2, Y2, Z2 = rs.rs2_deproject_pixel_to_point(depth_frame.profile.as_video_stream_profile().get_intrinsics(),[x2, y2],depth_frame.get_distance(x2, y2))
+                    if (j==0 and Y>0 and Z<1.0 )or j==1: 
                         #print(f"3D({X:.3f}, {Y:.3f}, {Z:.3f})  depth={depth_value:.3f} m")
                         cv2.rectangle(color_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
                         cv2.putText(color_img, f"id={cls_id}:conf={conf:.2f},depth={depth_value:.3f}",(x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX,0.5, (0, 255, 0), 2)
@@ -648,7 +649,7 @@ class Camera2(Node):
             if j==0 :
                 #print(f"{j==0} d435 image publish")
                 self.d435_pub_boxes_img.publish(self.bridge.cv2_to_imgmsg(color_img, encoding='bgr8'))
-                if 1:#(r.get("mode")=="camera_ready"):
+                if (r.get("mode")=="camera_ready"):
                     if bbox.data=="":
                         self.get_logger().info("no valid bbox from d435")
                         continue
