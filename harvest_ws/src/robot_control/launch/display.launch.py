@@ -9,7 +9,8 @@ def generate_launch_description():
 
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
 
-    urdf_file_name = '/home/cotrobot/robot_ws/src/robot_control/urdf/2160N0_urdf.urdf'
+    #urdf_file_name = '/home/cotrobot/robot_ws/src/robot_control/urdf/2160N0_urdf.urdf'
+    urdf_file_name = '/home/jimmy/Downloads/mushroomproject/harvest_ws/src/robot_control/urdf/2160N0_urdf.urdf'
     urdf = os.path.join(
         get_package_share_directory('robot_control'),
         urdf_file_name)
@@ -43,6 +44,6 @@ def generate_launch_description():
             executable='rviz2',
             name='rviz2',
             output='screen',
-            arguments=['-d', '/home/cotrobot/.rviz2/default.rviz'])
+            arguments=['-d', '/home/jimmy/.rviz2/default.rviz'])
             
             ])
