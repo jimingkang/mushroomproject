@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             "load_obs=path_planning.load_obstacles:main",
+             "pub_obs=path_planning.publish_obstacles:main",
             "path_plan=path_planning.find_path:main"
         ],
     },

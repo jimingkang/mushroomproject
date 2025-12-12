@@ -144,8 +144,8 @@ class Camera2(Node):
         self.bridge = CvBridge()
         self.d435_intrinsics = None
         self.d405_intrinsics = None
-        #serials = ['027422070780','128422272136']
-        serials = ['405622072832','128422270555']
+        serials = ['027422070780','128422272136']
+        #serials = ['405622072832','128422270555']
         
         #serials = ['128422272136']# 128422272400
         self.pipelines = []
@@ -163,7 +163,7 @@ class Camera2(Node):
             # Get color stream intrinsics
             color_stream = profile.get_stream(rs.stream.color)  # rs.video_stream_profile
             cameraInfo = color_stream.as_video_stream_profile().get_intrinsics()
-            if s == '405622072832':
+            if s == '027422070780':
 
                 try:
                     if self.d435_intrinsics:
@@ -444,7 +444,7 @@ class Camera2(Node):
     def setting_yolox_exp(self) -> None:
         WEIGHTS_PATH = '../../weights/yolox_nano.pth'  #for no trt
         self.declare_parameter('imshow_isshow',True)
-        self.declare_parameter('yolox_exp_py', '/home/cotrobot/mushroomproject/ros2_ws/src/YOLOX-ROS/yolox_ros_py/exps/yolox_nano.py')
+        self.declare_parameter('yolox_exp_py', '/home/jimmy/Downloads/mushroomproject/ros2_ws/src/YOLOX-ROS/yolox_ros_py/exps/yolox_nano.py')
         #self.declare_parameter('yolox_exp_py', 'yolox_vos_s.py')
         self.declare_parameter('fuse',False)
         self.declare_parameter('trt', True)
@@ -485,7 +485,7 @@ class Camera2(Node):
 
         #BASE_PATH = os.getcwd()
         #file_name = os.path.join(BASE_PATH, "../YOLOX-main/YOLOX_outputs/yolox_voc_s/")
-        file_name = "/home/cotrobot/mushroomproject/YOLOX-main/YOLOX_outputs/yolox_voc_s/"#ros2_ws/src/YOLOX-ROS/weights/tensorrt/"#os.path.join(BASE_PATH, "/src/YOLOX-ROS/weights/tensorrt/") #
+        file_name = "/home/jimmy/Downloads/mushroomproject/YOLOX-main/YOLOX_outputs/yolox_voc_s/"#ros2_ws/src/YOLOX-ROS/weights/tensorrt/"#os.path.join(BASE_PATH, "/src/YOLOX-ROS/weights/tensorrt/") #
         # os.makedirs(file_name, exist_ok=True)
 
         exp.test_conf = conf # test conf
@@ -591,8 +591,6 @@ class Camera2(Node):
                     X,Y,Z=[float(x) for x in bbox.data.split(",")]
                     self.d405_adj_pub_bounding_boxes.publish(bbox)
             bbox.data=""    
-
-
 
 
     def newyolox_timer_callback(self):

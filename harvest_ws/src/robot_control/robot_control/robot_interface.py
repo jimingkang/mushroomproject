@@ -51,7 +51,7 @@ class Robot(Node, ScaraRobot):
         self.timer = self.create_timer(0.1, self.publish_joint_states)
         self.joint_state_pub = self.create_publisher(JointState, "/joint_states", 10)
         self.joint_command_sub = self.create_subscription(DisplayTrajectory,"/rrt_path",self.joint_command_callback,10)
-        self.client_node = ServiceClient()
+        #self.client_node = ServiceClient()
         self.goal_pose_pub=self.create_publisher(PoseStamped,"/goal_pose",10)
         self.bounding_boxes_sub = self.create_subscription(String,"/d435/yolox/bounding_boxes",self.bounding_boxes_callback, 2)
         self.adj_bounding_boxes_sub = self.create_subscription(String,"/d405/yolox/adj_bounding_boxes",self.adj_bounding_boxes_callback, 10)
@@ -85,25 +85,20 @@ class Robot(Node, ScaraRobot):
             for i in range(0, len(trajs)):
                 waypoints = trajs[i].positions
                 self.get_logger().info(f"i={i},waypoints : {waypoints}")
-                #for j in range(0, len(waypoints)):
-                  #positions=waypoints[j].positions
-                angle1=waypoints[0]*180/3.14
-                angle2=waypoints[1]*180/3.14
-                angle3=self.normalize_angle(waypoints[0]+waypoints[1]+waypoints[2])* 180 / 3.14
-                self.get_logger().info(f"joint_command_callback trajectory:angles: {angle1,angle2,angle3}")
-                #angle = (waypoints[0] + waypoints[1] +waypoints[2]) 
-                # 归一化到 [-180, 180)
-                #angle = normalize_angle(angle)
-                if( angle3>-180 and angle3 <180):
-                    self.new_movej_angle(angle1, angle2, 0, angle3, 30, 1)
-                #
+                self.move_joint_radian(waypoints[0],waypoints[1],waypoints[2],30,1)
             self.wait_stop()
-            response = self.client_node.open_send_request()
+            #response = self.client_node.open_send_request()
                 #if pos < min_limit or pos > max_limit:
                 #    print(f"Position for joint{i} must be between {min_limit} and {max_limit}.")
                 #    return self.get_positions_from_user()
                 #positions.append(pos)
             #return positions
+            for i in reversed(range(len(trajs))):
+                wp = trajs[i].positions
+                self.get_logger().info(f"backward i={i}, waypoints={wp}")
+                self.move_joint_radian(wp[0], wp[1], wp[2], 30, 1)
+            self.wait_stop()
+            
         except ValueError:
             print("Invalid input. Please enter numerical values.")
         self.get_logger().info(f"Sent joint command to  robot")
@@ -113,6 +108,7 @@ class Robot(Node, ScaraRobot):
     def bounding_boxes_callback(self, msg):
         global global_z
         #r.set("gripper_flag", "ready")
+        
         if r.get("mode")=="camera_ready":
             mushroom_xyz=msg.data
             mushroom_xyz=msg.data.split(",");
@@ -181,16 +177,16 @@ class Robot(Node, ScaraRobot):
                 #return
             if 1:  # ret<2:
                 r.set("mode", "adjust_done")
-                response = self.client_node.open_send_request()
-                if response is not None:
+                #response = self.client_node.open_send_request()
+                if 1:#response is not None:
                     self.get_scara_param()
                     self.wait_stop()
                     ret = self.movej_xyz(self.x, self.y, -100, self.r, 30, 1)
                     self.wait_stop()
                     self.get_logger().info(f"move in -z, ret :{ret}")
-                response = self.client_node.close_send_request()  # close request
+                #response = self.client_node.close_send_request()  # close request
                 time.sleep(1)
-                if response is not None:
+                if 1:#response is not None:
                     self.get_scara_param()
                     self.wait_stop()
                     self.get_logger().info(f'open 2 for {self.z}')

@@ -75,6 +75,9 @@ class ScaraRobot(HitbotInterface):
         
         self.get_scara_param()
         angle3=theta1+theta2+theta3
+        print(f"before conversion angle3: {angle3}")
+        #angle3 = (angle3 + 180) % 360 - 180  #0-360 to -180~180
+        print(f"after conversion angle3: {angle3}")
         if not self.within_limits(theta1,theta2,theta3):
             print("out of limit")
             return 0

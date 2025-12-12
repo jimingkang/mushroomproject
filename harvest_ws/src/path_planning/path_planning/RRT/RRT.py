@@ -61,7 +61,7 @@ def mdn_loss(pi, sigma, mu, target):
 def forward_kinematics_from_angles(theta1,theta2,theta3):
     r1= 0.325
     r2 = 0.275
-    r3=0.225
+    r3=0.265  #0.225
     x1 = r1 * np.cos(theta1)
     x2= x1 + r2 * np.cos(theta1 + theta2)
     x3 = x2 + r3 * np.cos(theta1 + theta2 + theta3)
@@ -119,7 +119,7 @@ import torch
 
 class RRTAngle:
     def __init__(self, start_pos, obstacles=[], tolerance=0.1, step_size=0.2):
-        self.length = [0.325, 0.275, 0.225]
+        self.length = [0.325, 0.275, 0.265] #0.225
         self.workspace_size = sum(self.length)
         self.start_node = np.array(start_pos)
         self.tolerance = tolerance
@@ -215,12 +215,12 @@ class RRTAngle:
         distance = np.linalg.norm(end_effector - goal_ws)
         return distance
 
-    def build_tree(self, goal_ws, max_iterations=500,goal_bias=0.2):
+    def build_tree(self, goal_ws, max_iterations=1000,goal_bias=0.2):
         goal_ws = np.array(goal_ws, dtype=np.float32)
         ik_bais=get_ik(goal_ws)
         print("vaild ik sol:",len(ik_bais))
         for i in range(max_iterations):
-            sample = self.sample_position(ik_bais,goal_bias if len(ik_bais)<0 else -1)
+            sample = self.sample_position(ik_bais,goal_bias if len(ik_bais)>0 else -1)
             nearest = self.nearest_node(sample)
             new_node = self.steer(nearest, sample)
             new_node_tuple = tuple(new_node)
@@ -251,7 +251,7 @@ class RRTAngle:
         return path[::-1]
 
 model = IK_MDN_Model(input_size=2, output_size=3, num_gaussians=50)
-model.load_state_dict(torch.load("/home/cotrobot/Downloads/MDN_robot/ik_mdn_state.pt"))
+model.load_state_dict(torch.load("/home/jimmy/Downloads/MDN_robot/ik_mdn_state.pt"))
 model.to("cuda")
 model.eval()
     

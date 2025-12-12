@@ -70,7 +70,7 @@ def mdn_loss(pi, sigma, mu, target):
 def forward_kinematics_from_angles(theta1,theta2,theta3):
     r1= 0.325
     r2 = 0.275
-    r3=0.225
+    r3=0.265 #0.225
     x1 = r1 * np.cos(theta1)
     x2= x1 + r2 * np.cos(theta1 + theta2)
     x3 = x2 + r3 * np.cos(theta1 + theta2 + theta3)
@@ -132,20 +132,20 @@ def get_ik(point, num_samples=2000, tol=0.005):
     return valid
 
 class FB_RRTAngle:
-    def __init__(self,  obstacles=[], tolerance=0.1, step_size=0.2):
-        self.length = [0.325, 0.275, 0.225]
+    def __init__(self, tolerance=0.1, step_size=0.2):
+        self.length = [0.325, 0.275, 0.265]  #[0.325, 0.275, 0.265]  #
         self.workspace_size = sum(self.length)
         #self.start_node = np.array(start_pos)
         self.tolerance = tolerance
         self.step_size = step_size
         #self.tree = {tuple(self.start_node): None}
         self.goal_node = None
-        self.obstacles = obstacles
+        #self.obstacles = obstacles
         self.forward_kinematics_cache = {}
         #self.kd_tree = KDTree([self.start_node])
 
     def forward_kinematics(self,q):
-        L1, L2, L3 = 0.325, 0.275, 0.225
+        L1, L2, L3 = 0.325, 0.275, 0.265 #0.225
         t1, t2, t3 = q
 
         x0, y0 = 0, 0
@@ -211,7 +211,7 @@ class FB_RRTAngle:
         return False
 
 
-    def find_collision_point(self,q_start, q_goal, obstacles, steps=100):
+    def find_collision_point_old(self,q_start, q_goal, obstacles, steps=300):
         q_start = np.array(q_start, dtype=float)
         q_goal  = np.array(q_goal,  dtype=float)
 
@@ -221,7 +221,49 @@ class FB_RRTAngle:
             if self.is_in_obstacle(q, obstacles):
                 return True, q
         return False, None
+    def find_collision_point(self, q_start, q_goal, obstacles, resolution=0.05):
+        """
+        【改进版】检查从 q_start 到 q_goal 的路径是否发生碰撞。
+        使用基于分辨率的方法，而不是固定的步数，使其更可靠。
 
+        Args:
+            q_start (list/np.array): 起始关节配置.
+            q_goal (list/np.array): 目标关节配置.
+            obstacles (list): 障碍物列表.
+            resolution (float): 检查的分辨率（弧度）。值越小，检查越精细，也越慢。
+
+        Returns:
+            (bool, np.array or None): (是否碰撞, 第一个碰撞点的配置)
+        """
+        q_start = np.array(q_start, dtype=float)
+        q_goal = np.array(q_goal, dtype=float)
+
+        # 1. 计算C-Space中的距离
+        delta = q_goal - q_start
+        dist = np.linalg.norm(delta)
+
+        # 如果距离非常小，可以认为没有移动，是安全的
+        if dist < 1e-6:
+            return False, None
+
+        # 2. 根据距离和分辨率计算需要的步数
+        # 确保至少检查起点和终点
+        steps = max(2, int(dist / resolution))
+        print(f"step:{steps}")
+
+        # 3. 沿路径进行离散检查
+        for i in range(steps + 1):
+            # i=0 是起点，i=steps 是终点
+            alpha = i / steps
+            q_interpolated = q_start + alpha * delta
+
+            # 检查插值点是否存在碰撞
+            if self.is_in_obstacle(q_interpolated, obstacles):
+                # 只要发现一个点碰撞，就证明整条路径无效
+                return True, q_interpolated
+
+                # 如果所有插值点都安全，则认为路径是无碰撞的
+        return False, None
 
     # =======================================================
     #  关节路径规划（不用RRT）
@@ -285,7 +327,7 @@ class FB_RRTAngle:
         for (cx, cy, r) in obstacles:
             ax.add_patch(patches.Circle((cx, cy), r, alpha=0.3))
 
-        reach = 0.325 + 0.275 + 0.225 + 0.1
+        reach = 0.325 + 0.275 + 0.265 + 0.1
         ax.set_xlim(-reach, reach)
         ax.set_ylim(-reach, reach)
 
@@ -332,7 +374,7 @@ class FB_RRTAngle:
         self.animate_path(path, obstacles)
 
 model = IK_MDN_Model(input_size=2, output_size=3, num_gaussians=50)
-model.load_state_dict(torch.load("/home/cotrobot/Downloads/MDN_robot/ik_mdn_state.pt"))
+model.load_state_dict(torch.load("/home/jimmy/Downloads/MDN_robot/ik_mdn_state.pt"))
 model.to("cuda")
 model.eval()
 if __name__ == "__main__":

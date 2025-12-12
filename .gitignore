@@ -127,3 +127,6 @@ ros2_ws/log/
 harvest_ws/build/
 harvest_ws/install/
 harvest_ws/log/
+YOLOX-main/YOLOX_outputs/yolox_voc_s/model_trt.engine
+YOLOX-main/YOLOX_outputs/yolox_voc_s/model_trt.pth
+YOLOX-main/demo/TensorRT/cpp/model_trt.engine
