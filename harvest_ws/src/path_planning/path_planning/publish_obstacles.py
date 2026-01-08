@@ -26,7 +26,7 @@ from geometry_msgs.msg import Pose
 import uuid
 from shape_msgs.msg import SolidPrimitive
 from rclpy.callback_groups import ReentrantCallbackGroup
-
+from builtin_interfaces.msg import Duration
 from scipy.interpolate import CubicSpline
 broker="172.23.66.117"
 redis_server='172.23.248.33'
@@ -54,6 +54,7 @@ class PublishObsNode(Node):
         self.sub_scan = self.create_subscription(LaserScan, "/scan", self.scan_callback, 10)
 
         self.pub_scene = self.create_publisher(PlanningScene, "/planning_scene", 10)
+        self.pub_marker = self.create_publisher(Marker, "/obs_marker", 10)
 
 
 
@@ -66,7 +67,7 @@ class PublishObsNode(Node):
         co.operation = CollisionObject.ADD
         cylinder = SolidPrimitive()
         cylinder.type = SolidPrimitive.CYLINDER
-        cylinder.dimensions = [0.5, 0.08]  # 高0.5m 半径2cm
+        cylinder.dimensions = [0.5, 0.05]  # 高0.5m 半径2cm
 
         pose = Pose()
         pose.position.x = x
@@ -78,9 +79,45 @@ class PublishObsNode(Node):
         co.primitive_poses.append(pose)
         ps.world.collision_objects.append(co)
         self.column_count += 1
+    def publish_obstacle_marker(self, x, y, z, radius, height, frame="base_link"):
+        marker = Marker()
+        marker.header.frame_id = frame
+        marker.header.stamp = self.get_clock().now().to_msg()
+
+        marker.ns = "obstacles"
+        marker.id = int((x*1000 + y*1000))
+        marker.type = Marker.CYLINDER
+        marker.action = Marker.ADD
+
+        marker.pose.position.x = x
+        marker.pose.position.y = -y
+        marker.pose.position.z = z
+
+        marker.pose.orientation.x = 0.0
+        marker.pose.orientation.y = 0.0
+        marker.pose.orientation.z = 0.0
+        marker.pose.orientation.w = 1.0
+
+        # scale.x = scale.y = 直径
+        marker.scale.x = radius * 2.0
+        marker.scale.y = radius * 2.0
+        marker.scale.z = height
+
+        # 障碍物颜色（不透明红色）
+        marker.color.r = 1.0
+        marker.color.g = 0.0
+        marker.color.b = 0.0
+        marker.color.a = 0.8
+
+        # 持续时间（0 = 永久）
+        marker.lifetime = Duration(sec=0)
+
+        self.pub_marker.publish(marker)
     def scan_callback(self, msg: LaserScan):
         self.column_count=0
         self.obstacles.clear()
+        self.obstacles=[]
+        r.set("obstacles", json.dumps([]))
         ps = PlanningScene()
         ps.is_diff = True
         #ps.world.collision_objects.clear()
@@ -98,7 +135,7 @@ class PublishObsNode(Node):
             y = radius * math.sin(angle)
             P = (x, y)
             dist = math.sqrt(x**2 + y**2)
-            if 0.4 < dist < 1.2:
+            if 0.4 < dist < 1.0:
                 self.addobject(ps,x,y)
                 points.append(P)
 
@@ -135,10 +172,12 @@ class PublishObsNode(Node):
         for i, (cx, cy,rad) in enumerate(self.obstacles):
             self.addobject(ps, cx, cy)
             self.get_logger().info(f"障碍物 {i+1}: x={cx:.2f}, y={cy:.2f}")
+            self.publish_obstacle_marker(cx, cy, 0.25, 0.04, 0.5)
 
         # ✅ 发布所有立柱到规划场景
         if self.column_count > 0:
-            self.pub_scene.publish(ps)
+            #self.pub_scene.publish(ps)
+            #self.pub_marker.publish(ps)
             self.get_logger().info(f"📡 已发布 {self.column_count} 个立柱障碍物")
             r.set("obstacles", json.dumps(self.obstacles))
         time.sleep(10)

@@ -1,4 +1,5 @@
 import json
+
 import rclpy
 from rclpy.node import Node
 from .RRT.FB_RRT import IK_MDN_Model,MDNLayer,FB_RRTAngle,forward_kinematics_from_angles,get_ik
@@ -64,6 +65,8 @@ class PathPlanningNode(Node):
 
 
         self.path = []  # stores planned joint path
+        self.step_size=0.15
+        self.pre_paths = []
         self.robot_free=True
 
         self.robot_move_status_sub = self.create_subscription(String, "move_status",self.update_move_status, 10)
@@ -83,6 +86,69 @@ class PathPlanningNode(Node):
         else:
             self.robot_free=True
 
+    def smooth_path(self, path, iterations=100):
+        """
+        基于 Shortcut smoothing 的路径平滑
+        :param path: 原始路径 [q0, q1, ..., qN]
+        :param iterations: 尝试优化次数
+        :return: 平滑后的路径
+        """
+        if path is None or len(path) < 3:
+            return path  # 无需平滑
+
+        path = [np.array(q, dtype=np.float32) for q in path]
+
+        for _ in range(iterations):
+            if len(path) <= 2:
+                break
+
+            # 随机选择两个节点 i < j
+            i = np.random.randint(0, len(path) - 2)
+            j = np.random.randint(i + 2, len(path))
+
+            q1 = path[i]
+            q2 = path[j]
+
+            # 如果中间可直连 → 删除多余点
+            if self.angle_rrt.edge_is_collision_free(q1, q2):
+                # 保留 i 和 j，中间全部替换成一条直线插值
+                new_segment = [q1]
+
+                steps = int(np.linalg.norm(q2 - q1) / self.step_size) + 2
+                for a in np.linspace(0, 1, steps):
+                    q = q1 + a * (q2 - q1)
+                    new_segment.append(q)
+
+                path = path[:i] + new_segment + path[j + 1:]
+
+        return path
+
+
+    def smooth_curve(self, path, points=200):
+        """
+        使用三次样条使路径更平滑（适合机械臂控制）
+        :param path: 已 shortcut 的路径
+        :param points: 生成多少个平滑点
+        """
+        path = np.array(path)
+        N = len(path)
+        t = np.linspace(0, 1, N)
+
+        # 每个关节一根 spline
+        q1_spline = CubicSpline(t, path[:, 0])
+        q2_spline = CubicSpline(t, path[:, 1])
+        q3_spline = CubicSpline(t, path[:, 2])
+
+        ts = np.linspace(0, 1, points)
+
+        smooth_path = np.stack([
+            q1_spline(ts),
+            q2_spline(ts),
+            q3_spline(ts)
+        ], axis=1)
+
+        return smooth_path
+
 
 
     def goal_callback(self, msg):
@@ -94,8 +160,12 @@ class PathPlanningNode(Node):
 
         # Find path in joint space (list of joint angles)
         #self.path = self.find_path_FB_RRT([msg.pose.position.x, msg.pose.position.y],[self.theta1, self.theta2, self.theta3])
-        self.path = self.find_path([msg.pose.position.x, msg.pose.position.y],
-                         [self.theta1, self.theta2, self.theta3])
+        self.rawpath = self.find_path([msg.pose.position.x, msg.pose.position.y],[self.theta1, self.theta2, self.theta3])
+        smooth1 = self.smooth_path(self.rawpath, iterations=200)
+        if smooth1 is not None and len(smooth1) > 1:
+            print("原始路径节点:", len(self.rawpath), "→ 平滑后节点:", len(smooth1))
+            print("\n[TEST 8] 曲线柔化 (Cubic Spline)")
+            self.path = self.smooth_curve(smooth1, points=10)
         #self.path = self.find_path_TangentRRT([msg.pose.position.x, msg.pose.position.y])
 
         msg = DisplayTrajectory()
@@ -209,7 +279,7 @@ class PathPlanningNode(Node):
             q2 = path[j]
 
             # 如果中间可直连 → 删除多余点
-            if self.edge_is_collision_free(q1, q2):
+            if self.angle_rrt.edge_is_collision_free(q1, q2):
                 # 保留 i 和 j，中间全部替换成一条直线插值
                 new_segment = [q1]
 
@@ -260,17 +330,18 @@ class PathPlanningNode(Node):
     
     def find_path(self,goal,start=[0, 0,0]):
         all_path=[]
+        self.obstacles.clear()
+        self.obstacles=[]
         self.angle_rrt = RRTAngle(start,tolerance=0.1, step_size=3.1415/180*5)
         data = r.get("obstacles")
         if data:
             self.obstacles= json.loads(data)
             print("Obstacles:", self.obstacles)
-            #self.obstacles.clear()
-            #r.set("obstacles",json.dumps(self.obstacles))
+            r.set("obstacles",json.dumps([]))
         for x,y,rad in self.obstacles:
             self.angle_rrt.add_obstacle('circle', (x,y,rad))
         path1=self.angle_rrt.build_tree(goal,goal_bias=0.5,max_iterations=2000)
-
+        print("path1:", path1)
         if path1 is not None:
             all_path.extend(path1)
             self.angle_rrt = RRTAngle(path1[-1],tolerance=0.05, step_size=3.1415/180*2)
@@ -299,8 +370,11 @@ class PathPlanningNode(Node):
         #smooth2 = self.smooth_curve(all_path, points=20)
         #print("曲线平滑后节点:", len(smooth2))
         print("all_path:", all_path)
-
-        return all_path
+        if all_path is not None and len(all_path) > 1:
+            self.pre_paths=all_path
+            return all_path
+        else:
+            return self.pre_paths
     
 # ✅ 创建圆柱体障碍物
     def addobject(self,ps,x,y):
