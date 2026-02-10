@@ -127,7 +127,7 @@ class RRTAngle:
         self.step_size = step_size
         self.tree = {tuple(self.start_node): None}
         self.goal_node = None
-        self.obstacles = []
+        self.obstacles = obstacles
         self.forward_kinematics_cache = {}
         self.kd_tree = KDTree([self.start_node])
         # ✅ 碰撞反馈的代价地图：存储危险区域（工作空间里）
@@ -180,7 +180,6 @@ class RRTAngle:
 
         for link_id, (x1, y1, x2, y2) in enumerate(zip(xs, ys, xs[1:], ys[1:])):
             for shape, params in self.obstacles:
-                print(f"{shape},  {params}")
                 if shape == "circle":
                     cx, cy, r = params
                     dist = self._distance_point_to_segment(cx, cy, x1, y1, x2, y2)
@@ -198,104 +197,11 @@ class RRTAngle:
                     feedback["min_distance"] = dist
                     feedback["link_index"] = link_id
                     feedback["center"] = center
-        print(f"{len(self.obstacles)} obstacles,")
 
         return feedback
-    def is_edge_safe(self, q1, q2, steps=10):
-        """辅助函数：检查两点连线是否安全"""
-        q1 = np.array(q1)
-        q2 = np.array(q2)
-        for t in np.linspace(0, 1, steps):
-            q_interp = q1 + t * (q2 - q1)
-            if self.is_in_obstacle(q_interp):
-                return False
-        return True
-    def edge_collision_feedback(self, q_near, q_new, steps=12):
-        """
-        在 q_near -> q_new 的边上插值，找到第一次发生碰撞的位置，
-        并在该位置提取 collision feedback
-        """
-        q_near = np.asarray(q_near, dtype=np.float32)
-        q_new = np.asarray(q_new, dtype=np.float32)
 
-        last_q = q_near
-        for a in np.linspace(0.0, 1.0, steps):
-            q = q_near + a * (q_new - q_near)
-
-            if self.is_in_obstacle(q):
-                # 在“第一次碰撞点”做 link-level 分析
-                feedback = self.extract_collision_feedback(last_q, q)
-                feedback["q_hit"] = q
-                feedback["alpha"] = float(a)
-                return feedback
-
-            last_q = q
-
-        return None
-
-    def cost_at_ws(self, ws):
-        max_cost = 0.0
-        ws = np.asarray(ws, dtype=np.float32)
-
-        for e in self.cost_map:
-            delta = ws - e["center"]
-            # 使用单位向量归一化
-            direction = e["direction"]
-            d_par = float(np.dot(delta, direction))
-            perp_vec = delta - d_par * direction
-            d_perp = float(np.linalg.norm(perp_vec))
-
-            # 极小的 Sigma，仅比障碍物半径(0.05)大一点点
-            # 这里的参数建议直接写死，不要随距离变化太大
-            s_par = 0.06
-            s_perp = 0.03
-
-            gauss_val = np.exp(
-                -(d_par ** 2) / (2 * s_par ** 2 + 1e-9)
-                - (d_perp ** 2) / (2 * s_perp ** 2 + 1e-9)
-            )
-
-            # 取所有感应点中的最大值，而不是叠加
-            this_cost = e["weight"] * gauss_val
-            if this_cost > max_cost:
-                max_cost = this_cost
-
-        return float(max_cost)
     # ✅ 更新碰撞代价地图：把“危险区域”记录下来
     def update_cost_map(self, feedback):
-        p = feedback.get("collision_point", None)
-        if p is None:
-            return
-
-        d = float(feedback["min_distance"])
-        direction = np.asarray(feedback["direction"], dtype=np.float32)
-        n = np.linalg.norm(direction)
-        if n < 1e-9:
-            direction = np.array([1.0, 0.0], dtype=np.float32)
-        else:
-            direction = direction / n
-
-        # d 越小，表示越危险 → 权重更大，平行方向影响更“长”
-        #weight = float(np.clip(1.5 + (0.15 - d) * 12.0, 1.0, 6.0))
-        #sigma_par = float(np.clip(0.10 + (0.12 - d) * 0.8, 0.06, 0.25))  # 沿碰撞方向拉长
-        #sigma_perp = float(np.clip(0.05, 0.03, 0.08))  # 垂直方向更窄
-        sigma_par = float(np.clip(0.20 + (0.2 - d) * 1.0, 0.15, 0.4))  # 显著增加长度
-        sigma_perp = float(np.clip(0.12, 0.08, 0.2))  # 显著增加宽度
-        weight = float(np.clip(2.5 + (0.15 - d) * 15.0, 2.0, 10.0))  # 增强权重
-
-        self.cost_map.append({
-            "center": p,
-            "direction": direction,
-            "sigma_par": sigma_par,
-            "sigma_perp": sigma_perp,
-            "weight": weight,
-        })
-
-        # 防止 cost_map 无限膨胀（很重要，否则越跑越“全是墙”）
-        if len(self.cost_map) > 50:
-            self.cost_map.pop(0)
-
-    def update_cost_map_old(self, feedback):
         if feedback["center"] is None:
             return
         d = feedback["min_distance"]
@@ -309,38 +215,8 @@ class RRTAngle:
         }
         self.cost_map.append(entry)
 
-
-    def bias_sample_away_from_cost(self, sample, max_retry=15):
-        sample = np.array(sample, dtype=np.float32)
-
-        for i in range(max_retry):
-            coords = self.forward_kinematics(sample)
-            xs, ys = coords[0], coords[1]
-
-            # 计算关节链上的总 Cost
-            total_c = 0.0
-            for k in range(1, len(xs)):
-                total_c += self.cost_at_ws(np.array([xs[k], ys[k]]))
-
-            # --- 核心改进：动态衰减躲避强度 ---
-            # 随着尝试次数 i 的增加，躲避系数从 1.2 逐渐降到 0.2
-            # 这意味着如果很难找到“完美”点，就接受稍微有点危险的点
-            decaying_lambda = 1.2 * (1.0 - i / max_retry)
-            accept_prob = np.exp(-decaying_lambda * total_c)
-
-            if np.random.rand() < accept_prob:
-                return sample
-
-            # 重新采样逻辑保持不变
-            sample = np.array([
-                np.random.uniform(-np.pi / 2, np.pi / 2),
-                np.random.uniform(-3 * np.pi / 4, 3 * np.pi / 4),
-                np.random.uniform(-3 * np.pi / 4, 3 * np.pi / 4),
-            ], dtype=np.float32)
-
-        return sample
     # ✅ 采样时根据 cost_map 做简单的“拒绝采样”，让末端远离高代价区域
-    def bias_sample_away_from_cost_old(self, sample, max_retry=5):
+    def bias_sample_away_from_cost(self, sample, max_retry=5):
         sample = np.array(sample, dtype=np.float32)
 
         for _ in range(max_retry):
@@ -367,7 +243,7 @@ class RRTAngle:
 
         return sample
 
-    def sample_position(self, ik_bais, goal_bias=0.2):
+    def sample_position_new(self, ik_bais, goal_bias=0.2):
         if ik_bais is not None and len(ik_bais) > 0 and np.random.rand() < goal_bias:
             index = np.random.choice([i for i in range(0, len(ik_bais))])
             sample = np.array(ik_bais[index], dtype=np.float32)
@@ -381,7 +257,21 @@ class RRTAngle:
         # ✅ 在这里加入碰撞反馈驱动的采样偏置
         sample = self.bias_sample_away_from_cost(sample)
         return sample
-
+    def sample_position(self, goal_ws=None, goal_bias=0.2):
+        if goal_ws is not None and np.random.rand() < goal_bias:
+            # Try goal-biased sampling
+            for _ in range(10):  # Try multiple times to get a good sample
+                sample = [np.random.uniform(-np.pi/2, np.pi/2),
+                        np.random.uniform(-3*np.pi/4, 3*np.pi/4),
+                        np.random.uniform(-3*np.pi/4, 3*np.pi/4)]
+                xs, ys = self.forward_kinematics(sample)
+                end_effector = np.array([xs[-1], ys[-1]])
+                if np.linalg.norm(end_effector - goal_ws) < self.workspace_size * 0.2:
+                    return sample
+        # Otherwise, uniform sampling
+        return [np.random.uniform(-np.pi/2, np.pi/2),
+                np.random.uniform(-3*np.pi/4, 3*np.pi/4),
+                np.random.uniform(-3*np.pi/4, 3*np.pi/4)]
 
     def is_in_obstacle(self, angles):
         xs, ys = self.forward_kinematics(angles)
@@ -438,13 +328,13 @@ class RRTAngle:
         distance = np.linalg.norm(end_effector - goal_ws)
         return distance
 
-    def build_tree_rrt(self, goal_ws, max_iterations=500, goal_bias=0.2):
+    def build_tree(self, goal_ws, max_iterations=500, goal_bias=0.2):
         goal_ws = np.array(goal_ws, dtype=np.float32)
-        ik_bais = get_ik(goal_ws)
-        print("vaild ik sol:", len(ik_bais))
+        #ik_bais = get_ik(goal_ws)
+        #print("vaild ik sol:", len(ik_bais))
         for i in range(max_iterations):
-            sample = self.sample_position(ik_bais, goal_bias if len(ik_bais) > 0 else -1)
-            #sample = self.sample_position(goal_ws)
+            #sample = self.sample_position(ik_bais, goal_bias if len(ik_bais) > 0 else -1)
+            sample = self.sample_position(goal_ws)
             nearest = self.nearest_node(sample)
             new_node = self.steer(nearest, sample)
             new_node_tuple = tuple(new_node)
@@ -466,87 +356,6 @@ class RRTAngle:
             if distance < self.tolerance:
                 self.goal_node = new_node_tuple
                 path = self.reconstruct_path()
-                return path
-
-        return None
-    def build_tree(self, goal_ws, max_iterations=1000, goal_bias=0.2, search_radius=0.5):
-        """
-        RRT-Star 实现
-        search_radius: 寻找相邻节点优化路径的半径范围
-        """
-        goal_ws = np.array(goal_ws, dtype=np.float32)
-        ik_bais = get_ik(goal_ws)
-
-        # 1. 初始化成本字典 (起点到起点的 cost 为 0)
-        # 假设 self.start_node 已经在初始化时存入 tree
-        start_node_tuple = list(self.tree.keys())[0]
-        self.costs = {start_node_tuple: 0.0}
-
-        print("valid ik sol:", len(ik_bais))
-
-        for i in range(max_iterations):
-            sample = self.sample_position(ik_bais, goal_bias if len(ik_bais) > 0 else -1)
-            nearest = self.nearest_node(sample)
-            new_node = self.steer(nearest, sample)
-            new_node_tuple = tuple(new_node)
-
-            if new_node_tuple in self.tree:
-                continue
-
-            # 2. 碰撞检测与反馈 (保留你原有的势场更新逻辑)
-            if self.is_in_obstacle(new_node):
-                feedback = self.edge_collision_feedback(nearest, new_node, steps=12)
-                if feedback is None:
-                    feedback = self.extract_collision_feedback(nearest, new_node)
-                self.update_cost_map(feedback)
-                continue
-
-            # --- RRT* 核心逻辑开始 ---
-
-            # 3. 寻找 search_radius 范围内的所有邻居
-            # 使用 scipy KDTree 的 query_ball_point
-            neighbor_indices = self.kd_tree.query_ball_point(new_node, search_radius)
-            neighbors = [tuple(self.kd_tree.data[idx]) for idx in neighbor_indices]
-
-            # 4. Choose Parent: 在邻居中找一个能让 new_node 路径代价最小的父节点
-            best_parent = tuple(nearest)
-            min_cost = self.costs[best_parent] + np.linalg.norm(np.array(best_parent) - new_node)
-
-            for neighbor in neighbors:
-                # 计算经过这个邻居到达 new_node 的潜在代价
-                potential_cost = self.costs[neighbor] + np.linalg.norm(np.array(neighbor) - new_node)
-                if potential_cost < min_cost:
-                    # 必须确保这条边是无碰撞的
-                    if self.is_edge_safe(neighbor, new_node):
-                        best_parent = neighbor
-                        min_cost = potential_cost
-
-            # 5. 正式将新节点加入树中
-            self.tree[new_node_tuple] = best_parent
-            self.costs[new_node_tuple] = min_cost
-
-            # 6. Rewire: 检查以 new_node 作为父节点，是否能让它的邻居们代价更低
-            for neighbor in neighbors:
-                new_neighbor_cost = self.costs[new_node_tuple] + np.linalg.norm(new_node - np.array(neighbor))
-                if new_neighbor_cost < self.costs[neighbor]:
-                    # 如果通过 new_node 走更近，且路径安全，则重新布线
-                    if self.is_edge_safe(new_node, neighbor):
-                        self.tree[neighbor] = new_node_tuple
-                        self.costs[neighbor] = new_neighbor_cost
-
-            # --- RRT* 核心逻辑结束 ---
-
-            # 重建 KDTree
-            self.kd_tree = KDTree(list(self.tree.keys()))
-
-            # 检查是否到达目标
-            distance = self.distance_in_workspace(new_node, goal_ws)
-            if distance < self.tolerance:
-                self.goal_node = new_node_tuple
-                # 注意：RRT* 通常会跑满迭代次数以寻找最优解，
-                # 但如果你急于返回，可以在这里直接 return
-                path = self.reconstruct_path()
-                print(f"Goal reached at iteration {i}, cost: {self.costs[new_node_tuple]:.4f}")
                 return path
 
         return None

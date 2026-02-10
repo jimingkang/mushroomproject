@@ -90,7 +90,7 @@ class PublishObsNode(Node):
         marker.action = Marker.ADD
 
         marker.pose.position.x = x
-        marker.pose.position.y = -y
+        marker.pose.position.y = y
         marker.pose.position.z = z
 
         marker.pose.orientation.x = 0.0
@@ -110,7 +110,7 @@ class PublishObsNode(Node):
         marker.color.a = 0.8
 
         # 持续时间（0 = 永久）
-        marker.lifetime = Duration(sec=0)
+        marker.lifetime = Duration(sec=5)
 
         self.pub_marker.publish(marker)
     def scan_callback(self, msg: LaserScan):
@@ -118,9 +118,6 @@ class PublishObsNode(Node):
         self.obstacles.clear()
         self.obstacles=[]
         r.set("obstacles", json.dumps([]))
-        ps = PlanningScene()
-        ps.is_diff = True
-        #ps.world.collision_objects.clear()
         self.column_count = 0
         points = []
         self.get_logger().warn("⚠️ scan callback triggered")
@@ -136,7 +133,7 @@ class PublishObsNode(Node):
             P = (x, y)
             dist = math.sqrt(x**2 + y**2)
             if 0.4 < dist < 1.0:
-                self.addobject(ps,x,y)
+                #self.addobject(ps,x,y)
                 points.append(P)
 
         if not points:
@@ -170,7 +167,6 @@ class PublishObsNode(Node):
 
         self.get_logger().info(f"检测到 {len(self.obstacles)} 个障碍物")
         for i, (cx, cy,rad) in enumerate(self.obstacles):
-            self.addobject(ps, cx, cy)
             self.get_logger().info(f"障碍物 {i+1}: x={cx:.2f}, y={cy:.2f}")
             self.publish_obstacle_marker(cx, cy, 0.25, 0.04, 0.5)
 

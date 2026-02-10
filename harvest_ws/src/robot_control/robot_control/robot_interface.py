@@ -58,6 +58,34 @@ class Robot(Node, ScaraRobot):
         self.rrt_done_sub = self.create_subscription(String,"/rrt_done",self.rrtdone_callback, 10)
         self.solver=OldSolver()
         r.set("mode","camera_ready")
+        self.cmd_move_sub = self.create_subscription(String,"/move",self.cmd_move_callback,10)
+    def cmd_move_callback(self, msg):
+        try:
+            data = msg.data   # x=...;y=...;z=...;roughly=...
+            self.get_logger().info(f"Received cmd_move: {data}")
+            parts = dict(
+                item.split("=") for item in data.split(";") if "=" in item
+            )
+
+            x = float(parts.get("x", 0)) 
+            y = float(parts.get("y", 0)) 
+            z = float(parts.get("z", 0)) 
+
+            self.get_scara_param()
+            self.wait_stop()
+
+            self.movej_xyz(
+                self.x + x,
+                self.y + y,
+                self.z + z,
+                self.r,
+                30,
+                1
+            )
+
+        except Exception as e:
+            self.get_logger().error(f"cmd_move_callback failed: {e}")
+
 
     def publish_joint_states(self):
         # Get real joint positions from HitBot API (Replace this with actual API calls)
