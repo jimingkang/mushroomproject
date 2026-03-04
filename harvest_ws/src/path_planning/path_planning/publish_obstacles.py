@@ -122,6 +122,9 @@ class PublishObsNode(Node):
         points = []
         self.get_logger().warn("⚠️ scan callback triggered")
 
+        #ps = PlanningScene()
+        #ps.header.frame_id = "base_link"
+
         angle = msg.angle_min
         for i, radius in enumerate(msg.ranges):
             if not (msg.range_min < radius < msg.range_max):
@@ -132,9 +135,10 @@ class PublishObsNode(Node):
             y = radius * math.sin(angle)
             P = (x, y)
             dist = math.sqrt(x**2 + y**2)
-            if 0.4 < dist < 1.0:
+            if 0.4 < dist < 1.5:
                 #self.addobject(ps,x,y)
                 points.append(P)
+                #self.publish_obstacle_marker(x, y, 0.25, 0.04, 0.5)
 
         if not points:
             self.get_logger().warn("⚠️ 本帧未检测到有效障碍点")
@@ -176,7 +180,7 @@ class PublishObsNode(Node):
             #self.pub_marker.publish(ps)
             self.get_logger().info(f"📡 已发布 {self.column_count} 个立柱障碍物")
             r.set("obstacles", json.dumps(self.obstacles))
-        time.sleep(10)
+        time.sleep(30)
 
 from rclpy.executors import MultiThreadedExecutor
 

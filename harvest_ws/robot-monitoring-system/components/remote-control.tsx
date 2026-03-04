@@ -72,7 +72,7 @@ export function RemoteControl() {
       lr: String(lr),
     })
 
-    await fetch(`http://172.23.248.32:5002/move/custom?${params}`)
+    await fetch(`http://172.23.248.37:5002/move/custom?${params}`)
   }
 
   useEffect(() => {
@@ -121,6 +121,66 @@ export function RemoteControl() {
     }))
     setLastCommand(state.isEmergencyStop ? "Emergency Stop Released" : "EMERGENCY STOP ACTIVATED")
   }
+  
+
+  // Get current state
+  const getState = async () => {
+    const response = await fetch('/api/gripper/state');
+    const data = await response.json();
+    console.log('Gripper is:', data.state);
+  };
+  const callGripperService = async (action:string) => {
+    try {
+      const response = await fetch(`/api/gripper/${action}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Update state based on response
+      setState(prev => ({
+        ...prev,
+        gripperOpen: action === 'open'  // or use data.state from response
+      }));
+      
+      return data;
+    } catch (error) {
+      console.error(`Failed to ${action} gripper:`, error);
+    }
+  };
+  const callGripperService_old = async (action: string) => {
+    try {
+      const response = await fetch(`/api/gripper/${action}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Update state based on response
+      setState(prev => ({
+        ...prev,
+        gripperOpen: action === 'open'  // or use data.state from response
+      }));
+      
+      return data;
+    } catch (error) {
+      console.error(`Failed to ${action} gripper:`, error);
+    }
+  };
 
   return (
     <Card className="border-border bg-card">
@@ -334,17 +394,17 @@ export function RemoteControl() {
             <Button
               variant={state.gripperOpen ? "outline" : "secondary"}
               size="sm"
-              onClick={() =>
-                setState((prev) => ({
+              onClick={() => callGripperService(state.gripperOpen ? 'close' : 'open')
+              } /*    // () =>
+               ////</div></div> setState((prev) => ({
                   ...prev,
-                  gripperOpen: !prev.gripperOpen,
-                }))
-              }
+               //   gripperOpen: !prev.gripperOpen,
+               // }))*/
               disabled={
                 !state.isEnabled || state.isEmergencyStop || !state.armEnabled
               }
             >
-              {state.gripperOpen ? "Open" : "Closed"}
+              {state.gripperOpen ? "Close" : "Open"}
             </Button>
           </div>
         </div>

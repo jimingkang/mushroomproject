@@ -13,7 +13,7 @@ export default function RobotMonitoringDashboard() {
         <div className="grid gap-4 lg:gap-6 grid-cols-1 lg:grid-cols-12">
           {/* Left Column - Video Feeds */}
           <div className="lg:col-span-8 space-y-4 lg:space-y-6">
-      <img src='http://172.23.248.32:5002/robot_image' />
+      <img src='http://172.23.248.37:5002/robot_image' />
 
             {/* Secondary Video Feeds */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
@@ -21,13 +21,13 @@ export default function RobotMonitoringDashboard() {
                 cameraId="CAM-002"
                 name="Top Camera"
                 isActive={true}
-              streamUrl="http://172.23.248.32:5002/video_feed"
+              streamUrl="http://172.23.248.37:5002/video_feed"
               />
               <VideoFeed
                 cameraId="CAM-003"
                 name="Side Camera"
                 isActive={true}
-                streamUrl="http://172.23.248.32:5002/video_feed2"
+                streamUrl="http://172.23.248.37:5002/video_feed2"
               />
             </div>
 

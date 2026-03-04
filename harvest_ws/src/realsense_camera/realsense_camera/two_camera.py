@@ -64,7 +64,7 @@ from geometry_msgs.msg import PoseStamped, Pose
 from nav_msgs.msg import Path
 
 broker="172.23.66.117"
-redis_server='172.23.248.33'
+redis_server='172.23.248.41'
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True, password='jimmy')
 r = redis.Redis(connection_pool=pool)

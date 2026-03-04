@@ -1,6 +1,7 @@
 import datetime
 import os
 import re
+import subprocess
 import time
 
 import numpy as np
@@ -299,7 +300,83 @@ def get_publish_message():
     ros2_node.publish_message()
     return {}
 
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+import subprocess
 
+app = Flask(__name__)
+CORS(app)  # Enable CORS
+
+# Simple state tracking
+gripper_state = "closed"
+
+@app.get("/api/gripper/open")
+def open_gripper():
+    global gripper_state
+    return control_gripper_action('open')
+
+@app.get("/api/gripper/close")
+def close_gripper():
+    global gripper_state
+    return control_gripper_action('close')
+
+@app.get("/api/gripper/toggle")
+def toggle_gripper():
+    global gripper_state
+    action = 'close' if gripper_state == 'open' else 'open'
+    return control_gripper_action(action)
+
+def control_gripper_action(action):
+    global gripper_state
+    
+    try:
+        service_name = f'/{action}_gripper_service'
+        
+        print(f"Calling {service_name}...")
+        result = subprocess.run(
+            ['ros2', 'service', 'call', service_name, 'std_srvs/srv/Trigger', '{}'],
+            capture_output=True,
+            text=True,
+            timeout=10  # Add timeout to prevent hanging
+        )
+        
+        if result.returncode != 0:
+            return jsonify({
+                "success": False, 
+                "error": result.stderr or "Service call failed"
+            }), 500
+        
+        # Update state on success
+        gripper_state = action
+        
+        return jsonify({
+            "success": True,
+            "state": gripper_state,
+            "output": result.stdout
+        })
+        
+    except subprocess.TimeoutExpired:
+        return jsonify({"success": False, "error": "Service call timed out"}), 500
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.get("/api/gripper/state")
+def get_state():
+    return jsonify({"success": True, "state": gripper_state})
+
+@app.get("/api/gripper/toggle_old")
+def toggle_gripper_old():
+    try:
+        # Call ROS2 service
+        result = subprocess.run(
+            ['ros2', 'service', 'call', '/open_gripper_service', 'std_srvs/srv/Trigger', '{}'],
+            capture_output=True,
+            text=True
+        )
+        return jsonify({"success": True, "output": result.stdout})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+    
 LOG_FILE_PATH = os.path.join(os.getcwd(), 'logs', 'system.log')
 
 LOG_FILE_PATH = "/home/jimmy/Downloads/mushroomproject/harvest_ws/camera.log"

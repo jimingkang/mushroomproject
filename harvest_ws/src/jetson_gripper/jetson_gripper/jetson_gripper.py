@@ -15,8 +15,8 @@ class ServoControllerNode(Node):
 
         # --- 初始化 I2C 和 PCA9685 ---
         self.i2c = busio.I2C(board.SCL, board.SDA)
-        self.pca = PCA9685(self.i2c)
-        self.pca.frequency = 60  # 舵机常用频率 50~60Hz
+        self.pca = PCA9685(self.i2c,address=0x40)
+        self.pca.frequency = 50  # 舵机常用频率 50~60Hz
 
         # --- 初始化舵机通道 ---
         self.servo1 = servo.Servo(self.pca.channels[0])
