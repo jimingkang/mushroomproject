@@ -25,6 +25,9 @@ from flask import Flask, render_template, request, jsonify
 from flask_mqtt import Mqtt
 from sensor_msgs.msg import JointState
 from cv_bridge import CvBridge,CvBridgeError
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+import subprocess
 import cv2
 frame=None
 frame2=None
@@ -200,8 +203,9 @@ def sigint_handler(signal, frame):
 rclpy.init(args=None)
 ros2_node = MovePublisher()
 app = Flask(__name__)
-from flask_cors import CORS
-CORS(app, resources={r"/*": {"origins": "*"}}) # 允许所有来源
+
+CORS(app)  # Enable CORS
+#CORS(app, resources={r"/*": {"origins": "*"}}) # 允许所有来源
 threading.Thread(target=ros2_thread, args=[ros2_node]).start()
 prev_sigint_handler = signal.signal(signal.SIGINT, sigint_handler)
 
@@ -300,12 +304,7 @@ def get_publish_message():
     ros2_node.publish_message()
     return {}
 
-from flask import Flask, jsonify, request
-from flask_cors import CORS
-import subprocess
 
-app = Flask(__name__)
-CORS(app)  # Enable CORS
 
 # Simple state tracking
 gripper_state = "closed"

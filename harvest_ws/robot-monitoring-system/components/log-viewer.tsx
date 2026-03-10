@@ -46,7 +46,7 @@ export function LogViewer() {
 
     // 建立 SSE 连接 (指向你的 Flask 地址)
     // 假设 Flask 运行在 172.23.248.32:5002
-    const url = "http://172.23.248.32:5002/stream-logs"
+    const url = "http://172.23.248.37:5002/stream-logs"
     const eventSource = new EventSource(url)
     eventSourceRef.current = eventSource
 

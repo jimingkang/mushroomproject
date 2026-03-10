@@ -31,7 +31,7 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 
 from scipy.interpolate import CubicSpline
 broker="172.23.66.117"
-redis_server='172.23.248.33'
+redis_server='172.23.248.41'
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True, password='jimmy')
 r = redis.Redis(connection_pool=pool)
@@ -166,7 +166,6 @@ class PathPlanningNode(Node):
             print("原始路径节点:", len(self.rawpath), "→ 平滑后节点:", len(smooth1))
             print("\n[TEST 8] 曲线柔化 (Cubic Spline)")
             self.path = self.smooth_curve(smooth1, points=10)
-        #self.path = self.find_path_TangentRRT([msg.pose.position.x, msg.pose.position.y])
 
         msg = DisplayTrajectory()
         traj = RobotTrajectory()

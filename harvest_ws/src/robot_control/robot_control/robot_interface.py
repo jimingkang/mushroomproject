@@ -20,7 +20,7 @@ import time
 from moveit_msgs.msg import DisplayTrajectory, RobotTrajectory
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 broker="172.23.66.117"
-redis_server='172.23.248.33'
+redis_server='172.23.248.41'
 global_z=0
 
 pool = redis.ConnectionPool(host=redis_server, port=6379, decode_responses=True, password='jimmy')
@@ -51,7 +51,7 @@ class Robot(Node, ScaraRobot):
         self.timer = self.create_timer(0.1, self.publish_joint_states)
         self.joint_state_pub = self.create_publisher(JointState, "/joint_states", 10)
         self.joint_command_sub = self.create_subscription(DisplayTrajectory,"/rrt_path",self.joint_command_callback,10)
-        #self.client_node = ServiceClient()
+        self.client_node = ServiceClient()
         self.goal_pose_pub=self.create_publisher(PoseStamped,"/goal_pose",10)
         self.bounding_boxes_sub = self.create_subscription(String,"/d435/yolox/bounding_boxes",self.bounding_boxes_callback, 2)
         self.adj_bounding_boxes_sub = self.create_subscription(String,"/d405/yolox/adj_bounding_boxes",self.adj_bounding_boxes_callback, 10)
@@ -59,6 +59,16 @@ class Robot(Node, ScaraRobot):
         self.solver=OldSolver()
         r.set("mode","camera_ready")
         self.cmd_move_sub = self.create_subscription(String,"/move",self.cmd_move_callback,10)
+        #self.close_client_node = self.create_client(Trigger, 'close_gripper_service')
+        #self.open_client_node = self.create_client(Trigger, 'open_gripper_service')
+        
+        #while not self.close_client_node.wait_for_service(timeout_sec=1.0):
+        #    self.get_logger().info('Service not available, waiting...')
+        #while not self.open_client_node.wait_for_service(timeout_sec=1.0):
+        #    self.get_logger().info('Service not available, waiting...')
+        
+        #self.req = Trigger.Request()
+        #self.open_request = Trigger.Request()
     def cmd_move_callback(self, msg):
         try:
             data = msg.data   # x=...;y=...;z=...;roughly=...
@@ -115,17 +125,17 @@ class Robot(Node, ScaraRobot):
                 self.get_logger().info(f"i={i},waypoints : {waypoints}")
                 self.move_joint_radian(waypoints[0],waypoints[1],waypoints[2],30,1)
             self.wait_stop()
-            #response = self.client_node.open_send_request()
+            response = self.client_node.open_send_request()
                 #if pos < min_limit or pos > max_limit:
                 #    print(f"Position for joint{i} must be between {min_limit} and {max_limit}.")
                 #    return self.get_positions_from_user()
                 #positions.append(pos)
             #return positions
-            for i in reversed(range(len(trajs))):
-                wp = trajs[i].positions
-                self.get_logger().info(f"backward i={i}, waypoints={wp}")
-                self.move_joint_radian(wp[0], wp[1], wp[2], 30, 1)
-            self.wait_stop()
+            #for i in reversed(range(len(trajs))):
+            #    wp = trajs[i].positions
+            #    self.get_logger().info(f"backward i={i}, waypoints={wp}")
+            #    self.move_joint_radian(wp[0], wp[1], wp[2], 30, 1)
+            #self.wait_stop()
             
         except ValueError:
             print("Invalid input. Please enter numerical values.")
@@ -171,8 +181,8 @@ class Robot(Node, ScaraRobot):
         if r.get("mode") == "adjust_ready" :
             mushroom_xyz = msg.data
             mushroom_xyz = msg.data.split(",")
-            self.get_logger().info(f"adj bounding_boxes_callback in top camera:{mushroom_xyz} ")
-            goal = [float(mushroom_xyz[0].strip()), float(mushroom_xyz[1].strip()), float(mushroom_xyz[2].strip())]
+            self.get_logger().info(f"adj bounding_boxes_callback in top camera:{mushroom_xyz[0],mushroom_xyz[1].strip()} ")
+            goal = [float(mushroom_xyz[0].strip()), float(mushroom_xyz[1].strip())]
             self.get_scara_param()
             dist_incamera=math.sqrt(goal[0]*goal[0]+goal[1]*goal[1])
             self.get_logger().info(f"adj bounding_boxes_callback :dist_incamera:{dist_incamera}")
@@ -183,7 +193,7 @@ class Robot(Node, ScaraRobot):
                 #RZ=goal[2]
                 RX=goal[0]
                 RY=-goal[1]
-                RZ=goal[2]
+                #RZ=goal[2]
                 X=RX*math.cos(math.radians(self.r))-RY*math.sin(math.radians(self.r))
                 Y=RX*math.sin(math.radians(self.r))+RY*math.cos(math.radians(self.r))
                 self.get_logger().info(f"adj bounding_boxes_callback :XY in  top camera:{X},{Y}")
@@ -191,6 +201,7 @@ class Robot(Node, ScaraRobot):
                 self.wait_stop()
                 ret = self.movej_xyz(self.x +X*1000, self.y +Y*1000, self.z, self.r, 30, 1)
                 self.wait_stop()
+                self.get_logger().info(f'ajd ret={ret}')
                 if ret>1:
                     self.get_logger().info(f'❌ ajd IK computation by three joints')
                     response=self.solver.get_robot_angle_in_degree([self.x/1000+X,self.y/1000+Y])
@@ -205,16 +216,18 @@ class Robot(Node, ScaraRobot):
                 #return
             if 1:  # ret<2:
                 r.set("mode", "adjust_done")
-                #response = self.client_node.open_send_request()
-                if 1:#response is not None:
+                response = self.client_node.open_send_request()
+                self.get_logger().info(f'adjust_done open_send_request={response}')
+                if response is not None:
                     self.get_scara_param()
                     self.wait_stop()
                     ret = self.movej_xyz(self.x, self.y, -100, self.r, 30, 1)
                     self.wait_stop()
                     self.get_logger().info(f"move in -z, ret :{ret}")
-                #response = self.client_node.close_send_request()  # close request
+                response = self.client_node.close_send_request()  # close request
+                self.get_logger().info(f"close_send_request, response :{response}")
                 time.sleep(1)
-                if 1:#response is not None:
+                if response is not None:
                     self.get_scara_param()
                     self.wait_stop()
                     self.get_logger().info(f'open 2 for {self.z}')
@@ -228,7 +241,7 @@ class Robot(Node, ScaraRobot):
                         time.sleep(0.5)
                     self.get_scara_param()
                     self.wait_stop()
-                    ret = self.movej_xyz(self.x, self.y, 0, self.r, 50, 1)
+                    ret = self.movej_xyz(self.x, self.y, 0, self.r, 30, 1)
                     self.wait_stop()
                     time.sleep(1)
   
